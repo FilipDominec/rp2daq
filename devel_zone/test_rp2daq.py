@@ -31,9 +31,9 @@ hw = rp2daq.Rp2daq()
 print( hw.identify())
 #hw.init_stepper(motor_id=0, dir_pin=1, step_pin=2, endswitch_pin=0, disable_pin=0, motor_inertia=256*5)
 
-#hw.init_stepper(motor_id=0, dir_pin=13, step_pin=12, endswitch_pin=35, disable_pin=0, motor_inertia=256*5)
-#hw.init_stepper(motor_id=1, dir_pin=14, step_pin=27, endswitch_pin=34, disable_pin=0, motor_inertia=256*10)
-#hw.init_stepper(motor_id=2, dir_pin=25, step_pin=26, endswitch_pin=39, disable_pin=0, motor_inertia=128)
+hw.init_stepper(motor_id=0, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=0, motor_inertia=256*1, reset_nanopos=0)
+hw.init_stepper(motor_id=1, dir_pin=10, step_pin=11, endswitch_pin=18, disable_pin=0, motor_inertia=256*10)
+hw.init_stepper(motor_id=2, dir_pin=14, step_pin=15, endswitch_pin=17, disable_pin=0, motor_inertia=128)
 hw.init_stepper(motor_id=3, dir_pin=21, step_pin=20, endswitch_pin=16, disable_pin=0, motor_inertia=128)
 c = 0
 #while True:
@@ -45,8 +45,9 @@ c = 0
     #c += 1
     #time.sleep(.01)
 
-hw.stepper_move(motor_id=3, target_micropos=100000, nanospeed=64, wait=True)
-time.sleep(1)
+hw.stepper_move(motor_id=0, target_micropos=-100, nanospeed=64*4, wait=True, endstop_override=1)
+print( hw.identify())
+time.sleep(.5)
 quit()
 
     #hw.stepper_move(motor_id=1, target_micropos=300, nanospeed=32, wait=True, endstop_override=False)

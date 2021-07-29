@@ -1,7 +1,8 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 
-NANOSTEP_PER_MICROSTEP = 256
+NANOPOS_AT_ENDSTOP = 2**31 # half the range of uint32
+NANOSTEP_PER_MICROSTEP = 256 # stepper resolution finer than microstep allows smooth speed control 
 MINIMUM_POS = -2**22
 
 CMD_IDENTIFY = 123
@@ -66,8 +67,8 @@ class Rp2daq():
                         termios.tcsetattr(f, termios.TCSAFLUSH, attrs)
 
                 # Standard serial port settings, as hard-coded in the hardware
-                self.port = serial.Serial(port=serial_port_name, baudrate=baudrate, bytesize=serial.EIGHTBITS, 
-                        parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout= 0.1) # default is "8N1"
+                # FIXME N/A for ACM class: baudrate=baudrate, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, 
+                self.port = serial.Serial(port=serial_port_name, timeout= 0.1) # default is "8N1"
 
                 # TODO port.write(struct.pack(r'<B', CMD_IDENTIFY)
                 # time.sleep(.1): port.read(30)
@@ -81,29 +82,41 @@ class Rp2daq():
                 (f"with tag"+required_device_tag if required_device_tag else ""))
 
 
-    #def init_stepper(self, assign_id, assign_step_pin, assign_dir_pin, assign_endstop_pin=None, motor_inertia=256):
-        #raise NotImplementedError
-
     def identify(self):
         self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
         raw = self.port.read(30)
         return raw
 
-    def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128):
-        self.port.write(struct.pack(r'<BBBBBBi', CMD_INIT_STEPPER, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia))
+    def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128, reset_nanopos=False):
+        self.port.write(struct.pack(r'<BBBBBBIB', 
+            CMD_INIT_STEPPER, 
+            motor_id, 
+            dir_pin, 
+            step_pin, 
+            endswitch_pin, 
+            disable_pin, 
+            motor_inertia, 
+            1 if reset_nanopos else 0))
+
 
     def get_stepper_status(self, motor_id):       
         """ Universal low-level stepper motor control: returns a dict indicating whether the motor is running, 
-        another whether it is on end switch and an integer of the motor's current nanoposition. """
+        another whether it is on end switch and an integer of the motor's current microstep count. """
         self.port.write(struct.pack(r'<BB', CMD_GET_STEPPER_STATUS, motor_id))
         raw = self.port.read(6)
-        print('STEPPER RAW', raw)
-        vals = struct.unpack(r'<BBi', raw)
-        print('    --> STEPPER STATUS', vals)
+        #print('STEPPER RAW', raw)
+        vals = list(struct.unpack(r'<BBI', raw))
+        vals[2] = (vals[2] - NANOPOS_AT_ENDSTOP) / NANOSTEP_PER_MICROSTEP
+        #print('    --> STEPPER STATUS', vals)
         try:
             return dict(zip(['active', 'endswitch', 'nanopos'], vals))
         except:
             return dict(zip(['active', 'endswitch', 'nanopos'], [0,0,0]))
+
+    def reset_stepper_position(self, position=NANOPOS_AT_ENDSTOP):
+        pass # TODO 
+        #raise NotImplementedError
+
 
     def stepper_move(self, motor_id, target_micropos, nanospeed=256, endstop_override=False, wait=False): 
         """ Universal low-level stepper motor control: sets the new target position of the selected
@@ -111,8 +124,8 @@ class Rp2daq():
         # FIXME in firmware: nanospeed should allow (a bit) more than 256
         if target_micropos < MINIMUM_POS: 
             target_micropos = MINIMUM_POS
-        self.port.write(struct.pack(r'<BBiiB', CMD_MOVE_SYMBOL, motor_id, 
-                target_micropos*NANOSTEP_PER_MICROSTEP, nanospeed, 
+        self.port.write(struct.pack(r'<BBIIB', CMD_MOVE_SYMBOL, motor_id, 
+                target_micropos*NANOSTEP_PER_MICROSTEP + NANOPOS_AT_ENDSTOP, nanospeed, 
                 1 if endstop_override else 0))
         print(motor_id, target_micropos*NANOSTEP_PER_MICROSTEP)
         if wait:
@@ -120,7 +133,7 @@ class Rp2daq():
                 time.sleep(.1)   
     
     def init_pwm(self, assign_channel=1, assign_pin=19, bit_resolution=16, freq_Hz=100, init_value=6654):
-        self.port.write(struct.pack(r'<BBBBii', 
+        self.port.write(struct.pack(r'<BBBBII', 
             CMD_INIT_PWM, 
             assign_channel, 
             assign_pin, 
@@ -129,11 +142,10 @@ class Rp2daq():
             init_value))
 
     def set_pwm(self, val, channel=1):
-        self.port.write(struct.pack(r'<BBi', 
+        self.port.write(struct.pack(r'<BBI', 
             CMD_SET_PWM, 
             channel, 
             int(val)))
-
 
     def get_stm_status(self):
         self.port.write(struct.pack(r'<B', CMD_GET_STM_STATUS))
