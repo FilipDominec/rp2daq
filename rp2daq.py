@@ -55,13 +55,15 @@ class Rp2daq():
             else:   # for Windows
                 serial_port_names = 'COM0', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5'   
 
+
+        self.port = None
         for serial_port_name in serial_port_names:
             try:
                 if os.name == 'posix':
                     import termios
                     with open(serial_port_name) as f: # 
                         attrs = termios.tcgetattr(f)
-                        ## On Linux one needs first to disable the "hangup" signal, to prevent rp232 randomly resetting. 
+                        ## On Linux one needs first to disable the "hangup" signal, to prevent rp2daq randomly resetting. 
                         ## A command-line solution is: stty -F /dev/ttyUSB0 -hup
                         attrs[2] = attrs[2] & ~termios.HUPCL
                         termios.tcsetattr(f, termios.TCSAFLUSH, attrs)
@@ -72,19 +74,47 @@ class Rp2daq():
 
                 # TODO port.write(struct.pack(r'<B', CMD_IDENTIFY)
                 # time.sleep(.1): port.read(30)
-                # TODO if not [:6] == 'rp2daq': # needed: implement timeout!
-                #       print(f"{serial_port_name} exists, but is not the right device); continue
-                # if select_device_tag=None
-                return
+
+                try:
+                    raw = self.identify()
+                except:
+                    raw = b''
+
+                if not raw[:6] == b'rp2daq': # needed: implement timeout!
+                       print(f"{serial_port_name} exists, but does not report as rp2daq")
+                       continue
+
+                #if required_device_tags: 
+                    #for required_device_tag in required_device_tags:
+                if required_device_tag:
+                    if isinstance(required_device_tag, str): # conv
+                        required_device_tag = bytes.fromhex(required_device_tag.replace(":", ""))
+
+                    if raw[6:14] != required_device_tag:
+                        print(f"Selecting {serial_port_name} has rp2daq device, but reports different ID {raw[6:14].hex(':')}")
+                        continue
+
+                print(f"Connecting to rp2daq device on {serial_port_name} port, unique manufacturer ID = {raw[6:14].hex(':')}")
+                return # succesful init of the port with desired device
+
             except IOError:
                 pass        # termios is not available on Windows, but probably also not needed
-        raise RuntimeError("Could not connect to the rp232 device" + 
-                (f"with tag"+required_device_tag if required_device_tag else ""))
+        # if select_device_tag=None
+        if self.port == None:
+            print(f"Error: could not open any relevant USB port")
+
+        return
+        #raise RuntimeError("Could not connect to the rp2daq device" + 
+                #(f"with tag"+required_device_tag if required_device_tag else ""))
+        #raise RuntimeError("Could not connect to the rp2daq device" + 
+                #(f"with tag"+required_device_tag if required_device_tag else ""))
 
 
     def identify(self):
         self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
         raw = self.port.read(30)
+        devicename = raw[0:6]
+        unique_id = (raw[6:14]).hex(':')
         return raw
 
     def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128, reset_nanopos=False):
@@ -162,4 +192,4 @@ class Rp2daq():
         return status
 
 
-# https://www.aranacorp.com/en/using-the-eeprom-with-the-rp232/
+# https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/

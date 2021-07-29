@@ -1,6 +1,7 @@
 #include <Adafruit_TinyUSB.h>
 #include "pico/stdlib.h"
 
+#include "pico/unique_id.h"
 /*
 TODO for 210330:
 	use structure for msg analysis
@@ -332,17 +333,18 @@ void transmit_out_buf(uint32_t total_bytes) {
 }
 
 void process_messages() {
+	//digitalWrite(LED_BUILTIN, HIGH); sleep_us(1); digitalWrite(LED_BUILTIN, LOW); 
     if ((in_buf[0] == CMD_IDENTIFY) && (in_buf_ptr == sizeof(cmd_identify_struct))) {
         // TODO transmit "espdaq" and then 24 bytes from EEPROM (see https://duckduckgo.com/?t=ffab&q=ESP32+eeprom&ia=web)
         //out_buf = "espdaq________________________";
         //transmit_out_buf(30);
-        uint8_t byteArray[6] = {'r','p','2','d','a','q'}; memcpy(out_buf+1, byteArray, 6);
-        out_buf[0] = in_buf[0];
-		//flash_get_unique_id(out_buf+6)
+        uint8_t byteArray[6] = {'r','p','2','d','a','q'}; memcpy(out_buf, byteArray, 6);
+		//pico_unique_board_id_t board_id;
+		//pico_get_unique_board_id(&board_id);
+		pico_get_unique_board_id((pico_unique_board_id_t*)(out_buf+6));
         transmit_out_buf(30);
         in_buf_ptr = 0;
     } else if ((in_buf[0] == CMD_STEPPER_GO) && (in_buf_ptr == sizeof(cmd_stepper_go_struct))) {
-        //digitalWrite(LED_BUILTIN, HIGH); sleep_us(1); digitalWrite(LED_BUILTIN, LOW); 
         stepper_go(*((cmd_stepper_go_struct*)(in_buf)));
         in_buf_ptr = 0;
     } else if ((in_buf[0] == CMD_APPROACH) && (in_buf_ptr == sizeof(cmd_approach_struct))) {
