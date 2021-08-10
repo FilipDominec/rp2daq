@@ -49,14 +49,15 @@ def init_settings(infile='settings.txt'):
 class Rp2daq():
     def __init__(self, serial_port_names=None, required_device_tag=None):
         if not serial_port_names:
-            if os.name=='posix':    # e.g. for Linux
-                #serial_port_names = '/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyUSB2'
-                serial_port_names = '/dev/ttyACM0', '/dev/ttyACM1', '/dev/ttyACM2'
-            else:   # for Windows
-                serial_port_names = 'COM0', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5'   
+            serial_prefix = '/dev/ttyACM' if os.name=='posix' else 'COM' # TODO test if "COM" port assigned to rp2 on windows
+            serial_port_names = [serial_prefix + str(port_number) for port_number in range(5)]
 
 
         self.port = None
+        if required_device_tag:
+            if isinstance(required_device_tag, str): # conv
+                required_device_tag = bytes.fromhex(required_device_tag.replace(":", ""))
+            print(f"Trying to connect to an espdaq device with specified ID {required_device_tag.hex(':')}")
         for serial_port_name in serial_port_names:
             try:
                 if os.name == 'posix':
@@ -81,20 +82,17 @@ class Rp2daq():
                     raw = b''
 
                 if not raw[:6] == b'rp2daq': # needed: implement timeout!
-                       print(f"{serial_port_name} exists, but does not report as rp2daq")
+                       print(f"Port {serial_port_name} exists, but does not report as rp2daq")
                        continue
 
                 #if required_device_tags: 
                     #for required_device_tag in required_device_tags:
                 if required_device_tag:
-                    if isinstance(required_device_tag, str): # conv
-                        required_device_tag = bytes.fromhex(required_device_tag.replace(":", ""))
-
                     if raw[6:14] != required_device_tag:
-                        print(f"Selecting {serial_port_name} has rp2daq device, but reports different ID {raw[6:14].hex(':')}")
+                        print(f"Skipping the rp2daq device on port {serial_port_name}, with ID {raw[6:14].hex(':')}")
                         continue
 
-                print(f"Connecting to rp2daq device on {serial_port_name} port, unique manufacturer ID = {raw[6:14].hex(':')}")
+                print(f"Connecting to rp2daq device manufacturer ID = {raw[6:14].hex(':')} on port {serial_port_name}")
                 return # succesful init of the port with desired device
 
             except IOError:

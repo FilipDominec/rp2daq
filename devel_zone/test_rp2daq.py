@@ -27,8 +27,8 @@ rp2daq.init_error_msgbox()
 settings = rp2daq.init_settings()
 
 
-hw = rp2daq.Rp2daq(required_device_tag = 'e6:60:58:38:83:48:89:2d') 
-print( hw.identify())
+hw = rp2daq.Rp2daq(required_device_tag = 'e6:60:58:38:83:48:89:2a') 
+#print( hw.identify())
 #hw.init_stepper(motor_id=0, dir_pin=1, step_pin=2, endswitch_pin=0, disable_pin=0, motor_inertia=256*5)
 
 hw.init_stepper(motor_id=0, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=0, motor_inertia=256*1, reset_nanopos=0)
@@ -46,7 +46,6 @@ c = 0
     #time.sleep(.01)
 
 hw.stepper_move(motor_id=0, target_micropos=-100, nanospeed=64*4, wait=True, endstop_override=1)
-print( hw.identify())
 time.sleep(.5)
 quit()
 
