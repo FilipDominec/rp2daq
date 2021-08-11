@@ -60,7 +60,7 @@ uint32_t motor_inertia_coef[MAX_STEPPER_COUNT];		 // smooth ramp-up and ramp-dow
 
 uint32_t initial_nanopos[MAX_STEPPER_COUNT]   = {0}; // used for smooth speed control
 //uint8_t auto_motor_turnoff[MAX_STEPPER_COUNT] = {0}; // if set to 1, the motor "disable" pin will be set when not moving
-//uint8_t was_at_end_switch[MAX_STEPPER_COUNT] = {0};
+uint8_t endstop_flag[MAX_STEPPER_COUNT];
 
 #define DAC_CLOCK     5		// common signals to digital-analog converters (DAC)
 #define DAC_LATCHEN  18
@@ -121,6 +121,7 @@ struct cmd_stepper_go_struct  {
     I motor_targetpos;   // at byte 2
     I motor_speed;       // at byte 6
     B endstop_override;    // at byte 10
+    B reset_zero_pos;    
 } __attribute__((packed));     
 
 #define CMD_APPROACH 2		// safely approach the sample to the STM tip, using both stepper and piezo{{{
@@ -199,6 +200,8 @@ void stepper_go(cmd_stepper_go_struct S)  // set the stepper motor to start movi
         target_nanopos[m]       = S.motor_targetpos;  
         target_nanospeed[m]     = S.motor_speed;  //  note: for STM, set this:  approach_active  = 0;
         endstop_override[m]     = S.endstop_override; 
+		if (S.reset_zero_pos) {initial_nanopos[m] = NANOPOS_AT_ENDSTOP; nanopos[m] = NANOPOS_AT_ENDSTOP;};    
+        endstop_flag[m]         = 0;	// flag only resets upon a new stepper_go message
     }
 };
 
@@ -212,6 +215,7 @@ void init_stepper(cmd_init_stepper_struct S) {
 		stepper_disable_pin[m] = S.disable_pin;
 		endstop_override[m]    = 0; 
 		motor_inertia_coef[m]  = S.motor_inertia;
+		endstop_flag[m]        = 0;
 		pinMode(stepper_dir_pin[m],  OUTPUT);
 		pinMode(stepper_step_pin[m],  OUTPUT);
 		if (stepper_lowstop_pin[m]) pinMode(stepper_lowstop_pin[m],  INPUT_PULLUP);
@@ -369,7 +373,8 @@ void process_messages() {
         uint8_t m = in_buf[1];
         if (m<MAX_STEPPER_COUNT) {
             if (nanopos[m] == target_nanopos[m]) {out_buf[0] = 0;} else {out_buf[0] = 1;}; 
-            if (!digitalRead(stepper_lowstop_pin[m])) {out_buf[1] = 0;} else {out_buf[1] = 1;}; 
+            //if (!digitalRead(stepper_lowstop_pin[m])) {out_buf[1] = 0;} else {out_buf[1] = 1;}; 
+			out_buf[1] = endstop_flag[m];
             memcpy(out_buf+2, &nanopos[m], sizeof(nanopos[m])); out_buf_ptr += sizeof(nanopos[m]);
         }
         transmit_out_buf(6);
@@ -464,7 +469,7 @@ void loop() {
 			uint32_t new_nanopos, actual_nanospeed;
 			//if (!digitalRead(stepper_lowstop_pin[m])) { target_nanospeed[m] = 32; target_nanopos[m] = nanopos[m]+target_nanospeed[m]+1; } // get out from lower end switch
 			if ((!digitalRead(stepper_lowstop_pin[m])) && (!endstop_override[m])) { 
-					target_nanospeed[m] = 0; target_nanopos[m] = nanopos[m];
+					endstop_flag[m] = 1; target_nanospeed[m] = 0; target_nanopos[m] = nanopos[m];
 					digitalWrite(LED_BUILTIN, HIGH); 
 					} // stop at endswitch
 			else {digitalWrite(LED_BUILTIN, LOW); }

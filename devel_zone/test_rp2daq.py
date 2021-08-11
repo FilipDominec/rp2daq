@@ -27,15 +27,15 @@ rp2daq.init_error_msgbox()
 settings = rp2daq.init_settings()
 
 
-hw = rp2daq.Rp2daq(required_device_tag = 'e6:60:58:38:83:48:89:2a') 
+hw = rp2daq.Rp2daq() # required_device_tag = 'e6:60:58:38:83:48:89:2a') 
 #print( hw.identify())
 #hw.init_stepper(motor_id=0, dir_pin=1, step_pin=2, endswitch_pin=0, disable_pin=0, motor_inertia=256*5)
 
 hw.init_stepper(motor_id=0, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=0, motor_inertia=256*1, reset_nanopos=0)
-hw.init_stepper(motor_id=1, dir_pin=10, step_pin=11, endswitch_pin=18, disable_pin=0, motor_inertia=256*10)
-hw.init_stepper(motor_id=2, dir_pin=14, step_pin=15, endswitch_pin=17, disable_pin=0, motor_inertia=128)
-hw.init_stepper(motor_id=3, dir_pin=21, step_pin=20, endswitch_pin=16, disable_pin=0, motor_inertia=128)
-c = 0
+#hw.init_stepper(motor_id=1, dir_pin=10, step_pin=11, endswitch_pin=18, disable_pin=0, motor_inertia=256*10)
+#hw.init_stepper(motor_id=2, dir_pin=14, step_pin=15, endswitch_pin=17, disable_pin=0, motor_inertia=128)
+#hw.init_stepper(motor_id=3, dir_pin=21, step_pin=20, endswitch_pin=16, disable_pin=0, motor_inertia=128)
+#c = 0
 #while True:
     #res  = hw.identify()
     #if (not c%1000) or (res != b'{rp2daq\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'):
@@ -45,15 +45,20 @@ c = 0
     #c += 1
     #time.sleep(.01)
 
-hw.stepper_move(motor_id=0, target_micropos=-100, nanospeed=64*4, wait=True, endstop_override=1)
+#hw.stepper_go(motor_id=0, target_micropos=10000, nanospeed=64*2, wait=True, endstop_override=1)
+
+
+
+hw.calibrate_stepper_positions(motor_ids=0)
+
 time.sleep(.5)
 quit()
 
-    #hw.stepper_move(motor_id=1, target_micropos=300, nanospeed=32, wait=True, endstop_override=False)
-    #hw.stepper_move(motor_id=0, target_micropos=2000, nanospeed=64)
-    #hw.stepper_move(motor_id=1, target_micropos=3000, nanospeed=32, wait=True, endstop_override=False)
-#hw.stepper_move(motor_id=0, target_micropos=100, nanospeed=12, endstop_override=True)
-#hw.stepper_move(motor_id=1, target_micropos=100, nanospeed=4, wait=True, endstop_override=True)
+    #hw.stepper_go(motor_id=1, target_micropos=300, nanospeed=32, wait=True, endstop_override=False)
+    #hw.stepper_go(motor_id=0, target_micropos=2000, nanospeed=64)
+    #hw.stepper_go(motor_id=1, target_micropos=3000, nanospeed=32, wait=True, endstop_override=False)
+#hw.stepper_go(motor_id=0, target_micropos=100, nanospeed=12, endstop_override=True)
+#hw.stepper_go(motor_id=1, target_micropos=100, nanospeed=4, wait=True, endstop_override=True)
 quit() ################################################################################
 
 MONO_MOTOR_ID = 0
@@ -70,7 +75,7 @@ def vmotor(choice):
     #values = struct.pack(r'<BBii', CMD_MOVE_SYMBOL, VERT_MOTOR_ID, target_micropos*NANOSTEP_PER_MICROSTEP, 64)
     #port.write(values)
     print('VMOTOR', target_micropos)
-    hw.stepper_move(motor_id=VERT_MOTOR_ID, target_micropos=target_micropos, nanospeed=16)
+    hw.stepper_go(motor_id=VERT_MOTOR_ID, target_micropos=target_micropos, nanospeed=16)
 
     ## receive response from the hardware
     time.sleep(0.01)
@@ -91,7 +96,7 @@ def vmotor(choice):
 
 def mmotor(target_micropos):
     #port.write(struct.pack(r'<BBii', CMD_MOVE_SYMBOL, MONO_MOTOR_ID, target_micropos*NANOSTEP_PER_MICROSTEP, 1*256))
-    hw.stepper_move(motor_id=MONO_MOTOR_ID, target_micropos=target_micropos, nanospeed=2*32)
+    hw.stepper_go(motor_id=MONO_MOTOR_ID, target_micropos=target_micropos, nanospeed=2*32)
 
 def mmotor_by_wl(target_wavelength_nm):
     ## (re)load the monochromator calib

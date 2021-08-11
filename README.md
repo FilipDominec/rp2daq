@@ -3,7 +3,7 @@
 *Making the Raspberry Pi Pico module a universal $5 peripheral for data acquisition and generic laboratory automation.*
 
 ### Rationale:
-I have finished several projects where computer (Python script) controlled Raspberry Pi Pico (C firmware) to make stepping motors turn, ADC measure voltage, PWM move servos etc. Then I realized that most of the firmware is reused among these projects. So I merged all relevant firmware functions into this *rp2daq* package. 
+I have finished several projects where computer (Python script) used a microcontroller (C firmware) as an interface to make stepping motors turn, ADC measure voltage, PWM move servos etc. Then I realized that most of the firmware is reused among these projects. So I merged all relevant firmware functions into this *rp2daq* package. 
 
 Once flashed with the firmware supplied below, Raspberry Pi Pico (usually) requires no further firmware compilation nor modification. Its behaviour will be fully defined by the Python script in the computer. This makes deployment of a new experiment as easy as possible.
 
@@ -115,6 +115,7 @@ If there is an error, check troubleshooting.
 ## Detailed technical information 
 ### Generally useful messages implemented:
  * CMD_MOVE_SYMBOL 1  // moves the stepper
+	nanospeed = 1 leads to  10000/16/256 = 2.44 steps per seconds, this is the minimum speed that can be directly set
  * CMD_GET_STEPPER_STATUS 3		// just report the current nanopos and status
 
 ### Mission-specific messages implemented:

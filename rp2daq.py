@@ -1,12 +1,23 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
+"""
+rp2daq.py  (c) Filip Dominec 2021, MIT licensed
+
+This is a thick wrapper around the binary message interface that makes Raspberry Pi Pico 
+an universal laboratory interface.  More information on 
+
+The methods provided here aim to make the hardware control as convenient as possible.  
+
+More information and examples on https://github.com/FilipDominec/rp2daq
+"""
+
 
 NANOPOS_AT_ENDSTOP = 2**31 # half the range of uint32
 NANOSTEP_PER_MICROSTEP = 256 # stepper resolution finer than microstep allows smooth speed control 
 MINIMUM_POS = -2**22
 
 CMD_IDENTIFY = 123
-CMD_MOVE_SYMBOL = 1
+CMD_STEPPER_GO = 1
 CMD_GET_STEPPER_STATUS =  3
 CMD_INIT_STEPPER = 5 
 CMD_SET_PWM = 20
@@ -90,16 +101,17 @@ class Rp2daq():
                 if required_device_tag:
                     if raw[6:14] != required_device_tag:
                         print(f"Skipping the rp2daq device on port {serial_port_name}, with ID {raw[6:14].hex(':')}")
+                        self.port = None
                         continue
 
-                print(f"Connecting to rp2daq device manufacturer ID = {raw[6:14].hex(':')} on port {serial_port_name}")
+                print(f"Connecting to rp2daq device with manufacturer ID = {raw[6:14].hex(':')} on port {serial_port_name}")
                 return # succesful init of the port with desired device
 
             except IOError:
                 pass        # termios is not available on Windows, but probably also not needed
         # if select_device_tag=None
-        if self.port == None:
-            print(f"Error: could not open any relevant USB port")
+        if self.port is None:
+            raise RuntimeError("Error: rp2daq device initialization failed") 
 
         return
         #raise RuntimeError("Could not connect to the rp2daq device" + 
@@ -136,26 +148,24 @@ class Rp2daq():
         vals = list(struct.unpack(r'<BBI', raw))
         vals[2] = (vals[2] - NANOPOS_AT_ENDSTOP) / NANOSTEP_PER_MICROSTEP
         #print('    --> STEPPER STATUS', vals)
-        try:
-            return dict(zip(['active', 'endswitch', 'nanopos'], vals))
-        except:
-            return dict(zip(['active', 'endswitch', 'nanopos'], [0,0,0]))
-
-    def reset_stepper_position(self, position=NANOPOS_AT_ENDSTOP):
-        pass # TODO 
-        #raise NotImplementedError
+        return dict(zip(['active', 'endswitch', 'nanopos'], vals))
+        #try:
+        #except:
+            #return dict(zip(['active', 'endswitch', 'nanopos'], [0,0,0]))
 
 
-    def stepper_move(self, motor_id, target_micropos, nanospeed=256, endstop_override=False, wait=False): 
+    def stepper_go(self, motor_id, target_micropos, nanospeed=256, endstop_override=False, 
+            reset_zero_pos=False, wait=False): 
         """ Universal low-level stepper motor control: sets the new target position of the selected
         stepper motor, along with the maximum speed to be used. """
         # FIXME in firmware: nanospeed should allow (a bit) more than 256
         if target_micropos < MINIMUM_POS: 
             target_micropos = MINIMUM_POS
-        self.port.write(struct.pack(r'<BBIIB', CMD_MOVE_SYMBOL, motor_id, 
+        self.port.write(struct.pack(r'<BBIIBB', CMD_STEPPER_GO, motor_id, 
                 target_micropos*NANOSTEP_PER_MICROSTEP + NANOPOS_AT_ENDSTOP, nanospeed, 
-                1 if endstop_override else 0))
-        print(motor_id, target_micropos*NANOSTEP_PER_MICROSTEP)
+                1 if endstop_override else 0,
+                1 if reset_zero_pos else 0))
+        #print(motor_id, target_micropos*NANOSTEP_PER_MICROSTEP)
         if wait:
             while self.get_stepper_status(motor_id=motor_id)['active']: 
                 time.sleep(.1)   
@@ -188,6 +198,43 @@ class Rp2daq():
         status = dict(zip(['tip_voltage'], [struct.unpack(r'<2000H', raw)]))
         #status['stm_data'] = struct.unpack(r'<{:d}h'.format(status['stm_data_len']//2), self.port.read(status['stm_data_len']))
         return status
+
+
+
+    ## Additional useful functions 
+
+    def calibrate_stepper_positions(self, motor_ids, minimum_micropos=-1000000, 
+            nanospeed=256, bailout_micropos=1000):
+
+        ## Accept single-valued target_micropos and/or nanospeed, even if a list of motor_ids is supplied
+        if not hasattr(motor_ids, "__getitem__"): motor_ids = [motor_ids]
+        if not hasattr(minimum_micropos, "__getitem__"): minimum_micropos = [minimum_micropos]*len(motor_ids)
+        if not hasattr(nanospeed, "__getitem__"): nanospeed = [nanospeed]*len(motor_ids)
+        if not hasattr(bailout_micropos, "__getitem__"): bailout_micropos = [bailout_micropos]*len(motor_ids)
+
+        ## Initialize the movement towards endstop(s)
+        for n,motor_id in enumerate(motor_ids):
+            self.stepper_go(motor_id=motor_id, 
+                target_micropos=minimum_micropos[n], nanospeed=nanospeed[n], wait=False, endstop_override=0)
+
+        ## Wait until all motors are done, and optionally wait until they bail out to 
+        some_motor_still_busy = True
+        while some_motor_still_busy:
+            time.sleep(.05)
+            some_motor_still_busy = False
+            for n, motor_id in enumerate(motor_ids):
+                status = self.get_stepper_status(motor_id=motor_id)
+                print(status)
+                if not status['active']:
+                    if status['endswitch']:
+                        self.stepper_go(motor_id=motor_id, target_micropos=bailout_micropos[n], 
+                                nanospeed=nanospeed[n], 
+                                wait=False, endstop_override=1, reset_zero_pos=1)
+                    else:
+                        print(f"Warning: motor {motor_id} finished its move but did not reach endstop")
+                else:
+                    some_motor_still_busy = True
+
 
 
 # https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/
