@@ -215,6 +215,7 @@ void init_stepper(cmd_init_stepper_struct S) {
 		stepper_disable_pin[m] = S.disable_pin;
 		endstop_override[m]    = 0; 
 		motor_inertia_coef[m]  = S.motor_inertia;
+		if (motor_inertia_coef[m] == 0) { motor_inertia_coef[m]  = 1;} // prevents div by 0 error
 		endstop_flag[m]        = 0;
 		pinMode(stepper_dir_pin[m],  OUTPUT);
 		pinMode(stepper_step_pin[m],  OUTPUT);

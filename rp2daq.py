@@ -58,61 +58,49 @@ def init_settings(infile='settings.txt'):
     return settings
 
 class Rp2daq():
-    def __init__(self, serial_port_names=None, required_device_tag=None):
+    def __init__(self, serial_port_names=None, required_device_tag=None, verbose=True):
         if not serial_port_names:
             serial_prefix = '/dev/ttyACM' if os.name=='posix' else 'COM' # TODO test if "COM" port assigned to rp2 on windows
             serial_port_names = [serial_prefix + str(port_number) for port_number in range(5)]
 
-        if required_device_tag:
-            if isinstance(required_device_tag, str): # conv
-                required_device_tag = bytes.fromhex(required_device_tag.replace(":", ""))
-            print(f"Trying to find an espdaq device with specified ID {required_device_tag.hex(':')}...")
-        else:
-            print(f"Trying to find any espdaq device...")
+        if isinstance(required_device_tag, str): # conv
+            required_device_tag = bytes.fromhex(required_device_tag.replace(":", ""))
         for serial_port_name in serial_port_names:
+            if verbose: print(f"Trying port {serial_port_name}: ", end="")
+
             try:
-                if os.name == 'posix':
-                    import termios
-                    with open(serial_port_name) as f: # 
-                        attrs = termios.tcgetattr(f)
-                        ## On Linux one needs first to disable the "hangup" signal, to prevent rp2daq randomly resetting. 
-                        ## A command-line solution is: stty -F /dev/ttyUSB0 -hup
-                        attrs[2] = attrs[2] & ~termios.HUPCL
-                        termios.tcsetattr(f, termios.TCSAFLUSH, attrs)
+                self.port = serial.Serial(port=serial_port_name, timeout=0.1)
+            except:
+                if verbose: print("not present")
+                continue 
 
-                # Standard serial port settings, as hard-coded in the hardware
-                # FIXME N/A for ACM class: baudrate=baudrate, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, 
-                self.port = serial.Serial(port=serial_port_name, timeout= 0.1) # default is "8N1"
+            raw = self.identify()
+            try:
+                raw = self.identify()
+            except:
+                raw = b''
 
-                # TODO port.write(struct.pack(r'<B', CMD_IDENTIFY)
-                # time.sleep(.1): port.read(30)
+            if not raw[:6] == b'rp2daq': # needed: implement timeout!
+                if verbose: print(f"can open, but device does not identify as rp2daq")
+                del(self.port)
+                continue
 
-                try:
-                    raw = self.identify()
-                except:
-                    raw = b''
+            if required_device_tag and raw[6:14] != required_device_tag:
+                if verbose: 
+                    print(f"found an rp2daq device, but its ID {raw[6:14].hex(':')} does not match " + 
+                            f"required {required_device_tag.hex(':')}")
+                del(self.port)
+                continue
 
-                if not raw[:6] == b'rp2daq': # needed: implement timeout!
-                       print(f"Port {serial_port_name} exists, but does not report as rp2daq")
-                       del(self.port)
-                       continue
+            print(f"Connecting to rp2daq device with manufacturer ID = {raw[6:14].hex(':')} on port {serial_port_name}")
+            return # succesful init of the port with desired device
 
-                #if required_device_tags: 
-                    #for required_device_tag in required_device_tags:
-                if required_device_tag:
-                    if raw[6:14] != required_device_tag:
-                        print(f"Skipping the rp2daq device on port {serial_port_name}, with ID {raw[6:14].hex(':')}")
-                        del(self.port)
-                        continue
-
-                print(f"Connecting to rp2daq device with manufacturer ID = {raw[6:14].hex(':')} on port {serial_port_name}")
-                return # succesful init of the port with desired device
-
-            except IOError:
-                pass        # termios is not available on Windows, but probably also not needed
         # if select_device_tag=None
         if not hasattr(self, "port"):
-            raise RuntimeError("Error: rp2daq device initialization failed") 
+            if required_device_tag:
+                raise RuntimeError(f"Error: could not find an rp2daq device with manufacturer ID {required_device_tag.hex(':')}...")
+            else:
+                raise RuntimeError("Error: could not find any rp2daq device") 
 
         return
         #raise RuntimeError("Could not connect to the rp2daq device" + 
@@ -124,8 +112,8 @@ class Rp2daq():
     def identify(self):
         self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
         raw = self.port.read(30)
-        devicename = raw[0:6]
-        unique_id = (raw[6:14]).hex(':')
+        #devicename = raw[0:6]
+        #unique_id = (raw[6:14]).hex(':')
         return raw
 
     def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128, reset_nanopos=False):
@@ -222,21 +210,26 @@ class Rp2daq():
 
         ## Wait until all motors are done, and optionally wait until they bail out to 
         some_motor_still_busy = True
+        unfinished_motor_ids = list(motor_ids)
         while some_motor_still_busy:
-            time.sleep(.05)
+            time.sleep(.1)
             some_motor_still_busy = False
             for n, motor_id in enumerate(motor_ids):
                 status = self.get_stepper_status(motor_id=motor_id)
-                print(status)
+                #print(status)
                 if not status['active']:
                     if status['endswitch']:
                         self.stepper_go(motor_id=motor_id, target_micropos=bailout_micropos[n], 
                                 nanospeed=nanospeed[n], 
                                 wait=False, endstop_override=1, reset_zero_pos=1)
-                    else:
-                        print(f"Warning: motor {motor_id} finished its move but did not reach endstop")
+                        unfinished_motor_ids.remove(motor_id)
                 else:
                     some_motor_still_busy = True
+
+        if unfinished_motor_ids:
+            print(f"Warning: motor(s) {unfinished_motor_ids} finished its calibration move but did not reach any " +
+                    "endstop. Are they connected? Is their current sufficient? Didn't they crash meanwhile?")
+        return unfinished_motor_ids
 
 
 
