@@ -63,12 +63,12 @@ class Rp2daq():
             serial_prefix = '/dev/ttyACM' if os.name=='posix' else 'COM' # TODO test if "COM" port assigned to rp2 on windows
             serial_port_names = [serial_prefix + str(port_number) for port_number in range(5)]
 
-
-        self.port = None
         if required_device_tag:
             if isinstance(required_device_tag, str): # conv
                 required_device_tag = bytes.fromhex(required_device_tag.replace(":", ""))
-            print(f"Trying to connect to an espdaq device with specified ID {required_device_tag.hex(':')}")
+            print(f"Trying to find an espdaq device with specified ID {required_device_tag.hex(':')}...")
+        else:
+            print(f"Trying to find any espdaq device...")
         for serial_port_name in serial_port_names:
             try:
                 if os.name == 'posix':
@@ -94,6 +94,7 @@ class Rp2daq():
 
                 if not raw[:6] == b'rp2daq': # needed: implement timeout!
                        print(f"Port {serial_port_name} exists, but does not report as rp2daq")
+                       del(self.port)
                        continue
 
                 #if required_device_tags: 
@@ -101,7 +102,7 @@ class Rp2daq():
                 if required_device_tag:
                     if raw[6:14] != required_device_tag:
                         print(f"Skipping the rp2daq device on port {serial_port_name}, with ID {raw[6:14].hex(':')}")
-                        self.port = None
+                        del(self.port)
                         continue
 
                 print(f"Connecting to rp2daq device with manufacturer ID = {raw[6:14].hex(':')} on port {serial_port_name}")
@@ -110,7 +111,7 @@ class Rp2daq():
             except IOError:
                 pass        # termios is not available on Windows, but probably also not needed
         # if select_device_tag=None
-        if self.port is None:
+        if not hasattr(self, "port"):
             raise RuntimeError("Error: rp2daq device initialization failed") 
 
         return
@@ -141,17 +142,17 @@ class Rp2daq():
 
     def get_stepper_status(self, motor_id):       
         """ Universal low-level stepper motor control: returns a dict indicating whether the motor is running, 
-        another whether it is on end switch and an integer of the motor's current microstep count. """
+        whether it has touched an end switch and an integer of the motor's current microstep count. """
         self.port.write(struct.pack(r'<BB', CMD_GET_STEPPER_STATUS, motor_id))
         raw = self.port.read(6)
         #print('STEPPER RAW', raw)
         vals = list(struct.unpack(r'<BBI', raw))
         vals[2] = (vals[2] - NANOPOS_AT_ENDSTOP) / NANOSTEP_PER_MICROSTEP
         #print('    --> STEPPER STATUS', vals)
-        return dict(zip(['active', 'endswitch', 'nanopos'], vals))
+        return dict(zip(['active', 'endswitch', 'micropos'], vals))
         #try:
         #except:
-            #return dict(zip(['active', 'endswitch', 'nanopos'], [0,0,0]))
+            #return dict(zip(['active', 'endswitch', 'micropos'], [0,0,0]))
 
 
     def stepper_go(self, motor_id, target_micropos, nanospeed=256, endstop_override=False, 
@@ -169,6 +170,7 @@ class Rp2daq():
         if wait:
             while self.get_stepper_status(motor_id=motor_id)['active']: 
                 time.sleep(.1)   
+
     
     def init_pwm(self, assign_channel=1, assign_pin=19, bit_resolution=16, freq_Hz=100, init_value=6654):
         self.port.write(struct.pack(r'<BBBBII', 
@@ -184,6 +186,7 @@ class Rp2daq():
             CMD_SET_PWM, 
             channel, 
             int(val)))
+
 
     def get_stm_status(self):
         self.port.write(struct.pack(r'<B', CMD_GET_STM_STATUS))
