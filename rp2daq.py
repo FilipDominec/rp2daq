@@ -197,7 +197,7 @@ class Rp2daq():
     def calibrate_stepper_positions(self, motor_ids, minimum_micropos=-1000000, 
             nanospeed=256, bailout_micropos=1000):
 
-        ## Accept single-valued target_micropos and/or nanospeed, even if a list of motor_ids is supplied
+        ## Auto-convert single-valued target_micropos and/or nanospeed to lists, if multiple motor_ids are supplied
         if not hasattr(motor_ids, "__getitem__"): motor_ids = [motor_ids]
         if not hasattr(minimum_micropos, "__getitem__"): minimum_micropos = [minimum_micropos]*len(motor_ids)
         if not hasattr(nanospeed, "__getitem__"): nanospeed = [nanospeed]*len(motor_ids)
@@ -208,7 +208,7 @@ class Rp2daq():
             self.stepper_go(motor_id=motor_id, 
                 target_micropos=minimum_micropos[n], nanospeed=nanospeed[n], wait=False, endstop_override=0)
 
-        ## Wait until all motors are done, and optionally wait until they bail out to 
+        ## Wait until all motors are done, and optionally wait until they bail out
         some_motor_still_busy = True
         unfinished_motor_ids = list(motor_ids)
         while some_motor_still_busy:
@@ -218,7 +218,7 @@ class Rp2daq():
                 status = self.get_stepper_status(motor_id=motor_id)
                 #print(status)
                 if not status['active']:
-                    if status['endswitch']:
+                    if status['endswitch']: ## TODO this behaviour is to be clarified yet
                         self.stepper_go(motor_id=motor_id, target_micropos=bailout_micropos[n], 
                                 nanospeed=nanospeed[n], 
                                 wait=False, endstop_override=1, reset_zero_pos=1)
