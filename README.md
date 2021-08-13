@@ -1,4 +1,4 @@
-## What is RP2DAQ good for
+## RP2DAQ - Raspberry Pi Pico for Data Acquisition (and much more)
 
 *Making the Raspberry Pi Pico module a universal $5 peripheral for data acquisition and generic laboratory automation.*
 
@@ -33,10 +33,10 @@ The bare minimum to start is
 
 This classical procedure has to be done only once (unless you decided to extend the firmware capabilities, see the *Development* section below).
 
- 1. Download the ()firmware: rp2daq.uf2 ```TODO```
- 1. Hold the ```BOOTSEL``` switch on your Raspberry and connect it with USB to computer.
+ 1. Download the pre-compiled firmware: [rp2daq.ino.uf2](./rp2daq.ino.uf2) 
+ 1. Hold the ```BOOTSEL``` switch on your Raspberry and connect it with micro-USB cable to your computer.
  1. A new USB storage medium should appear. Release the ```BOOTSEL``` switch.
- 1. Copy rp2daq.uf2 to the medium.
+ 1. Copy rp2daq.ino.uf2 to the medium.
  1. After few seconds, the USB storage should disappear. 
 
 After writing the firmware to the flash memory, the raspberry will no more behave as storage, but will listen to the messages sent over virtual serial port. Let's try it.
@@ -62,9 +62,9 @@ tkinter.messagebox.showinfo(response)	# show the message in a clickable window
 
 Run this code. (If you are not familiar with the python scripting, find some nice tutorial online.) 
 
-If everything is OK, a message box should appear showing the 30-byte identification string of your device. You can proceed to the *Quick overview of software features*. 
+If everything is OK, a message box should appear showing the 30-byte identification string of your device. 
 
-If there is an error, check troubleshooting.
+NOT FINISHED YET: You can proceed to the *Quick overview of software features*.  If there is an error, check troubleshooting.
 
 ### Troubleshooting
 
