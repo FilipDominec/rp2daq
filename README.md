@@ -36,10 +36,9 @@ This classical procedure has to be done only once (unless you decided to extend 
  1. Download the pre-compiled firmware: [rp2daq.ino.uf2](./rp2daq.ino.uf2) 
  1. Hold the ```BOOTSEL``` switch on your Raspberry and connect it with micro-USB cable to your computer.
  1. A new USB storage medium should appear. Release the ```BOOTSEL``` switch.
- 1. Copy rp2daq.ino.uf2 to the medium.
- 1. After few seconds, the USB storage should disappear. 
+ 1. Copy rp2daq.ino.uf2 to the medium, next to INDEX.HTM and INFO_UF2.TXT.
 
-After writing the firmware to the flash memory, the raspberry will no more behave as storage, but will listen to the messages sent over virtual serial port. Let's try it.
+After few seconds, the USB storage should disappear, and your new rp2daq module becomes accessible as a COM/ttyACM.  Let's try it.
 
 ### Simplest test of rp2daq
 

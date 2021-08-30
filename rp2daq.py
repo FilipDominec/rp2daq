@@ -116,7 +116,7 @@ class Rp2daq():
         #unique_id = (raw[6:14]).hex(':')
         return raw
 
-    def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128, reset_nanopos=False):
+    def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128, reset_nanopos=True):
         self.port.write(struct.pack(r'<BBBBBBIB', 
             CMD_INIT_STEPPER, 
             motor_id, 
@@ -148,16 +148,22 @@ class Rp2daq():
         """ Universal low-level stepper motor control: sets the new target position of the selected
         stepper motor, along with the maximum speed to be used. """
         # FIXME in firmware: nanospeed should allow (a bit) more than 256
-        if target_micropos < MINIMUM_POS: 
-            target_micropos = MINIMUM_POS
-        self.port.write(struct.pack(r'<BBIIBB', CMD_STEPPER_GO, motor_id, 
-                target_micropos*NANOSTEP_PER_MICROSTEP + NANOPOS_AT_ENDSTOP, nanospeed, 
+        raw = struct.pack(r'<BBIIBB', 
+                CMD_STEPPER_GO, 
+                motor_id, 
+                max(MINIMUM_POS, target_micropos)*NANOSTEP_PER_MICROSTEP + NANOPOS_AT_ENDSTOP, 
+                nanospeed, 
                 1 if endstop_override else 0,
-                1 if reset_zero_pos else 0))
-        #print(motor_id, target_micropos*NANOSTEP_PER_MICROSTEP)
-        if wait:
-            while self.get_stepper_status(motor_id=motor_id)['active']: 
-                time.sleep(.1)   
+                1 if reset_zero_pos else 0)
+        self.port.write(raw)
+
+        if wait: 
+            wait_stepper_idle(self, motor_id)
+
+    def wait_stepper_idle(self, motor_ids, poll_delay=0.05):
+        if not hasattr(motor_ids, "__getitem__"): motor_ids = [motor_ids]
+        while any([self.get_stepper_status(m)['active'] for m in motor_ids]): 
+            time.sleep(poll_delay)   
 
     
     def init_pwm(self, assign_channel=1, assign_pin=19, bit_resolution=16, freq_Hz=100, init_value=6654):
@@ -216,15 +222,15 @@ class Rp2daq():
             some_motor_still_busy = False
             for n, motor_id in enumerate(motor_ids):
                 status = self.get_stepper_status(motor_id=motor_id)
-                #print(status)
+                print(status)
                 if not status['active']:
-                    if status['endswitch']: ## TODO this behaviour is to be clarified yet
+                    if status['endswitch']:
                         self.stepper_go(motor_id=motor_id, target_micropos=bailout_micropos[n], 
-                                nanospeed=nanospeed[n], 
-                                wait=False, endstop_override=1, reset_zero_pos=1)
+                                nanospeed=nanospeed[n], wait=False, endstop_override=1, reset_zero_pos=1)
                         unfinished_motor_ids.remove(motor_id)
                 else:
                     some_motor_still_busy = True
+            print('-----------')
 
         if unfinished_motor_ids:
             print(f"Warning: motor(s) {unfinished_motor_ids} finished its calibration move but did not reach any " +
