@@ -4,7 +4,7 @@
 rp2daq.py  (c) Filip Dominec 2021, MIT licensed
 
 This is a thick wrapper around the binary message interface that makes Raspberry Pi Pico 
-an universal laboratory interface.  More information on 
+an universal laboratory interface.  
 
 The methods provided here aim to make the hardware control as convenient as possible.  
 
@@ -16,7 +16,7 @@ NANOPOS_AT_ENDSTOP = 2**31 # half the range of uint32
 NANOSTEP_PER_MICROSTEP = 256 # stepper resolution finer than microstep allows smooth speed control 
 MINIMUM_POS = -2**22
 
-CMD_IDENTIFY = 123
+CMD_IDENTIFY = 123  # blink LED, return "rp2daq" + datecode (6B) + unique 24B identifier
 CMD_STEPPER_GO = 1
 CMD_GET_STEPPER_STATUS =  3
 CMD_INIT_STEPPER = 5 
@@ -24,10 +24,12 @@ CMD_SET_PWM = 20
 CMD_INIT_PWM = 21 
 # TODO SYMBOLS HERE
 
-CMD_APPROACH =  2
-CMD_GET_STM_STATUS =  4
-CMD_SET_PIEZO =  9
-CMD_LINESCAN = 10
+CMD_GET_ADC = 22
+
+CMD_APPROACH =  2 # disused
+CMD_GET_STM_STATUS =  4 # disused
+CMD_SET_PIEZO =  9 # disused
+CMD_LINESCAN = 10 # disused
 
 import sys
 import time
@@ -74,18 +76,24 @@ class Rp2daq():
                 if verbose: print("not present")
                 continue 
 
-            raw = self.identify()
             try:
                 raw = self.identify()
             except:
                 raw = b''
 
             if not raw[:6] == b'rp2daq': # needed: implement timeout!
-                if verbose: print(f"can open, but device does not identify as rp2daq")
+                print(raw)
+                if verbose: print(f"can open, but device does not identify itself as rp2daq")
                 del(self.port)
                 continue
 
-            if required_device_tag and raw[6:14] != required_device_tag:
+            MIN_FW_VER = 210829
+            if int(raw[6:12]) < MIN_FW_VER:
+                if verbose: print(f"device identifies itself as rp2daq, but version {raw} is older than required {MIN_FW_VER}")
+                del(self.port)
+                continue
+
+            if required_device_tag and raw[12:20] != required_device_tag:
                 if verbose: 
                     print(f"found an rp2daq device, but its ID {raw[6:14].hex(':')} does not match " + 
                             f"required {required_device_tag.hex(':')}")
@@ -116,24 +124,23 @@ class Rp2daq():
         #unique_id = (raw[6:14]).hex(':')
         return raw
 
-    def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128, reset_nanopos=True):
-        self.port.write(struct.pack(r'<BBBBBBIB', 
+    def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128):
+        self.port.write(struct.pack(r'<BBBBBBI', 
             CMD_INIT_STEPPER, 
             motor_id, 
             dir_pin, 
             step_pin, 
             endswitch_pin, 
             disable_pin, 
-            motor_inertia, 
-            1 if reset_nanopos else 0))
-
+            motor_inertia))
 
     def get_stepper_status(self, motor_id):       
         """ Universal low-level stepper motor control: returns a dict indicating whether the motor is running, 
         whether it has touched an end switch and an integer of the motor's current microstep count. """
         self.port.write(struct.pack(r'<BB', CMD_GET_STEPPER_STATUS, motor_id))
+        time.sleep(.05)
         raw = self.port.read(6)
-        #print('STEPPER RAW', raw)
+        print('STEPPER RAW', raw)
         vals = list(struct.unpack(r'<BBI', raw))
         vals[2] = (vals[2] - NANOPOS_AT_ENDSTOP) / NANOSTEP_PER_MICROSTEP
         #print('    --> STEPPER STATUS', vals)
@@ -158,8 +165,13 @@ class Rp2daq():
         self.port.write(raw)
 
         if wait: 
-            wait_stepper_idle(self, motor_id)
+            self.wait_stepper_idle(motor_id)
 
+    def get_ADC(self, adc_pin=26, oversampling_count=16):
+        assert adc_pin in (26,27,28)
+        self.port.write(struct.pack(r'<BBB', CMD_GET_ADC, adc_pin, oversampling_count))	
+        raw = self.port.read(4)
+        return struct.unpack(r'<I', raw)
     
     def init_pwm(self, assign_channel=1, assign_pin=19, bit_resolution=16, freq_Hz=100, init_value=6654):
         self.port.write(struct.pack(r'<BBBBII', 
@@ -223,6 +235,7 @@ class Rp2daq():
             some_motor_still_busy = False
             for n, motor_id in enumerate(motor_ids):
                 status = self.get_stepper_status(motor_id=motor_id)
+                print(n, status)
                 if not status['active']:
                     if status['endswitch']:
                         self.stepper_go(motor_id=motor_id, target_micropos=bailout_micropos[n], 

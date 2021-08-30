@@ -28,7 +28,6 @@ settings = rp2daq.init_settings()
 
 
 hw = rp2daq.Rp2daq(required_device_tag = None, verbose=True)  #  'e6:60:58:38:83:48:89:2d'
-#print( hw.identify())
 #hw.init_stepper(motor_id=0, dir_pin=1, step_pin=2, endswitch_pin=0, disable_pin=0, motor_inertia=256*5)
 
 hw.init_stepper(motor_id=0, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=0, motor_inertia=256*2)
@@ -49,11 +48,15 @@ hw.init_stepper(motor_id=1, dir_pin=10, step_pin=11, endswitch_pin=18, disable_p
 
 
 
-hw.calibrate_stepper_positions(motor_ids=(0,1), minimum_micropos=-10000, nanospeed=(256,128), bailout_micropos=100 )
-hw.wait_stepper_idle(motor_ids=(0,1))
-hw.calibrate_stepper_positions(motor_ids=(0,1), minimum_micropos=-10000, nanospeed=16, bailout_micropos=100 )
+hw.calibrate_stepper_positions(motor_ids=(0,1), minimum_micropos=-10000, nanospeed=(256,128), bailout_micropos=1000 )
 
-time.sleep(.5)
+#hw.wait_stepper_idle(motor_ids=(0,1))
+
+#hw.stepper_go(motor_id=0, target_micropos=3000, nanospeed=32, wait=True, endstop_override=1)
+#hw.calibrate_stepper_positions(motor_ids=(0,1), minimum_micropos=-10000, nanospeed=16, bailout_micropos=100 )
+
+#time.sleep(.5)
+
 quit()
 
     #hw.stepper_go(motor_id=1, target_micropos=300, nanospeed=32, wait=True, endstop_override=False)

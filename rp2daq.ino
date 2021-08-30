@@ -1,6 +1,5 @@
 #include <Adafruit_TinyUSB.h>
 #include "pico/stdlib.h"
-
 #include "pico/unique_id.h"
 /*
 TODO for 210330:
@@ -52,7 +51,8 @@ uint8_t stepper_disable_pin[MAX_STEPPER_COUNT] ; // with Protoneer's CNC board: 
 
 #define NANOPOS_AT_ENDSTOP  (uint32_t)(1<<31)
 #define NANOSTEP_PER_MICROSTEP  256  // maximum main loop cycles per step (higher value enables finer control of speed, but smaller range)
-uint8_t endstop_override[MAX_STEPPER_COUNT];	// current motor position 
+uint8_t endstop_override[MAX_STEPPER_COUNT];	// e.g. for moving out of endstop position
+uint8_t endstop_flag[MAX_STEPPER_COUNT];	// remember the end stop event occured
 uint32_t nanopos[MAX_STEPPER_COUNT];	// current motor position 
 uint32_t target_nanopos[MAX_STEPPER_COUNT]; // set from the computer; (zero usually corresponds to the lower end switch)
 uint32_t target_nanospeed[MAX_STEPPER_COUNT]  ; // set from the computer; always ensure that 0 < target_nanospeed < NANOSTEP_PER_MICROSTEP 
@@ -60,7 +60,7 @@ uint32_t motor_inertia_coef[MAX_STEPPER_COUNT];		 // smooth ramp-up and ramp-dow
 
 uint32_t initial_nanopos[MAX_STEPPER_COUNT]   = {0}; // used for smooth speed control
 //uint8_t auto_motor_turnoff[MAX_STEPPER_COUNT] = {0}; // if set to 1, the motor "disable" pin will be set when not moving
-uint8_t endstop_flag[MAX_STEPPER_COUNT];
+//uint8_t was_at_end_switch[MAX_STEPPER_COUNT] = {0};
 
 #define DAC_CLOCK     5		// common signals to digital-analog converters (DAC)
 #define DAC_LATCHEN  18
@@ -121,7 +121,7 @@ struct cmd_stepper_go_struct  {
     I motor_targetpos;   // at byte 2
     I motor_speed;       // at byte 6
     B endstop_override;    // at byte 10
-    B reset_zero_pos;    
+    B reset_zero_pos;
 } __attribute__((packed));     
 
 #define CMD_APPROACH 2		// safely approach the sample to the STM tip, using both stepper and piezo{{{
@@ -152,7 +152,6 @@ struct cmd_init_stepper_struct  {
     B endswitch_pin;    
     B disable_pin;    
     I motor_inertia;    
-    B reset_nanopos;    
 } __attribute__((packed));     
 
 #define CMD_SET_PIEZO  9		// set a concrete position on the piezo
@@ -182,6 +181,7 @@ struct __attribute__((packed)) cmd_set_PWM_struct {
 };
 
 
+
 #define CMD_INIT_PWM 21
 struct __attribute__((packed)) cmd_init_PWM_struct  {  
     B message_type;     
@@ -192,6 +192,34 @@ struct __attribute__((packed)) cmd_init_PWM_struct  {
     I initial_value;	
 };
 
+#define CMD_GET_ADC 22
+struct __attribute__((packed)) cmd_get_ADC_struct  {  
+    B message_type;     
+    B adc_pin;	
+    B oversampling_count;	
+};
+
+
+
+void set_PWM(cmd_set_PWM_struct S)
+{
+	B m = 3;
+    if (m<MAX_STEPPER_COUNT) { initial_nanopos[m]      = nanopos[m];  } // XXX
+};
+
+void init_PWM(cmd_init_PWM_struct S)
+{
+	B m = 3;
+    if (m<MAX_STEPPER_COUNT) { initial_nanopos[m]      = nanopos[m];  } // XXX
+};
+
+
+void get_ADC(cmd_get_ADC_struct S)
+{
+ // TODO
+};
+
+
 void stepper_go(cmd_stepper_go_struct S)  // set the stepper motor to start moving to a given (nano)position
 {
     uint8_t m = S.stepper_number;
@@ -200,51 +228,36 @@ void stepper_go(cmd_stepper_go_struct S)  // set the stepper motor to start movi
         target_nanopos[m]       = S.motor_targetpos;  
         target_nanospeed[m]     = S.motor_speed;  //  note: for STM, set this:  approach_active  = 0;
         endstop_override[m]     = S.endstop_override; 
-		if (S.reset_zero_pos) {initial_nanopos[m] = NANOPOS_AT_ENDSTOP; nanopos[m] = NANOPOS_AT_ENDSTOP;};    
-        endstop_flag[m]         = 0;	// flag only resets upon a new stepper_go message
+        if (S.reset_zero_pos) {initial_nanopos[m] = NANOPOS_AT_ENDSTOP; nanopos[m] = NANOPOS_AT_ENDSTOP;};    
+        endstop_flag[m]         = 0;   // flag only resets upon a new stepper_go message
     }
 };
 
+
 void init_stepper(cmd_init_stepper_struct S) {
-	uint8_t m = S.stepper_number;
+       uint8_t m = S.stepper_number;
 
-	if (m<MAX_STEPPER_COUNT) {
-		stepper_dir_pin[m]     = S.dir_pin;
-		stepper_step_pin[m]    = S.step_pin;
-		stepper_lowstop_pin[m] = S.endswitch_pin;
-		stepper_disable_pin[m] = S.disable_pin;
-		endstop_override[m]    = 0; 
-		motor_inertia_coef[m]  = S.motor_inertia;
-		if (motor_inertia_coef[m] == 0) { motor_inertia_coef[m]  = 1;} // prevents div by 0 error
-		endstop_flag[m]        = 0;
-		pinMode(stepper_dir_pin[m],  OUTPUT);
-		pinMode(stepper_step_pin[m],  OUTPUT);
-		if (stepper_lowstop_pin[m]) pinMode(stepper_lowstop_pin[m],  INPUT_PULLUP);
-		if (stepper_disable_pin[m]) pinMode(stepper_disable_pin[m],  OUTPUT);
+       if (m<MAX_STEPPER_COUNT) {
+               stepper_dir_pin[m]     = S.dir_pin;
+               stepper_step_pin[m]    = S.step_pin;
+               stepper_lowstop_pin[m] = S.endswitch_pin;
+               stepper_disable_pin[m] = S.disable_pin;
+               endstop_override[m]    = 0; 
+               motor_inertia_coef[m]  = S.motor_inertia;
+               if (motor_inertia_coef[m] == 0) { motor_inertia_coef[m]  = 1;} // prevents div by 0 error
+               endstop_flag[m]        = 0;
+               pinMode(stepper_dir_pin[m],  OUTPUT);
+               pinMode(stepper_step_pin[m],  OUTPUT);
+               if (stepper_lowstop_pin[m]) pinMode(stepper_lowstop_pin[m],  INPUT_PULLUP);
+               if (stepper_disable_pin[m]) pinMode(stepper_disable_pin[m],  OUTPUT);
 
-		if ((nanopos[m] == 0) || (S.reset_nanopos != 0)) {
-			nanopos[m] = NANOPOS_AT_ENDSTOP; // default position (nonzero to allow going both directions)
-			target_nanopos[m] = nanopos[m];  // motor stands still when (re)defined
-		}
-	}	
+               if (nanopos[m] == 0) {
+    // default position (nonzero to allow going both directions, signed int are not used as their division truncate toward zero)
+                       nanopos[m] = NANOPOS_AT_ENDSTOP; 
+                       target_nanopos[m] = nanopos[m];  // motor stands still when (re)defined
+               }
+       }       
 };
-
-void set_PWM(cmd_set_PWM_struct S)
-{
-	B m = 3;
-    if (m<MAX_STEPPER_COUNT) { initial_nanopos[m]      = nanopos[m];  } // XXX
-};
-
-
-void init_PWM(cmd_init_PWM_struct S)
-{
-    pinMode(S.assign_pin, OUTPUT); 
-    //ledcAttachPin(S.assign_pin, S.assign_channel);
-    //ledcSetup(S.assign_channel, S.freq_Hz, S.bit_resolution); 
-    //TODO ledcWrite(S.assign_channel, S.initial_value); 
-};
-
-
 
 
 
@@ -338,18 +351,14 @@ void transmit_out_buf(uint32_t total_bytes) {
 }
 
 void process_messages() {
-	//digitalWrite(LED_BUILTIN, HIGH); sleep_us(1); digitalWrite(LED_BUILTIN, LOW); 
     if ((in_buf[0] == CMD_IDENTIFY) && (in_buf_ptr == sizeof(cmd_identify_struct))) {
-        // TODO transmit "espdaq" and then 24 bytes from EEPROM (see https://duckduckgo.com/?t=ffab&q=ESP32+eeprom&ia=web)
-        //out_buf = "espdaq________________________";
-        //transmit_out_buf(30);
         uint8_t byteArray[6] = {'r','p','2','d','a','q'}; memcpy(out_buf, byteArray, 6);
-		//pico_unique_board_id_t board_id;
-		//pico_get_unique_board_id(&board_id);
-		pico_get_unique_board_id((pico_unique_board_id_t*)(out_buf+6));
+        uint8_t byteBrray[6] = {'2','1','0','8','2','9'}; memcpy(out_buf+6, byteBrray, 6);
+		pico_get_unique_board_id((pico_unique_board_id_t*)(out_buf+12));
         transmit_out_buf(30);
         in_buf_ptr = 0;
     } else if ((in_buf[0] == CMD_STEPPER_GO) && (in_buf_ptr == sizeof(cmd_stepper_go_struct))) {
+        //digitalWrite(LED_BUILTIN, HIGH); sleep_us(1); digitalWrite(LED_BUILTIN, LOW); 
         stepper_go(*((cmd_stepper_go_struct*)(in_buf)));
         in_buf_ptr = 0;
     } else if ((in_buf[0] == CMD_APPROACH) && (in_buf_ptr == sizeof(cmd_approach_struct))) {
@@ -368,14 +377,17 @@ void process_messages() {
         in_buf_ptr = 0;
 
     } else if ((in_buf[0] == CMD_INIT_STEPPER) && (in_buf_ptr == sizeof(cmd_init_stepper_struct))) {
-		init_stepper(*((cmd_init_stepper_struct*)(in_buf)));
+        uint8_t m = in_buf[1];
+
+        if (m<MAX_STEPPER_COUNT) {
+            init_stepper(*((cmd_init_stepper_struct*)(in_buf)));
+        }	
         in_buf_ptr = 0;
     } else if ((in_buf[0] == CMD_GET_STEPPER_STATUS) && (in_buf_ptr == sizeof(cmd_get_stepper_status_struct))) {
         uint8_t m = in_buf[1];
         if (m<MAX_STEPPER_COUNT) {
             if (nanopos[m] == target_nanopos[m]) {out_buf[0] = 0;} else {out_buf[0] = 1;}; 
-            //if (!digitalRead(stepper_lowstop_pin[m])) {out_buf[1] = 0;} else {out_buf[1] = 1;}; 
-			out_buf[1] = endstop_flag[m];
+            out_buf[1] = endstop_flag[m];
             memcpy(out_buf+2, &nanopos[m], sizeof(nanopos[m])); out_buf_ptr += sizeof(nanopos[m]);
         }
         transmit_out_buf(6);
@@ -436,6 +448,9 @@ void process_messages() {
     } else if ((in_buf[0] == CMD_INIT_PWM) && (in_buf_ptr == sizeof(cmd_init_PWM_struct))) {
         init_PWM(*((cmd_init_PWM_struct*)(in_buf)));
         in_buf_ptr = 0;
+    } else if ((in_buf[0] == CMD_GET_ADC) && (in_buf_ptr == sizeof(cmd_get_ADC_struct))) {
+        get_ADC(*((cmd_get_ADC_struct*)(in_buf)));
+        in_buf_ptr = 0;
     };
 };
 
@@ -457,10 +472,10 @@ void loop() {
 
     while (Serial.available() && (in_buf_ptr<IN_BUF_LEN)) { 
         in_buf[in_buf_ptr] = Serial.read(); 
-        if (in_buf[0] != 0xFF)  // esp32's serial sometimes spits out extra 0xFF byte 
-        {
             in_buf_ptr += 1; 
             process_messages();
+        if (in_buf[0] != 0xFF)  // esp32's serial sometimes spits out extra 0xFF byte 
+        {
         }
     }
         //in_buf_timeout = 0; 
@@ -512,8 +527,3 @@ void loop() {
   // 10 kHz main loop cycle; todo: should use timer interrupt instead
   sleep_us(100); 
 }
-
-
-
-
-
