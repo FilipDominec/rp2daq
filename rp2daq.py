@@ -160,11 +160,6 @@ class Rp2daq():
         if wait: 
             wait_stepper_idle(self, motor_id)
 
-    def wait_stepper_idle(self, motor_ids, poll_delay=0.05):
-        if not hasattr(motor_ids, "__getitem__"): motor_ids = [motor_ids]
-        while any([self.get_stepper_status(m)['active'] for m in motor_ids]): 
-            time.sleep(poll_delay)   
-
     
     def init_pwm(self, assign_channel=1, assign_pin=19, bit_resolution=16, freq_Hz=100, init_value=6654):
         self.port.write(struct.pack(r'<BBBBII', 
@@ -200,6 +195,12 @@ class Rp2daq():
 
     ## Additional useful functions 
 
+    def wait_stepper_idle(self, motor_ids, poll_delay=0.05):
+        if not hasattr(motor_ids, "__getitem__"): motor_ids = [motor_ids]
+        while any([self.get_stepper_status(m)['active'] for m in motor_ids]): 
+            time.sleep(poll_delay)   
+
+
     def calibrate_stepper_positions(self, motor_ids, minimum_micropos=-1000000, 
             nanospeed=256, bailout_micropos=1000):
 
@@ -222,7 +223,6 @@ class Rp2daq():
             some_motor_still_busy = False
             for n, motor_id in enumerate(motor_ids):
                 status = self.get_stepper_status(motor_id=motor_id)
-                print(status)
                 if not status['active']:
                     if status['endswitch']:
                         self.stepper_go(motor_id=motor_id, target_micropos=bailout_micropos[n], 
@@ -230,7 +230,6 @@ class Rp2daq():
                         unfinished_motor_ids.remove(motor_id)
                 else:
                     some_motor_still_busy = True
-            print('-----------')
 
         if unfinished_motor_ids:
             print(f"Warning: motor(s) {unfinished_motor_ids} finished its calibration move but did not reach any " +
