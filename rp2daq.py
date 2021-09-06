@@ -171,6 +171,7 @@ class Rp2daq():
         assert adc_pin in (26,27,28)
         self.port.write(struct.pack(r'<BBB', CMD_GET_ADC, adc_pin, oversampling_count))	
         raw = self.port.read(4)
+        print(raw)
         return struct.unpack(r'<I', raw)
     
     def init_pwm(self, assign_channel=1, assign_pin=19, bit_resolution=16, freq_Hz=100, init_value=6654):

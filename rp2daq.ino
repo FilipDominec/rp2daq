@@ -144,16 +144,23 @@ void init_PWM(cmd_init_PWM_struct S)
 };
 
 
+// void transmit_to_computer(uint32_t &var, total_bytes) {
+    // for (ptr=0; ptr<total_bytes; ptr++) { Serial.write(out_buf[ptr]); }
+// }
+
+void transmit_out_buf(uint32_t total_bytes) {
+    for (out_buf_ptr=0; out_buf_ptr<total_bytes; out_buf_ptr++) { Serial.write(out_buf[out_buf_ptr]); }
+}
+
+#define TRANSMITBUF(total_bytes) ({for (out_buf_ptr=0; out_buf_ptr<total_bytes; out_buf_ptr++) { Serial.write(out_buf[out_buf_ptr]); };})
+//#define TRANSMITVAR(var) ({for (uint8_t p=0; p<sizeof(var); p++) { Serial.write(*((char*)((&var)+p))); };}) # why this does not work?
+#define SERIAL_WRITE(var) ({ char* buf=(char *)&var; for (uint8_t p=0; p<sizeof(var); p++) { Serial.write(buf[p]); };})
 
 void get_ADC(cmd_get_ADC_struct S)
 {
     I adcvalue = 0;
-    for(int16_t j=0; j<16; j++) {
-        adcvalue += analogRead(S.adc_pin);
-    }
-    memcpy(out_buf, &adcvalue, sizeof(adcvalue));
-    transmit_out_buf(4);
- // TODO
+    for(int16_t j=0; j<S.oversampling_count; j++) { adcvalue += analogRead(S.adc_pin); }
+    SERIAL_WRITE(adcvalue);
 };
 
 
@@ -203,9 +210,6 @@ void init_stepper(cmd_init_stepper_struct S) {
 #define max(a,b)  ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b);  _a > _b ? _a : _b; })
 #define min(a,b) ({ __typeof__ (a) _a = (a); __typeof__ (b) _b = (b);  _a < _b ? _a : _b; })
 /*}}}*/
-void transmit_out_buf(uint32_t total_bytes) {
-    for (out_buf_ptr=0; out_buf_ptr<total_bytes; out_buf_ptr++) { Serial.write(out_buf[out_buf_ptr]); }
-}
 
 void process_messages() {
     //digitalWrite(LED_BUILTIN, HIGH); sleep_us(1000); digitalWrite(LED_BUILTIN, LOW); 
@@ -243,7 +247,10 @@ void process_messages() {
         in_buf_ptr = 0;
 
     } else if ((in_buf[0] == CMD_GET_ADC) && (in_buf_ptr == sizeof(cmd_get_ADC_struct))) {
-        get_ADC(*((cmd_get_ADC_struct*)(in_buf)));
+        cmd_get_ADC_struct* S = (cmd_get_ADC_struct*)(in_buf);
+        I adcvalue = 0;
+        for(int16_t j=0; j < S->oversampling_count; j++) { adcvalue += analogRead(S->adc_pin); }
+        SERIAL_WRITE(adcvalue);
         in_buf_ptr = 0;
     };
 };

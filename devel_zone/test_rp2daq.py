@@ -28,7 +28,7 @@ settings = rp2daq.init_settings()
 
 
 hw = rp2daq.Rp2daq(required_device_tag = None, verbose=True)  #  'e6:60:58:38:83:48:89:2d'
-print(hw.get_ADC(26))
+print(hw.get_ADC(27, oversampling_count=100))
 #hw.init_stepper(motor_id=0, dir_pin=1, step_pin=2, endswitch_pin=0, disable_pin=0, motor_inertia=256*5)
 
 #hw.init_stepper(motor_id=0, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=0, motor_inertia=256*2)
