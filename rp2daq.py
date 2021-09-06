@@ -22,6 +22,8 @@ CMD_IDENTIFY = 123  # blink LED, return "rp2daq" + datecode (6B) + unique 24B id
 CMD_STEPPER_GO = 1
 CMD_GET_STEPPER_STATUS =  3
 CMD_INIT_STEPPER = 5 
+CMD_GET_PIN = 6
+CMD_SET_PIN = 7 
 CMD_SET_PWM = 20
 CMD_INIT_PWM = 21 
 # TODO SYMBOLS HERE
@@ -169,12 +171,24 @@ class Rp2daq():
         if wait: 
             self.wait_stepper_idle(motor_id)
 
+    def get_pin(self, pin): # TODO TEST
+        assert pin <= 28
+        self.port.write(struct.pack(r'<BB', CMD_GET_PIN, pin))	
+        raw = self.port.read(1)
+        return raw
+
+    def set_pin(self, pin, value, output_mode=True): # TODO TEST
+        assert pin <= 28
+        self.port.write(struct.pack(r'<BBBB', CMD_SET_PIN, pin, 1 if value else 0, 1 if output_mode else 0))	
+
+
     def get_ADC(self, adc_pin=26, oversampling_count=16):
         assert adc_pin in (26,27,28)
         self.port.write(struct.pack(r'<BBB', CMD_GET_ADC, adc_pin, oversampling_count))	
         raw = self.port.read(4)
         print(raw)
         return struct.unpack(r'<I', raw)
+
     
     def init_pwm(self, assign_channel=1, assign_pin=19, bit_resolution=16, freq_Hz=100, init_value=6654):
         self.port.write(struct.pack(r'<BBBBII', 

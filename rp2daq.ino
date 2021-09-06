@@ -109,6 +109,19 @@ struct cmd_init_stepper_struct  {
     I motor_inertia;    
 } __attribute__((packed));     
 
+#define CMD_GET_PIN  6		// simple digital input
+struct cmd_get_pin_struct  {  
+    B message_type;      // always byte 0 
+    B pin_number;    
+} __attribute__((packed));     
+
+#define CMD_SET_PIN  7		// simple digital output 
+struct cmd_set_pin_struct  {  
+    B message_type;      // always byte 0 
+    B pin_number;    
+    B value;    
+    B output_mode;    
+} __attribute__((packed));     
 
 /*}}}*/
 
@@ -188,6 +201,14 @@ void process_messages() {
                 target_nanopos[m] = nanopos[m];  // motor stands still when (re)defined
             }
         }	
+
+    } else if ((in_buf[0] == CMD_GET_PIN) && (cmd_length == sizeof(cmd_get_pin_struct))) {
+        cmd_get_pin_struct S = (cmd_get_pin_struct*)in_buf;
+        // TODO
+
+    } else if ((in_buf[0] == CMD_SET_PIN) && (cmd_length == sizeof(cmd_set_pin_struct))) {
+        cmd_set_pin_struct S = (cmd_set_pin_struct*)in_buf;
+        // TODO
 
     } else if ((in_buf[0] == CMD_GET_STEPPER_STATUS) && (cmd_length == sizeof(cmd_get_stepper_status_struct))) {
         uint8_t m = in_buf[1];
