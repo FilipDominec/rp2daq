@@ -12,6 +12,8 @@ More information and examples on https://github.com/FilipDominec/rp2daq
 """
 
 
+MIN_FW_VER = 210829 
+
 NANOPOS_AT_ENDSTOP = 2**31 # half the range of uint32
 NANOSTEP_PER_MICROSTEP = 256 # stepper resolution finer than microstep allows smooth speed control 
 MINIMUM_POS = -2**22
@@ -60,7 +62,7 @@ def init_settings(infile='settings.txt'):
     return settings
 
 class Rp2daq():
-    def __init__(self, serial_port_names=None, required_device_tag=None, verbose=True):
+    def __init__(self, serial_port_names=None, required_device_tag=None, required_firmware_version=MIN_FW_VER, verbose=True):
         if not serial_port_names:
             serial_prefix = '/dev/ttyACM' if os.name=='posix' else 'COM' # TODO test if "COM" port assigned to rp2 on windows
             serial_port_names = [serial_prefix + str(port_number) for port_number in range(5)]
@@ -87,9 +89,9 @@ class Rp2daq():
                 del(self.port)
                 continue
 
-            MIN_FW_VER = 210829
-            if not raw[6:12].isdigit() or int(raw[6:12]) < MIN_FW_VER:
-                if verbose: print(f"device identifies itself as rp2daq, but version {raw} is older than required {MIN_FW_VER}")
+            if not raw[6:12].isdigit() or int(raw[6:12]) < required_firmware_version:
+                if verbose: print(f"rp2daq reports version {raw[6:12].decode('utf-8')}, older than required {MIN_FW_VER}. " +
+                        "Please upgrade firmware, downgrade this module or take the risk and set 'required_firmware_version=0'.")
                 del(self.port)
                 continue
 

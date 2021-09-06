@@ -21,21 +21,31 @@ import rp2daq
 import tkinter as tk
 
 
-rp2daq.init_error_msgbox()
+#rp2daq.init_error_msgbox()
 #quit()
 
 settings = rp2daq.init_settings()
 
 
-hw = rp2daq.Rp2daq(required_device_tag = None, verbose=True)  #  'e6:60:58:38:83:48:89:2d'
-print(hw.get_ADC(27, oversampling_count=100))
-#hw.init_stepper(motor_id=0, dir_pin=1, step_pin=2, endswitch_pin=0, disable_pin=0, motor_inertia=256*5)
+hw = rp2daq.Rp2daq(required_device_tag = None, required_firmware_version=0, verbose=True)  #  'e6:60:58:38:83:48:89:2d'
 
-#hw.init_stepper(motor_id=0, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=0, motor_inertia=256*2)
-#hw.init_stepper(motor_id=1, dir_pin=10, step_pin=11, endswitch_pin=18, disable_pin=0, motor_inertia=256*2)
+## Testing ADC input & plotting a graph
+#import matplotlib.pyplot as plt, numpy as np
+#fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 7))
+#x,y = [], []
+#t0 = time.time()
+#for n in range(20):
+    #y.append(hw.get_ADC(26, oversampling_count=100))
+    #x.append(time.time() - t0)
+    #time.sleep(.1)
+#ax.plot(y)
+#fig.savefig("output2.png", bbox_inches='tight')
+
+hw.init_stepper(motor_id=0, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=0, motor_inertia=256*2)
+hw.init_stepper(motor_id=1, dir_pin=10, step_pin=11, endswitch_pin=18, disable_pin=0, motor_inertia=256*2)
 #hw.init_stepper(motor_id=2, dir_pin=14, step_pin=15, endswitch_pin=17, disable_pin=0, motor_inertia=128)
 #hw.init_stepper(motor_id=3, dir_pin=21, step_pin=20, endswitch_pin=16, disable_pin=0, motor_inertia=128)
-#hw.calibrate_stepper_positions(motor_ids=(0,1), minimum_micropos=-10000, nanospeed=(256,128), bailout_micropos=1000 )
+hw.calibrate_stepper_positions(motor_ids=(0,1), minimum_micropos=-10000, nanospeed=(256,128), bailout_micropos=1000 )
 
 #c = 0
 #while True:
@@ -52,7 +62,6 @@ print(hw.get_ADC(27, oversampling_count=100))
 #hw.wait_stepper_idle(motor_ids=(0,1))
 
 #hw.stepper_go(motor_id=0, target_micropos=3000, nanospeed=32, wait=True, endstop_override=1)
-#hw.calibrate_stepper_positions(motor_ids=(0,1), minimum_micropos=-10000, nanospeed=16, bailout_micropos=100 )
 
 #time.sleep(.5)
 
