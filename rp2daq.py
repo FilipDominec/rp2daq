@@ -26,10 +26,10 @@ CMD_INIT_PWM = 21
 
 CMD_GET_ADC = 22
 
-CMD_APPROACH =  2 # disused
-CMD_GET_STM_STATUS =  4 # disused
-CMD_SET_PIEZO =  9 # disused
-CMD_LINESCAN = 10 # disused
+#CMD_APPROACH =  102 # disused
+#CMD_GET_STM_STATUS =  104 # disused
+#CMD_SET_PIEZO =  109 # disused
+#CMD_LINESCAN = 1010 # disused
 
 import sys
 import time
@@ -88,7 +88,7 @@ class Rp2daq():
                 continue
 
             MIN_FW_VER = 210829
-            if int(raw[6:12]) < MIN_FW_VER:
+            if not raw[6:12].isdigit() or int(raw[6:12]) < MIN_FW_VER:
                 if verbose: print(f"device identifies itself as rp2daq, but version {raw} is older than required {MIN_FW_VER}")
                 del(self.port)
                 continue
@@ -100,7 +100,7 @@ class Rp2daq():
                 del(self.port)
                 continue
 
-            print(f"Connecting to rp2daq device with manufacturer ID = {raw[6:14].hex(':')} on port {serial_port_name}")
+            print(f"Connected to rp2daq device with manufacturer ID = {raw[6:14].hex(':')}")
             return # succesful init of the port with desired device
 
         # if select_device_tag=None

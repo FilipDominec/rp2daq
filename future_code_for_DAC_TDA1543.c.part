@@ -1,0 +1,63 @@
+#define DAC_CLOCK     5		// common signals to digital-analog converters (DAC)
+#define DAC_LATCHEN  18
+#define DAC_DATA0    19		// synchronous data outputs to four DACs
+#define DAC_DATA1    21
+#define DAC_DATA2    14
+#define DAC_DATA3    27
+
+#define NDAC_BCK       4      // testing the preferred dual 16-bit TDA1543
+#define NDAC_WS		   12
+#define NDAC_DATA01    26		// first 2 channels
+#define NDAC_DATA23    25		// next 2 channels
+
+
+
+#define DACBITS 16						// dac bit depth{{{
+#define bitmask		(1<<(DACBITS-1))
+#define dac_value_shift (128*256)
+//(1<<(DACBITS-1)) FIXME
+#define dummyb_max	7
+#define bit_max		DACBITS
+void set_piezo_raw(int16_t dac_word0, int16_t dac_word1, int16_t dac_word2, int16_t dac_word3) {
+    // Communication with 2x TDA1543 dual 16-bit DACs, using I2S protocol implemented in firmware. This takes 20-25 us.
+    //
+    // Note 0: Here we are not using the built-in I2S interface since we want to supply data to multiple DACs at once.
+    // Note 1: By much trial and error, I learned that the TDA1543 chips require the most significant bit 
+    //   extending to exactly (!) 7+1 leading bits of the signal. In fact we are loading 23 bits that contain the 16bit 
+    //   number at their end. Otherwise the input data got truncated.
+    // Note 2: The digitalWrite routine takes ca. 60 nanoseconds by default, which is just enough for the fastest 
+    //   timing delays from the TDA1543 datasheet. Thanks to digitalWrite() being rather inefficient, no waiting routines 
+    //   are needed, unless one overclocks the ESP32 or uses direct port access.
+    // Note 3: From the nature of the I2S protocol, the DAC channels 0 and 1 might be expected to be out-of-sync if 
+    //   if the Left and Right channels are set up incorrectly (by a single 100 us cycle). Currently the actual output 
+    //   signal of both DAC channels looks to be perfectly in sync anyway.
+
+    digitalWrite(NDAC_WS, HIGH);
+    digitalWrite(NDAC_BCK, LOW);
+    for (uint8_t bit=0; bit<bit_max; bit++) {
+        if (dac_word0 & bitmask) {digitalWrite(NDAC_DATA01, HIGH);} else {digitalWrite(NDAC_DATA01, LOW);};  dac_word0 = dac_word0 << 1; 
+        if (dac_word2 & bitmask) {digitalWrite(NDAC_DATA23, HIGH);} else {digitalWrite(NDAC_DATA23, LOW);};  dac_word2 = dac_word2 << 1;
+        if (bit==0) {
+            for (uint8_t dummyb=0; dummyb<dummyb_max; dummyb++) {
+                digitalWrite(NDAC_BCK, HIGH); // the digitalWrite routine takes ca. 60 ns in default ESP32 - this is crucial for timing
+                digitalWrite(NDAC_BCK, LOW);
+            }
+        }
+        digitalWrite(NDAC_BCK, HIGH);
+        digitalWrite(NDAC_BCK, LOW);
+        if (bit==(bit_max-2)) { digitalWrite(NDAC_WS, LOW);	}	
+    }
+    for (uint8_t bit=0; bit<bit_max; bit++) {
+        if (dac_word1 & bitmask) {digitalWrite(NDAC_DATA01, HIGH);} else {digitalWrite(NDAC_DATA01, LOW);};  dac_word1 = dac_word1 << 1;
+        if (dac_word3 & bitmask) {digitalWrite(NDAC_DATA23, HIGH);} else {digitalWrite(NDAC_DATA23, LOW);};  dac_word3 = dac_word3 << 1;
+        if (bit==0) {
+            for (uint8_t dummyb=0; dummyb<dummyb_max; dummyb++) {
+                digitalWrite(NDAC_BCK, HIGH);
+                digitalWrite(NDAC_BCK, LOW);
+            }
+        }
+        digitalWrite(NDAC_BCK, HIGH);
+        digitalWrite(NDAC_BCK, LOW);
+        if (bit==(bit_max-2)) { digitalWrite(NDAC_WS, HIGH);	}	
+    }
+}
