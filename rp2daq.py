@@ -18,7 +18,7 @@ NANOPOS_AT_ENDSTOP = 2**31 # half the range of uint32
 NANOSTEP_PER_MICROSTEP = 256 # stepper resolution finer than microstep allows smooth speed control 
 MINIMUM_POS = -2**22
 
-CMD_IDENTIFY = 123  # blink LED, return "rp2daq" + datecode (6B) + unique 24B identifier
+CMD_IDENTIFY = 0  # blink LED, return "rp2daq" + datecode (6B) + unique 24B identifier
 CMD_STEPPER_GO = 1
 CMD_GET_STEPPER_STATUS =  3
 CMD_INIT_STEPPER = 5 

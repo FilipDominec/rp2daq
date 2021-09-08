@@ -158,7 +158,7 @@ struct __attribute__((packed)) cmd_get_ADC_struct  {
 
 void process_messages() {
     typeof(in_buf_ptr) cmd_length = in_buf_ptr; 
-    //in_buf_ptr = 0; // tentatively reset buffer for new message
+    in_buf_ptr = 0; // tentatively reset buffer for new message
 
     if ((in_buf[0] == CMD_IDENTIFY) && (cmd_length == sizeof(cmd_identify_struct))) {
         uint8_t text[12] = {'r','p','2','d','a','q',    '2','1','0','9','0','9'};
@@ -237,7 +237,7 @@ void process_messages() {
         SERIAL_WRITE(adcvalue);
 
     } else {
-        in_buf_ptr = cmd_length; // will continue receiving bytes
+        in_buf_ptr = cmd_length; // message not finished; will continue receiving bytes
     };
 };
 
