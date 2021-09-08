@@ -120,7 +120,7 @@ struct cmd_set_pin_struct  {
     B message_type;      // always byte 0 
     B pin_number;    
     B value;    
-    B output_mode;    
+    B pin_mode;    
 } __attribute__((packed));     
 
 /*}}}*/
@@ -158,7 +158,7 @@ struct __attribute__((packed)) cmd_get_ADC_struct  {
 
 void process_messages() {
     typeof(in_buf_ptr) cmd_length = in_buf_ptr; 
-    in_buf_ptr = 0; // tentatively reset buffer for new message
+    //in_buf_ptr = 0; // tentatively reset buffer for new message
 
     if ((in_buf[0] == CMD_IDENTIFY) && (cmd_length == sizeof(cmd_identify_struct))) {
         uint8_t text[12] = {'r','p','2','d','a','q',    '2','1','0','9','0','9'};
@@ -167,6 +167,7 @@ void process_messages() {
         SERIAL_WRITE(*unique_id);
         digitalWrite(LED_BUILTIN, HIGH); sleep_us(1000); digitalWrite(LED_BUILTIN, LOW); 
 
+    //in_buf_ptr = 0; // tentatively reset buffer for new message
     } else if ((in_buf[0] == CMD_STEPPER_GO) && (cmd_length == sizeof(cmd_stepper_go_struct))) {
         cmd_stepper_go_struct* S = (cmd_stepper_go_struct*)in_buf;
         uint8_t m = S->stepper_number;
@@ -203,12 +204,15 @@ void process_messages() {
         }	
 
     } else if ((in_buf[0] == CMD_GET_PIN) && (cmd_length == sizeof(cmd_get_pin_struct))) {
-        cmd_get_pin_struct S = (cmd_get_pin_struct*)in_buf;
-        // TODO
+        cmd_get_pin_struct* S = (cmd_get_pin_struct*)in_buf;
+		//if (digitalRead(S->pin_number)) { SERIAL_WRITE(True); } else { SERIAL_WRITE(False); }; 
+        // TODO TEST
 
     } else if ((in_buf[0] == CMD_SET_PIN) && (cmd_length == sizeof(cmd_set_pin_struct))) {
-        cmd_set_pin_struct S = (cmd_set_pin_struct*)in_buf;
-        // TODO
+        cmd_set_pin_struct* S = (cmd_set_pin_struct*)in_buf;
+		//if (S->value) { digitalWrite(S->pin_number, HIGH); } else { digitalWrite(S->pin_number, LOW); }; 
+		//if (S->pin_mode) { pinMode(S->pin_number, OUTPUT); } else { digitalWrite(S->pin_number, INPUT); }; 
+        // TODO TEST
 
     } else if ((in_buf[0] == CMD_GET_STEPPER_STATUS) && (cmd_length == sizeof(cmd_get_stepper_status_struct))) {
         uint8_t m = in_buf[1];

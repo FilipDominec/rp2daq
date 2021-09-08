@@ -8,7 +8,6 @@ Module dependencies: tkinter, serial, struct
 """
 
 # TODO keyboard shortcuts; most
-# TODO port auto-detection
 # TODO saving recent few 
 # big optional TODO PS/2 keyboard sniffer
 
@@ -28,6 +27,9 @@ settings = rp2daq.init_settings()
 
 
 hw = rp2daq.Rp2daq(required_device_tag = None, required_firmware_version=0, verbose=True)  #  'e6:60:58:38:83:48:89:2d'
+
+hw.set_pin(0, 1)
+quit()
 
 ## Testing ADC input & plotting a graph
 #import matplotlib.pyplot as plt, numpy as np

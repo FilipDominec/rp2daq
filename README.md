@@ -47,16 +47,16 @@ Download the rp2daq.py module and save it to the folder where your project will 
 Create a new file with the following content:
 
 ```python
-import rp2daq							# wrapper around the low-level binary communication
-rp2daq.init_error_msgbox()				# facilitates reading of possible error message
+import rp2daq                            # wrapper around the low-level binary communication
+rp2daq.init_error_msgbox()                # facilitates reading of possible error message
 
-rp2 = rp2daq.Rp2daq()					# initialize communication (with the RP2DAQ device found)
+rp2 = rp2daq.Rp2daq()                    # initialize communication (with the RP2DAQ device found)
 
-response = rp2.identify()				# ask the device for a short message  +  make its LED blink
-print(response)					
+response = rp2.identify()                # ask the device for a short message  +  make its LED blink
+print(response)                    
 
-import tkinter							
-tkinter.messagebox.showinfo(response)	# show the message in a clickable window
+import tkinter                            
+tkinter.messagebox.showinfo(response)    # show the message in a clickable window
 ```
 
 Run this code. (If you are not familiar with the python scripting, find some nice tutorial online.) 
@@ -64,19 +64,6 @@ Run this code. (If you are not familiar with the python scripting, find some nic
 If everything is OK, a message box should appear showing the 30-byte identification string of your device. 
 
 NOT FINISHED YET: You can proceed to the *Quick overview of software features*.  If there is an error, check troubleshooting.
-
-### Troubleshooting
-
- * ImportError: No module named serial
-	* get the ```python-pyserial``` module
- * Script reports device not found
-	* Does the LED shortly blink after connected to computer? If not, flashing went wrong (repeat it). Can there be cable problem (replace it).
-	* Can you see a new device with VID:PID = "2e8a:0005 MicroPython Board in FS mode" appear when you connect it?
-	* TODO elaborate solutions
- * Rp2daq device is found and responds to the ```identify()``` command, but some other behaviour is weird
-	* This is probably error in the firmware, feel free to open an issue, copying full working copy of the troublesome code.
- * Stepper motor randomly "forgets" its position and behaves as if its end switch has triggered
-	* There is too much noise in the end switch cable. Try shielding it, or add a 10nF parallel capacitance to the switch.  
 
 
 ## Quick overview of software features
