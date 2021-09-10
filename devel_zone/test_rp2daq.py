@@ -28,7 +28,15 @@ settings = rp2daq.init_settings()
 
 hw = rp2daq.Rp2daq(required_device_tag = None, required_firmware_version=0, verbose=True)  #  'e6:60:58:38:83:48:89:2d'
 
-hw.set_pin(0, 1)
+while True:
+    hw.set_pin(2, 0)
+    hw.set_pin(0, 0, 0)
+    hw.set_pin(4, 0)
+    time.sleep(.1)
+    hw.set_pin(2, 1)
+    hw.set_pin(0, 1, 0 )
+    hw.set_pin(4, 1)
+    time.sleep(.1)
 quit()
 
 ## Testing ADC input & plotting a graph

@@ -1,3 +1,9 @@
+## Notice: this project is being merged with telemetrix
+
+see https://github.com/MrYsLab/telemetrix-rpi-pico/
+
+----
+
 ## RP2DAQ - Raspberry Pi Pico for Data Acquisition (and much more)
 
 *Making the Raspberry Pi Pico module a universal $5 peripheral for data acquisition and generic laboratory automation.*

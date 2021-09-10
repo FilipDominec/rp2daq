@@ -22,7 +22,7 @@ TODO for 210330:
 // Note: using "nanopos" and "target_nanospeed" are essential for stepping speeds less than one microstep per cycle.
 
 #define MAX_STEPPER_COUNT 16
-uint8_t stepper_dir_pin[MAX_STEPPER_COUNT]     ;
+uint8_t stepper_dir_pin[MAX_STEPPER_COUNT]    = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0} ;
 uint8_t stepper_step_pin[MAX_STEPPER_COUNT]    ;
 uint8_t stepper_lowstop_pin[MAX_STEPPER_COUNT] ;
 uint8_t stepper_disable_pin[MAX_STEPPER_COUNT] ; 
@@ -120,7 +120,7 @@ struct cmd_set_pin_struct  {
     B message_type;      // always byte 0 
     B pin_number;    
     B value;    
-    B pin_mode;    
+    B output_mode;    
 } __attribute__((packed));     
 
 /*}}}*/
@@ -205,13 +205,24 @@ void process_messages() {
 
     } else if ((in_buf[0] == CMD_GET_PIN) && (cmd_length == sizeof(cmd_get_pin_struct))) {
         cmd_get_pin_struct* S = (cmd_get_pin_struct*)in_buf;
-		//if (digitalRead(S->pin_number)) { SERIAL_WRITE(True); } else { SERIAL_WRITE(False); }; 
+		if (digitalRead(S->pin_number)) { SERIAL_WRITE(True); } else { SERIAL_WRITE(False); }; 
         // TODO TEST
 
     } else if ((in_buf[0] == CMD_SET_PIN) && (cmd_length == sizeof(cmd_set_pin_struct))) {
         cmd_set_pin_struct* S = (cmd_set_pin_struct*)in_buf;
-		//if (S->value) { digitalWrite(S->pin_number, HIGH); } else { digitalWrite(S->pin_number, LOW); }; 
-		//if (S->pin_mode) { pinMode(S->pin_number, OUTPUT); } else { digitalWrite(S->pin_number, INPUT); }; 
+		if (S->output_mode) { 
+            pinMode(S->pin_number, OUTPUT); 
+            if (S->value) { digitalWrite(S->pin_number, HIGH); } else { digitalWrite(S->pin_number, LOW); }; 
+        } else { 
+            digitalWrite(S->pin_number, INPUT); 
+            if (S->value) { 
+                //digitalWrite(S->pin_number, INPUT_PULLUP); 
+                set_pin_mode_digital_input_pull_up(S->pin_number)
+            } else { 
+                //digitalWrite(S->pin_number, LOW); 
+                set_pin_mode_digital_input_pull_down(S->pin_number)
+            }; 
+        }; 
         // TODO TEST
 
     } else if ((in_buf[0] == CMD_GET_STEPPER_STATUS) && (cmd_length == sizeof(cmd_get_stepper_status_struct))) {
@@ -246,6 +257,9 @@ void setup() {/*{{{*/
     for(int16_t j=26; j < 29; j++) {  analogRead(j); } // first ADC reads are wrong
     pinMode(LED_BUILTIN,  OUTPUT);
     digitalWrite(LED_BUILTIN, HIGH); sleep_ms(100); digitalWrite(LED_BUILTIN, LOW); 
+
+//pinMode(0, OUTPUT);pinMode(1, OUTPUT);pinMode(2, OUTPUT); pinMode(3, OUTPUT);pinMode(4, OUTPUT);pinMode(5, OUTPUT); //XXX
+
 }/*}}}*/
 
 
@@ -260,7 +274,7 @@ void loop() {
     //in_buf_timeout = 0; 
 
     for (uint8_t m=0; m<MAX_STEPPER_COUNT; m++) { 
-		if (stepper_dir_pin[m]) {
+		if (stepper_dir_pin[m]) { // TODO use motor[m].isdefined instead
 			uint32_t new_nanopos, actual_nanospeed;
 			//if (!digitalRead(stepper_lowstop_pin[m])) { target_nanospeed[m] = 32; target_nanopos[m] = nanopos[m]+target_nanospeed[m]+1; } // get out from lower end switch
 			if ((!digitalRead(stepper_lowstop_pin[m])) && (!endstop_override[m])) { 
@@ -299,9 +313,10 @@ void loop() {
 			//};
 			if ( (new_nanopos / NANOSTEP_PER_MICROSTEP) != (nanopos[m] / NANOSTEP_PER_MICROSTEP)) {digitalWrite(stepper_step_pin[m], HIGH);}
 			nanopos[m] = new_nanopos;
+
+            sleep_us(5); 
+            digitalWrite(stepper_step_pin[m], LOW);
 		}
-		sleep_us(5); 
-		digitalWrite(stepper_step_pin[m], LOW);
 	}
   // 10 kHz main loop cycle; todo: should use timer interrupt instead
   sleep_us(100); 
