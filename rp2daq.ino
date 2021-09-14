@@ -217,10 +217,10 @@ void process_messages() {
             digitalWrite(S->pin_number, INPUT); 
             if (S->value) { 
                 //digitalWrite(S->pin_number, INPUT_PULLUP); 
-                set_pin_mode_digital_input_pull_up(S->pin_number)
+                //set_pin_mode_digital_input_pull_up(S->pin_number) XXX
             } else { 
                 //digitalWrite(S->pin_number, LOW); 
-                set_pin_mode_digital_input_pull_down(S->pin_number)
+                //set_pin_mode_digital_input_pull_down(S->pin_number) XXX
             }; 
         }; 
         // TODO TEST
