@@ -1,22 +1,29 @@
-## What is RP2DAQ good for
+## RP2DAQ - Raspberry Pi Pico for Data Acquisition (and much more)
 
 *Making the Raspberry Pi Pico module a universal $5 peripheral for data acquisition and generic laboratory automation.*
 
 ### Rationale:
-I have finished several projects where computer (Python script) controlled Raspberry Pi Pico (C firmware) to make stepping motors turn, ADC measure voltage, PWM move servos etc. Then I realized that most of the firmware is reused among these projects. So I merged all relevant firmware functions into this *rp2daq* package. 
+There are numerous projects online where computer (Python script) uses a Raspberry Pi Pico (with C firmware) as an interface to measure voltage like an oscilloscope, monitor temperature and humidity sensors, make stepping motors or servos turn etc. However, adapting such projects for practical tasks may still require a lot of programming experience and effort. 
 
-Once flashed with the firmware supplied below, Raspberry Pi Pico (usually) requires no further firmware compilation nor modification. Its behaviour will be fully defined by the Python script in the computer. This makes deployment of a new experiment as easy as possible.
+This project aims to provide one pre-compiled firmware, the behaviour of which is defined from a Python script in the computer. This makes its deployment as easy as possible, still the full speed of C-compiled routines is maintained.
 
-This document also gives several suggestions on electrical design, see below.
+**Work under progress. Not ready enough to be recommended for practical use yet. I need this for my work, too, so stay tuned.**
 
-**Work under progress. Not ready enough to be recommended.**
+## Work under progress - ROADMAP
 
-When finished: Primarily intended for my own projects at work, but may be useful for others as a starter whenever computer control of electronics is needed. Feel free to fork it, but no warranty is provided.
-
-
- * Merging my projects: **not finished** yet,
- * Basic features: implemented,
- * Documentation: missing (except for comments in code)
+ * Basic features: 
+    * [ ] async message communication
+    * [ ] fresh rewritten stepper control
+    * [ ] analog pin direct read
+	* [ ] digital pin input/output
+ * Documentation:
+    * [ ] No programming: setting up hardware and first tests
+    * [ ] Python programming: basic concepts and examples
+    * [ ] C programming: extending rp2daq's capabilities
+    * [ ] Presumably asked questions
+ * Advanced features
+    * [ ] second core for time-critical tasks
+    * [ ] o/c @250 MHz
 
 ## Getting it work
 
@@ -25,21 +32,20 @@ The bare minimum to start is
 
  * Raspberry Pi Pico ($5),
  * USB micro cable ($3),
- * a computer with with Python3 installed.
+ * a computer with with Python3 and ```python-pyserial``` package installed.
 	* On Windows, [get anaconda](https://docs.anaconda.com/anaconda/install/windows/) if unsure.
-	* On Linux, Python3 should be pre-installed; make sure you also have the ```python-pyserial``` package.
+	* On Linux, Python3 should already be there
 
-### Uploading the firmware to Raspberry
+### Uploading the firmware to Raspberry once
 
-This classical procedure has to be done only once (unless you decided to extend the firmware capabilities, see the *Development* section below).
+Follow the classical procedure:
 
- 1. Download the ()firmware: rp2daq.uf2 ```TODO```
- 1. Hold the ```BOOTSEL``` switch on your Raspberry and connect it with USB to computer.
- 1. A new USB storage medium should appear. Release the ```BOOTSEL``` switch.
- 1. Copy rp2daq.uf2 to the medium.
- 1. After few seconds, the USB storage should disappear. 
+ 1. Download the pre-compiled firmware: [rp2daq.ino.uf2](./rp2daq.ino.uf2) 
+ 1. Hold the ```BOOTSEL``` switch on your Raspberry and connect it with micro-USB cable to your computer.
+ 1. A new USB storage medium should appear, containing INDEX.HTM and INFO_UF2.TXT. Release the ```BOOTSEL``` switch.
+ 1. Copy rp2daq.ino.uf2 to the medium.
 
-After writing the firmware to the flash memory, the raspberry will no more behave as storage, but will listen to the messages sent over virtual serial port. Let's try it.
+After few seconds, the USB storage should disappear. Your RP2 becomes accessible for any program as a new COM/ttyACM port.  Let's try it.
 
 ### Simplest test of rp2daq
 
@@ -48,60 +54,47 @@ Download the rp2daq.py module and save it to the folder where your project will 
 Create a new file with the following content:
 
 ```python
-import rp2daq							# wrapper around the low-level binary communication
-rp2daq.init_error_msgbox()				# facilitates reading of possible error message
+import rp2daq                            # wrapper around the low-level binary communication
+rp2daq.init_error_msgbox()                # facilitates reading of possible error message
 
-rp2 = rp2daq.Rp2daq()					# initialize communication (with the RP2DAQ device found)
+rp2 = rp2daq.Rp2daq()                    # initialize communication (with the RP2DAQ device found)
 
-response = rp2.identify()				# ask the device for a short message  +  make its LED blink
-print(response)					
+response = rp2.identify()                # ask the device for a short message  +  make its LED blink
+print(response)                    
 
-import tkinter							
-tkinter.messagebox.showinfo(response)	# show the message in a clickable window
+import tkinter                            
+tkinter.messagebox.showinfo(response)    # show the message in a clickable window
 ```
 
 Run this code. (If you are not familiar with the python scripting, find some nice tutorial online.) 
 
-If everything is OK, a message box should appear showing the 30-byte identification string of your device. You can proceed to the *Quick overview of software features*. 
+If everything is OK, a message box should appear showing the 30-byte identification string of your device. 
 
-If there is an error, check troubleshooting.
-
-### Troubleshooting
-
- * ImportError: No module named serial
-	* get the ```python-pyserial``` module
- * Script reports device not found
-	* Does the LED shortly blink after connected to computer? If not, flashing went wrong (repeat it). Can there be cable problem (replace it).
-	* Can you see a new device with VID:PID = "2e8a:0005 MicroPython Board in FS mode" appear when you connect it?
-	* TODO elaborate solutions
- * Rp2daq device is found and responds to the ```identify()``` command, but some other behaviour is weird
-	* This is probably error in the firmware, feel free to open an issue, copying full working copy of the troublesome code.
- * Stepper motor randomly "forgets" its position and behaves as if its end switch has triggered
-	* There is too much noise in the end switch cable. Try shielding it, or add a 10nF parallel capacitance to the switch.  
+NOT FINISHED YET: You can proceed to the *Quick overview of software features*.  If there is an error, check troubleshooting.
 
 
 ## Quick overview of software features
 
- * implemented & tested
+ * implemented & tested 
+ * under development
 	 * identification message
 	 * stepper motor (using Stepstick - A4988) with end-stop support
- * under development
 	 * digital pin input/output
 	 * voltage measurement (internal 12-bit 500kSps ADC) with oversampling and burst capability
 	 * pulse width modulation (built-in PWM in RP2)
  * planned
-	 * analog voltage output (precise external DAC with TDA1543 dual 192kHz 16-bit DACs; multichannel I2S protocol implemented in software)
-	 * precise external ADC (TBA, 16-bit, 100s kSps)
-	 * fast external ADC/DAC (using built-in PIO, e.g. AD9708ARZ? 8-Bit 100MSps)
-	 * TCD1304 (linear charge-coupled light sensor)
-	 * user-defined data storage in flash memory unused by firmware 
-	 * digital control for scanning tunneling microscope
+	* medium-speed external ADCs (e.g. [AD7685](https://www.analog.com/en/products/ad7685.html#product-overview) through I2C/SPI, 16-bit, 250 kSps)
+        * burst mode with optional programmable delay
+        * optional synchronized ICG/φM/SH driving signals for [TCD1304](https://pdf1.alldatasheet.com/datasheet-pdf/view/32197/TOSHIBA/TCD1304AP.html) (linear charge-coupled light sensor)
+	* medium-speed external DACs (through I2S, e.g. [TDA1543](http://www.docethifi.com/TDA1543_.PDF) dual 192kHz 16-bit DACs; multichannel I2S protocol implemented in software)
+	* user-defined data storage in flash memory unused by firmware 
  * considered, not planned in near future
-	 * PID regulation loop
-	 * lock-in detection of synchronous weak signal
-	 * frequency generator/counter using RP2's PIO (up to 125MHz crystal-controlled square wave)
-	 * I2C, RS232 and GPIB interfaces
-	 * *obsolete and removed:* PCM56P (bipolar 16bit DAC)
+	* built-in ramps and feedback loops for autonomous scanning (e.g. PID regulation, digital control of scanning tunneling microscope etc.)
+	* high-speed external ADC (i.e. oscilloscope, using built-in PIO 8-Bit 100MSps, e.g. AD9288)
+    * high-speed external DAC (i.e. direct digital synthesis, AD9708ARZ?)
+	* lock-in detection of synchronous weak signal
+	* I2C, RS232 and GPIB interfaces
+	* *obsolete and removed:* PCM56P (bipolar 16bit DAC)
 
 ### Potentially useful tips for additional electronics
 
@@ -115,6 +108,7 @@ If there is an error, check troubleshooting.
 ## Detailed technical information 
 ### Generally useful messages implemented:
  * CMD_MOVE_SYMBOL 1  // moves the stepper
+	nanospeed = 1 leads to  10000/16/256 = 2.44 steps per seconds, this is the minimum speed that can be directly set
  * CMD_GET_STEPPER_STATUS 3		// just report the current nanopos and status
 
 ### Mission-specific messages implemented:
