@@ -40,25 +40,6 @@ uint8_t piezo_scan_active = 0;
 /*}}}*/
 // == HARDWARE CONTROL PINS AND VARIABLES == {{{
 
-// Following code allows for flexible control of up to 256 stepper motors. Just add a new column to the following arrays. 
-// Note: using "nanopos" and "target_nanospeed" are essential for stepping speeds less than one microstep per cycle.
-
-#define MAX_STEPPER_COUNT 16
-                                       //  motor1  ...
-uint8_t stepper_dir_pin[MAX_STEPPER_COUNT]     ;
-uint8_t stepper_step_pin[MAX_STEPPER_COUNT]    ;
-uint8_t stepper_lowstop_pin[MAX_STEPPER_COUNT] ;
-uint8_t stepper_disable_pin[MAX_STEPPER_COUNT] ; // with Protoneer's CNC board: set to 12 for all motors 
-
-#define NANOPOS_AT_ENDSTOP  (uint32_t)(1<<31)
-#define NANOSTEP_PER_MICROSTEP  256  // maximum main loop cycles per step (higher value enables finer control of speed, but smaller range)
-uint8_t endstop_override[MAX_STEPPER_COUNT];	// current motor position 
-uint32_t nanopos[MAX_STEPPER_COUNT];	// current motor position 
-uint32_t target_nanopos[MAX_STEPPER_COUNT]; // set from the computer; (zero usually corresponds to the lower end switch)
-uint32_t target_nanospeed[MAX_STEPPER_COUNT]  ; // set from the computer; always ensure that 0 < target_nanospeed < NANOSTEP_PER_MICROSTEP 
-uint32_t motor_inertia_coef[MAX_STEPPER_COUNT];		 // smooth ramp-up and ramp-down of motor speed 
-
-uint32_t initial_nanopos[MAX_STEPPER_COUNT]   = {0}; // used for smooth speed control
 //uint8_t auto_motor_turnoff[MAX_STEPPER_COUNT] = {0}; // if set to 1, the motor "disable" pin will be set when not moving
 //uint8_t was_at_end_switch[MAX_STEPPER_COUNT] = {0};
 
