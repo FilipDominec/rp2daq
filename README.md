@@ -53,8 +53,6 @@ Download the rp2daq.py module and save it to the folder where your project will 
 
 Create a new file with the following content:
 
-| Italic             |  Block letters |
-:-------------------------:|:-------------------------:
 ```python
 import rp2daq                            # wrapper around the low-level binary communication
 rp2daq.init_error_msgbox()                # facilitates reading of possible error message
