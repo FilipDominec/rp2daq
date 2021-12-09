@@ -64,7 +64,7 @@ print(response)
 
 import tkinter                            
 tkinter.messagebox.showinfo(response)    # show the message in a clickable window
-``` | ```aaoeeeouao eauo euao eu``` )
+```
 
 Run this code. (If you are not familiar with the python scripting, find some nice tutorial online.) 
 
