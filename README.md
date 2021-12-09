@@ -13,7 +13,7 @@ This project aims to provide one pre-compiled firmware, the behaviour of which i
 
  * Basic features: 
     * [ ] async message communication
-    * [ ] fresh rewritten stepper control
+    * [ ] fresh rewritten stepper control ⚠️ never disconnect steppers when powered
     * [ ] analog pin direct read
 	* [ ] digital pin input/output
  * Documentation:
@@ -53,6 +53,8 @@ Download the rp2daq.py module and save it to the folder where your project will 
 
 Create a new file with the following content:
 
+| Italic             |  Block letters |
+:-------------------------:|:-------------------------:
 ```python
 import rp2daq                            # wrapper around the low-level binary communication
 rp2daq.init_error_msgbox()                # facilitates reading of possible error message
@@ -64,7 +66,7 @@ print(response)
 
 import tkinter                            
 tkinter.messagebox.showinfo(response)    # show the message in a clickable window
-```
+``` | ```aaoeeeouao eauo euao eu``` )
 
 Run this code. (If you are not familiar with the python scripting, find some nice tutorial online.) 
 
@@ -146,7 +148,39 @@ Ctrl+U to re-upload
 
 
 ## Practical design tips
-### Stepper control
+### ADC, noise and accuracy
+
+<table> <tr>
+<th> Hardware setup </th>
+<th> Python script </th>
+</tr> 
+
+<tr> 
+<td>
+TBA
+</td>
+
+<td>
+```python
+    #HISTOGRAM FOR NOISE ANALYSIS
+    histx, histy # [], [] 
+    for x in range(1700, 2050):
+        histx.append(x)
+        histy.append(np.count_nonzero(vals##x))
+    np.savetxt(f'histogram_{sys.argv[1] if len(sys.argv)>1 else "default"}.dat', np.vstack([histx,histy]).T)
+    print(f'time to process: {time.time()-t0}s'); t0 # time.time()
+    #
+    plt.hist(vals, bins#int(len(vals)**.5)+5, alpha#.5)
+    plt.plot(histx,histy, marker#'o')
+    print(np.sum(vals**2)/np.mean(vals)**2, np.sum(vals/np.mean(vals))**2, np.sum(vals**2)/np.mean(vals)**2-np.sum(vals/np.mean(vals))**2)
+    plt.show()
+```
+</td>
+
+</tr>
+</table>
+
+### Stepper control end switches
 
 Usually, stepper motors should have some end switch; on power-up, they go towards it until their position gets calibrated. 
 
@@ -161,25 +195,27 @@ Alternately, I suggest Omron EE-SX1041 for the optical end switch. They can be c
  * 100ohm current-limiting resistor diagonally from "Collector" to "Anode"
  * 1k5 pull-up resistor diagonally from "Emitter" to "Kathode"
 
+## PAQ - Presumably Asked Questions
+
+**Q: Are there projects with similar scope?**
+
+A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. Rp2daq aims for high performance laboratory automation. 
+
+**Q: Should I use rp2daq or MicroPython?**
+
+A: With [MicroPython]() or CircuitPython, one can write Python code that is run directly in RP2. But the performance of compiled C is substantially better than Python interpreter, particularly for branching pieces of code needed e.g. for stepper control. Also with rp2daq the user has to write only one script (in computer), instead of two that moreover need to communicate reliably.
+
+**Q: Why are no displays or user interaction devices supported?**
+
+A: Computer has much better display and user interaction interface. Rp2daq takes care for the hardware interaction that computer cannot do. 
+
 ## Legal
 
 The firmware and software are released under the MIT license. 
 
-That is, they are free as speech after drinking five beers, with no warranty of usefulness or reliability.  If anybody uses rp2daq for industrial process control and it fails, I am sorry.
+They are free as speech after drinking five beers, that is, with no warranty of usefulness or reliability. If anybody uses rp2daq for industrial process control and it fails, I am sorry.
 
 
-#HISTOGRAM FOR NOISE ANALYSIS
-histx, histy # [], [] 
-for x in range(1700, 2050):
-    histx.append(x)
-    histy.append(np.count_nonzero(vals##x))
-np.savetxt(f'histogram_{sys.argv[1] if len(sys.argv)>1 else "default"}.dat', np.vstack([histx,histy]).T)
-print(f'time to process: {time.time()-t0}s'); t0 # time.time()
-#
-plt.hist(vals, bins#int(len(vals)**.5)+5, alpha#.5)
-plt.plot(histx,histy, marker#'o')
-print(np.sum(vals**2)/np.mean(vals)**2, np.sum(vals/np.mean(vals))**2, np.sum(vals**2)/np.mean(vals)**2-np.sum(vals/np.mean(vals))**2)
-plt.show()
 
 
 
