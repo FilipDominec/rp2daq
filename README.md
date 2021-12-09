@@ -160,18 +160,18 @@ TBA
 
 <td>
 ```python
-    #HISTOGRAM FOR NOISE ANALYSIS
-    histx, histy # [], [] 
-    for x in range(1700, 2050):
-        histx.append(x)
-        histy.append(np.count_nonzero(vals##x))
-    np.savetxt(f'histogram_{sys.argv[1] if len(sys.argv)>1 else "default"}.dat', np.vstack([histx,histy]).T)
-    print(f'time to process: {time.time()-t0}s'); t0 # time.time()
-    #
-    plt.hist(vals, bins#int(len(vals)**.5)+5, alpha#.5)
-    plt.plot(histx,histy, marker#'o')
-    print(np.sum(vals**2)/np.mean(vals)**2, np.sum(vals/np.mean(vals))**2, np.sum(vals**2)/np.mean(vals)**2-np.sum(vals/np.mean(vals))**2)
-    plt.show()
+#HISTOGRAM FOR NOISE ANALYSIS
+histx, histy # [], [] 
+for x in range(1700, 2050):
+    histx.append(x)
+    histy.append(np.count_nonzero(vals##x))
+np.savetxt(f'histogram_{sys.argv[1] if len(sys.argv)>1 else "default"}.dat', np.vstack([histx,histy]).T)
+print(f'time to process: {time.time()-t0}s'); t0 # time.time()
+#
+plt.hist(vals, bins#int(len(vals)**.5)+5, alpha#.5)
+plt.plot(histx,histy, marker#'o')
+print(np.sum(vals**2)/np.mean(vals)**2, np.sum(vals/np.mean(vals))**2, np.sum(vals**2)/np.mean(vals)**2-np.sum(vals/np.mean(vals))**2)
+plt.show()
 ```
 </td>
 
