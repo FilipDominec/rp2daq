@@ -178,7 +178,8 @@ plt.show()
 </tr>
 </table>
 
-### Stepper control end switches
+
+### Stepper control and end switches
 
 Usually, stepper motors should have some end switch; on power-up, they go towards it until their position gets calibrated. 
 
@@ -197,23 +198,27 @@ Alternately, I suggest Omron EE-SX1041 for the optical end switch. They can be c
 
 **Q: Are there projects with similar scope?**
 
-A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. Rp2daq aims for high performance laboratory automation. 
+A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. RP2DAQ aims for high performance laboratory automation. 
 
-**Q: Should I use rp2daq or MicroPython?**
+**Q: How does RP2DAQ compare to writing MicroPython scripts directly on RP2?**
 
-A: With [MicroPython]() or CircuitPython, one can write Python code that is run directly in RP2. But the performance of compiled C is substantially better than Python interpreter, particularly for branching pieces of code needed e.g. for stepper control. Also with rp2daq the user has to write only one script (in computer), instead of two that moreover need to communicate reliably.
+A: Fundamentally, but use cases may overlap. [MicroPython](https://github.com/micropython/micropython) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice if a stand-alone device is designed and if speed of code execution is not critical. There are many libraries that facilitate development in MicroPython. 
+
+In contrast RP2DAQ provides assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
+
+**Q: Does RP2DAQ help communicating with scientific instruments, e.g. connected over GPIB/VISA?**
+
+A: This is outside of RP2DAQ's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, in less demanding use cases it could substitute some commercial instruments. 
 
 **Q: Why are no displays or user interaction devices supported?**
 
-A: Computer has much better display and user interaction interface. Rp2daq takes care for the hardware interaction that computer cannot do. 
+A: The Python script is provided a very good display and user interaction interface, that is, your computer. RP2DAQ only takes care for the hardware interaction that computer cannot do. 
 
 ## Legal
 
 The firmware and software are released under the MIT license. 
 
-They are free as speech after drinking five beers, that is, with no warranty of usefulness or reliability. If anybody uses rp2daq for industrial process control and it fails, I am sorry.
-
-
+They are free as speech after drinking five beers, that is, with no warranty of usefulness or reliability. RP2DAQ cannot be recommended for industrial process control.
 
 
 
