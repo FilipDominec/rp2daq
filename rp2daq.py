@@ -99,12 +99,12 @@ class Rp2daq():
 
             if required_device_tag and raw[12:20] != required_device_tag:
                 if verbose: 
-                    print(f"found an rp2daq device, but its ID {raw[6:14].hex(':')} does not match " + 
+                    print(f"found an rp2daq device, but its ID {raw[12:20].hex(':')} does not match " + 
                             f"required {required_device_tag.hex(':')}")
                 del(self.port)
                 continue
 
-            print(f"Connected to rp2daq device with manufacturer ID = {raw[6:14].hex(':')}")
+            print(f"Connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
             return # succesful init of the port with desired device
 
         # if select_device_tag=None

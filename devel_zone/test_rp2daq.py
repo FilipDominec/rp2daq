@@ -5,6 +5,8 @@
 
 Module dependencies: tkinter, serial, struct
 
+from ...modulex import y
+
 """
 
 # TODO keyboard shortcuts; most
@@ -14,16 +16,21 @@ Module dependencies: tkinter, serial, struct
 # TODO TEST NEW FEATURES 2021-01-08
 
 
+
 import sys, os, time
+
 sys.path.append('..')  # DEVEL this is a trick to import a local module from updir
-import rp2daq 
+import rp2daq    # could once look like:   from ...rp2daq import Rp2daq
+
+
+
 import tkinter as tk
 
 
 #rp2daq.init_error_msgbox()
 #quit()
 
-settings = rp2daq.init_settings()
+#settings = rp2daq.init_settings()
 
 
 hw = rp2daq.Rp2daq(required_device_tag = None, required_firmware_version=0, verbose=True)  #  'e6:60:58:38:83:48:89:2d'
@@ -94,7 +101,7 @@ def vmotor(choice):
     if choice == 'reset': 
         target_micropos = float('-inf')
     else:
-        target_micropos = int(settings['vpos_'+choice])
+        target_micropos = 3000;  # int(settings['vpos_'+choice])
     #values = struct.pack(r'<BBii', CMD_MOVE_SYMBOL, VERT_MOTOR_ID, target_micropos*NANOSTEP_PER_MICROSTEP, 64)
     #port.write(values)
     print('VMOTOR', target_micropos)

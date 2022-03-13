@@ -1,8 +1,8 @@
-## RP2DAQ - Raspberry Pi Pico for Data Acquisition (and much more)
+# RP2DAQ - Raspberry Pi Pico for Data Acquisition (and much more)
 
 *Making the Raspberry Pi Pico module a universal $5 peripheral for data acquisition and generic laboratory automation.*
 
-### Rationale:
+## Rationale:
 There are numerous projects online where computer (Python script) uses a Raspberry Pi Pico (with C firmware) as an interface to measure voltage like an oscilloscope, monitor temperature and humidity sensors, make stepping motors or servos turn etc. However, adapting such projects for practical tasks may still require a lot of programming experience and effort. 
 
 This project aims to provide one pre-compiled firmware, the behaviour of which is defined from a Python script in the computer. This makes its deployment as easy as possible, still the full speed of C-compiled routines is maintained.
@@ -22,8 +22,8 @@ This project aims to provide one pre-compiled firmware, the behaviour of which i
     * [ ] C programming: extending rp2daq's capabilities
     * [ ] Presumably asked questions
  * Advanced features
-    * [ ] second core for time-critical tasks
-    * [ ] o/c @250 MHz
+    * [x] second core for time-critical tasks
+    * [x] o/c @250 MHz
 
 ## Getting it work
 
@@ -40,8 +40,8 @@ The bare minimum to start is
 
 Follow the classical procedure:
 
- 1. Download the pre-compiled firmware: [rp2daq.ino.uf2](./rp2daq.ino.uf2) 
- 1. Hold the ```BOOTSEL``` switch on your Raspberry and connect it with micro-USB cable to your computer.
+ 1. Download the pre-compiled firmware: [build/rp2daq.uf2](build/rp2daq.uf2) 
+ 1. Hold the ```BOOTSEL``` switch on your Raspberry Pi Pico and connect it with micro-USB cable to your computer.
  1. A new USB storage medium should appear, containing INDEX.HTM and INFO_UF2.TXT. Release the ```BOOTSEL``` switch.
  1. Copy rp2daq.ino.uf2 to the medium.
 
@@ -77,142 +77,86 @@ NOT FINISHED YET: You can proceed to the *Quick overview of software features*. 
 
  * implemented & tested 
  * under development
-	 * identification message
-	 * stepper motor (using Stepstick - A4988) with end-stop support
-	 * digital pin input/output
-	 * voltage measurement (internal 12-bit 500kSps ADC) with oversampling and burst capability
-	 * pulse width modulation (built-in PWM in RP2)
- * planned
-	* medium-speed external ADCs (e.g. [AD7685](https://www.analog.com/en/products/ad7685.html#product-overview) through I2C/SPI, 16-bit, 250 kSps)
-        * burst mode with optional programmable delay
-        * optional synchronized ICG/φM/SH driving signals for [TCD1304](https://pdf1.alldatasheet.com/datasheet-pdf/view/32197/TOSHIBA/TCD1304AP.html) (linear charge-coupled light sensor)
-	* medium-speed external DACs (through I2S, e.g. [TDA1543](http://www.docethifi.com/TDA1543_.PDF) dual 192kHz 16-bit DACs; multichannel I2S protocol implemented in software)
-	* user-defined data storage in flash memory unused by firmware 
+	 * [ ] identification message
+	 * [ ] voltage measurement (internal 12-bit 500kSPS ADC) 
+        * [ ] additionally, with lookup-table calibration, oversampling and burst capability
+	 * [ ] stepper motor (using Stepstick - A4988) with end-stop support
+	 * [ ] digital pin input/output
+	 * [ ] pulse width modulation (built-in PWM in RP2)
+        * [ ] wform generator using DMA channel, along https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
+ * planned to be added
+    * [ ] high-frequency generator (direct ```clock_gpio_init``` on pins )
+    * [ ] inbuilt frequency counter and accurate timer,
+	* [ ] arbitrary I2C, 1wire etc. interfaces 
+        * [ ] examples of their use for several popular sensors like DHT22/AM2320 temp/humi meters, ADXL345 accelmeter, HC_SR04 rangefinder ...
+        * [ ] medium-speed external ADCs (e.g. [AD7685](https://www.analog.com/en/products/ad7685.html#product-overview) through I2C/SPI, 16-bit, 250 kSPS)
+        * [ ] burst mode (like internal ADC), with optional programmable delay
+        * [ ] optional synchronized ICG/φM/SH driving signals for [TCD1304](https://pdf1.alldatasheet.com/datasheet-pdf/view/32197/TOSHIBA/TCD1304AP.html) (linear charge-coupled light sensor)
+        * [ ] medium-speed external DACs (through I2S, e.g. [TDA1543](http://www.docethifi.com/TDA1543_.PDF) dual 192kHz 16-bit DACs; multichannel I2S protocol implemented in software)
+        * [ ] I2S input (e.g. from INMP441, MSM261S4030H0 or SPH0645 digital microphones)
+	* [ ] user-defined data storage in flash memory unused by firmware 
+	* [ ] high-speed external ADC (i.e. oscilloscope, using built-in PIO 8-Bit 100MSps, e.g. AD9288-100)
  * considered, not planned in near future
-	* built-in ramps and feedback loops for autonomous scanning (e.g. PID regulation, digital control of scanning tunneling microscope etc.)
-	* high-speed external ADC (i.e. oscilloscope, using built-in PIO 8-Bit 100MSps, e.g. AD9288)
-    * high-speed external DAC (i.e. direct digital synthesis, AD9708ARZ?)
-	* lock-in detection of synchronous weak signal
-	* I2C, RS232 and GPIB interfaces
-	* *obsolete and removed:* PCM56P (bipolar 16bit DAC)
-
-### Potentially useful tips for additional electronics
-
- * planned
-	 * notes on using photodiodes
-	 * passive smoothing of PWM signal to get (slow) analog output
-	 * high-efficiency voltage-controlled power supply (0-30 V with LM2596)
-	 * ultra-low current measurement with (custom logarithmic pre-amp with 10fA-10μA range)
-	 * suggested modular design for modules
-
-## Detailed technical information 
-### Generally useful messages implemented:
- * CMD_MOVE_SYMBOL 1  // moves the stepper
-	nanospeed = 1 leads to  10000/16/256 = 2.44 steps per seconds, this is the minimum speed that can be directly set
- * CMD_GET_STEPPER_STATUS 3		// just report the current nanopos and status
-
-### Mission-specific messages implemented:
-
- * CMD_APPROACH 2		// safely approach the sample to the STM tip, using both stepper and piezo
- * CMD_GET_STM_STATUS 4		// just report the current nanopos and status
- * CMD_SET_PIEZO  9		// set a concrete position on the piezo
- * CMD_LINESCAN 10
-
- * CMD_SET_PWM 20
- * CMD_INIT_PWM 21 
-
-### Extending the firmware capabilities
-
-In most simple cases, the firmware can do the job as is. But in more specific applications, where a new functionality, some communication protocol or tight timing is required, you may want to fork this project and modify the firmware to your needs. 
-
-Developing firmware for Raspberry Pi is documented on many websites online. In short, the procedure we use for this project is this:
-
- 1. connect the rp2 to your computer using USB
- 1. [download and unpack Arduino studio](https://www.tecmint.com/install-arduino-ide-on-linux/) and run it,
- 1. set up Arduino studio compile for RP2: 
-    1. add the ``` ??? ``` link to the menu *File* -> *Preferences* -> Additional Boards Manager 
-	1. in menu: *Tools* -> *Board*, click *Boards manager*, search for ```pico```, select "Raspberry Pi pico/RP2040 by E A Philhower" ... and click *Install* (it takes up some 430 MB)
-	1. select *Tools* -> *Board -> *Raspberry Pi RP2040 Boards* -> *Raspberry Pi pico* (...the first one)
-	1. select *Tools* -> *Menu* -> *USB Stack* -> *Adafruit TinyUSB*
-	1. select *Tools* -> *Port*, select the appropriate port 
-    1. other default options seem to be OK
- 1. open and upload ```rp2daq.ino``` into the module, 
- 1. adapt one of the examples in Python 
- 1. if the Python script fails to find the COM* port on Windows
-		
-
-Ctrl+U to re-upload 
+    * [ ] fast & autonomous pipe-lining infrastructure (all tasks can actually be some pipe elements) 
+        * pipeline sources: USB message received, task finished, periodic timer, digital pin trigger, numeric ramp generator
+        * pipeline operators: moving average, pairwise lock-in detection of interlaced signals, Kálmán filter, PID regulator, boxcar, multichannel pulse histogram, ...
+        * pipeline ends: USB data transmit, setting PWM, transmit I2S 
+    * [ ] high-speed external DAC (+ support for direct digital synthesis, AD9708ARZ?)
+	* [ ] SCCB support for cameras like OV2640
 
 
+### Extending and compiling the firmware
 
-## Practical design tips
-### ADC, noise and accuracy
+While the basic use of RP2DAQ is to upload the [pre-compiled firmware](build/rp2daq.uf2) once and then write Python scripts only, it can be modified if needed.
+* We will appreciate your contributions if you decide to share them back. You can first discuss your needs and plans on the issues page.
+* RP2DAQ can also serve as a convenient "boilerplate" for your own projects. We try to keep the code base readable and reasonably short.
 
-<table> <tr>
-<th> Hardware setup </th>
-<th> Python script </th>
-</tr> 
+More information on compilation procedures and code structure is in the [developers page](DEVELOPERS.md).
 
-<tr> 
-<td>
-TBA
-</td>
+## Resources used
 
-<td>
-```python
-#HISTOGRAM FOR NOISE ANALYSIS
-histx, histy # [], [] 
-for x in range(1700, 2050):
-    histx.append(x)
-    histy.append(np.count_nonzero(vals##x))
-np.savetxt(f'histogram_{sys.argv[1] if len(sys.argv)>1 else "default"}.dat', np.vstack([histx,histy]).T)
-print(f'time to process: {time.time()-t0}s'); t0 # time.time()
-#
-plt.hist(vals, bins#int(len(vals)**.5)+5, alpha#.5)
-plt.plot(histx,histy, marker#'o')
-print(np.sum(vals**2)/np.mean(vals)**2, np.sum(vals/np.mean(vals))**2, np.sum(vals**2)/np.mean(vals)**2-np.sum(vals/np.mean(vals))**2)
-plt.show()
-```
-</td>
-
-</tr>
-</table>
-
-
-### Stepper control and end switches
-
-Usually, stepper motors should have some end switch; on power-up, they go towards it until their position gets calibrated. 
-
-Mechanical switches are fine in most cases. Upon initialization, you can freely chose an unused pin on RP2 to be the ```endswitch```. Connect it so that the switch shorts this pin to ground at end position.
-
-Alternately, I suggest Omron EE-SX1041 for the optical end switch. They can be connected by 3 wires, and complemented by two resistors to behave analogous to a mechanical end switch
-(i.e. to drop voltage at end stop): 
-
- * +3.3V (red wire) on "Collector" pin, 
- * ground (green wire) on "Kathode" pin close to the "1041" marking, 
- * sensing (yellow wire) on "Emitter" pin, 
- * 100ohm current-limiting resistor diagonally from "Collector" to "Anode"
- * 1k5 pull-up resistor diagonally from "Emitter" to "Kathode"
+* Concepts and parts of code
+    * https://github.com/MrYsLab/Telemetrix4RpiPico
+    * https://docs.tinyusb.org/en/latest/reference/index.html
+* Official documentation & examples
+    * https://www.raspberrypi.com/documentation/microcontrollers/rp2040.html
+    * https://raspberrypi.github.io/pico-sdk-doxygen/index.html
+    * https://github.com/raspberrypi/pico-examples
+* Other useful articles online
+    * https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
 
 ## PAQ - Presumably Asked Questions
 
 **Q: Are there projects with similar scope?**
 
-A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. RP2DAQ aims for high performance laboratory automation. 
+A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. RP2DAQ aims for higher performance in laboratory automation. Parts of RP2DAQ code was thankfully "borrowed" from Telemetrix.
 
-**Q: How does RP2DAQ compare to writing MicroPython scripts directly on RP2?**
+**Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?**
 
-A: Fundamentally, but use cases may overlap. [MicroPython](https://github.com/micropython/micropython) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice if a stand-alone device is designed and if speed of code execution is not critical. There are many libraries that facilitate development in MicroPython. 
+A: Fundamentally, but use cases may overlap. [MicroPython](https://github.com/micropython/micropython) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
 
-In contrast RP2DAQ provides assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
+In contrast, RP2DAQ assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
+
+**Q: Is the use of RP2DAQ limited to Raspberry Pi Pico, or can it be transferred on other boards with RP2040 chip?**
+
+A: Not tested. Most, if not all, of the functionality should be available, but the pin definitions would probably change. 
+
+**Q: Does RP2DAQ implement all functions available by the Raspberry Pico SDK?**
+
+A: By far not and it is not even its scope. RP2DAQ's features make a higher layer above (a subset) of the SDK functions.
+
 
 **Q: Does RP2DAQ help communicating with scientific instruments, e.g. connected over GPIB/VISA?**
 
-A: This is outside of RP2DAQ's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, in less demanding use cases it could substitute some commercial instruments. 
+A: This is outside of RP2DAQ's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, capabilities of RP2 could substitute some commercial instruments in less demanding use cases. 
 
 **Q: Why are no displays or user interaction devices supported?**
 
-A: The Python script is provided a very good display and user interaction interface, that is, your computer. RP2DAQ only takes care for the hardware interaction that computer cannot do. 
+A: The Python script in your computer has a very good display and user interaction interface. RP2DAQ only takes care for the hardware interaction that computer cannot do. 
+
+**Q: Can RP2DAQ control unipolar stepper motors using ULN2003?**
+
+A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A4988 modules, with better accuracy and efficiency than provided by ULN2003. 
 
 ## Legal
 
