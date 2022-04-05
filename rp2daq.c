@@ -56,10 +56,10 @@ void internal_adc() {
 	} * args = (void*)(command_buffer+1);
 
 		gpio_put(DEBUG_PIN, 1); 
+	internal_adc_config.channel_mask = args->channel_mask; 
 	internal_adc_config.blocksize = args->blocksize; // TODO blocksize; 
-	internal_adc_config.blockcount = args->blockcount; // TODO blocksize; 
+	internal_adc_config.blockcount = args->blockcount - 1; // TODO blocksize; 
 	internal_adc_config.clkdiv = args->clkdiv; 
-	//ADC_MASK = channel_mask; 
 	iADC_DMA_start(); 
 
 		gpio_put(DEBUG_PIN, 0);

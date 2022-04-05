@@ -11,8 +11,8 @@ internal_adc_config_t internal_adc_config;
 
 //volatile uint16_t internal_adc_configblocksize=1000; // TODO issues with channel swapping (bytes lost?) when 300+kSPS and depth~200
 volatile uint8_t ADC_MASK=(2+4+8+16); // bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor
-uint16_t iADC_buffer0[1024*8] = {0,0,9000,9000,9000,5000}; 
-uint16_t iADC_buffer1[1024*8] = {0,0,10000,8000,10000,10000}; 
+uint16_t iADC_buffer0[1024*16];
+uint16_t iADC_buffer1[1024*16];
 volatile uint8_t iADC_buffer_choice = 0;
 
 volatile uint8_t iADC_DMA_IRQ_triggered;
@@ -23,9 +23,9 @@ int iADC_DMA_chan;
 void iADC_DMA_start() {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
 	adc_run(false);				
-	adc_fifo_drain();
+	adc_fifo_drain(); // ??
 
-	adc_set_round_robin(ADC_MASK);
+	adc_set_round_robin(internal_adc_config.channel_mask);
 	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
 	//adc_set_clkdiv(96); // 96 -> full ADC speed at 500 kSPS
 	//adc_set_clkdiv(120); // 400kSPS 
@@ -36,8 +36,6 @@ void iADC_DMA_start() {
 	//adc_set_clkdiv(182); // 250kSPS 
 	//adc_set_clkdiv(96*4); // 125kSPS seems long-term safe against channel swapping
 	//adc_set_clkdiv(96*100); // 5kSPS for debug
-    //sleep_ms(2000); // TODO rm?
-
 
 	// Initiate non-blocking ADC run, instead of calling dma_channel_wait_for_finish_blocking()
 	dma_channel_configure(iADC_DMA_chan, &iADC_DMA_cfg,
@@ -62,24 +60,24 @@ void iADC_DMA_IRQ_handler() {
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 	iADC_DMA_IRQ_triggered = 1;			  // main loop on core0 will transmit data later
 	adc_run(false);
-	// TODO iADC_DMA_start();					  // start new acquisition
+    if (internal_adc_config.continued || internal_adc_config.blockcount--)
+	    iADC_DMA_start();					  // start new acquisition
 }
 
 
 void iADC_DMA_setup() { 
+    /// todo mv to DMA start
 	for (uint8_t ch=0; ch<4; ch++) { if (ADC_MASK & (1<<ch)) adc_gpio_init(26+ch); }
 	if (ADC_MASK & (1<<4)) adc_set_temp_sensor_enabled(true);
     adc_init();
 
-	
     adc_fifo_setup(
         true,    // Write each completed conversion to the sample FIFO
         true,    // Enable DMA data request (DREQ)
         1,       // DREQ (and IRQ) asserted when at least 1 sample present
         false,   // disable ERR bit
-        false    // keep each sample 12-bit
+        false    // don't trunc samples to 8-bit
     );
-
 	
     // Set up the DMA to start transferring data as soon as it appears in FIFO
     iADC_DMA_chan = dma_claim_unused_channel(true);
