@@ -25,26 +25,44 @@ void identify() {
 		uint8_t x,y;				
 	} * args = (void*)(command_buffer+1);
 
+		gpio_put(DEBUG2_PIN, 1); 
+
 	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
 	text[args->y] = args->x;
 	//args->ii+=1;
 	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
 	fwrite(text, sizeof(text)-1, 1, stdout);
 	fflush(stdout); 
+
+		gpio_put(DEBUG2_PIN, 0);
 }
 
 void internal_adc() {
-	struct { 
+	/*
+        1,  # msg length - 1
+        1,    # msg code XXX
+        #1+2+4+8,  # ch mask
+        #0,  # infi
+        #bs,  # bs 
+        #bc,  # bc
+        #cd,  # clkdiv
+		*/
+	struct __attribute__((packed)) {		// after msg_len and msg_code bytes, message parameters follow:
 		uint8_t channel_mask;		// default=1		min=0		max=31
 		uint8_t infinite;			// default=0		min=0		max=1
 		uint16_t blocksize;			// default=1000		min=1		max=2048
 		uint16_t blockcount;		// default=1		min=0		max=2048
 		uint16_t clkdiv;				// default=96		min=96		max=1000000
-	}  __attribute__((packed)) args_t;
-	//internal_adc_config.clkdiv = args.clkdiv; 
-	internal_adc_config.blocksize = 1000; // TODO blocksize; 
+	} * args = (void*)(command_buffer+1);
+
+		gpio_put(DEBUG_PIN, 1); 
+	internal_adc_config.blocksize = args->blocksize; // TODO blocksize; 
+	internal_adc_config.blockcount = args->blockcount; // TODO blocksize; 
+	internal_adc_config.clkdiv = args->clkdiv; 
 	//ADC_MASK = channel_mask; 
 	iADC_DMA_start(); 
+
+		gpio_put(DEBUG_PIN, 0);
 }
 
 
@@ -79,15 +97,17 @@ void get_next_command() {
             command_buffer[i] = packet_data;
         }
 
+
         // the first byte is the command ID.
         // look up the function and execute it.
         // data for the command starts at index 1 in the command_buffer
         command_entry = command_table[command_buffer[0]];
 
         // uncomment to see the command and first byte of data
-        //send_debug_info(command_buffer[0], command_buffer[1]);
+        //fwrite(command_buffer,1,2,stdout);
 
         command_entry.command_func();
+
     }
 }
 
@@ -125,22 +145,16 @@ int main() {
 
 		tight_loop_contents();
 
-		gpio_put(DEBUG_PIN, 1);
-		gpio_put(DEBUG_PIN, 0);
 		get_next_command();
 
 		if (iADC_DMA_IRQ_triggered) {
 			iADC_DMA_IRQ_triggered = 0;
-
-			gpio_put(DEBUG_PIN, 1);
 
 			// Notes: printf() is not for binary data; putc() is slow; puts() is disguised putc
 			// fwrite blocks code execution, but transmits >850 kBps (~limit of USB 1.1)
 			// for message length >50 B (or, if PC rejects data, fwrite returns in <40us)
 			fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
 			fflush(stdout); 
-			
-			gpio_put(DEBUG_PIN, 0);
 
 		}
 	}

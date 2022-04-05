@@ -1,10 +1,10 @@
 
 typedef struct { 
-	uint8_t clkdiv;				// default=96		min=96		max=1000000
 	uint8_t channel_mask;		// default=1		min=0		max=31
+	uint8_t continued;			// default=0		min=0		max=1
 	uint16_t blocksize;			// default=1000		min=1		max=2048
 	uint16_t blockcount;		// default=1		min=0		max=2048
-	uint8_t continued;			// default=0		min=0		max=1
+	uint16_t clkdiv;				// default=96		min=96		max=1000000
 } internal_adc_config_t;
 
 internal_adc_config_t internal_adc_config;
@@ -24,6 +24,19 @@ void iADC_DMA_start() {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
 	adc_run(false);				
 	adc_fifo_drain();
+
+	adc_set_round_robin(ADC_MASK);
+	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
+	//adc_set_clkdiv(96); // 96 -> full ADC speed at 500 kSPS
+	//adc_set_clkdiv(120); // 400kSPS 
+	//adc_set_clkdiv(125); // 384kSPS OK?
+	//adc_set_clkdiv(130); // 366kSPS OK
+	//adc_set_clkdiv(144); // 333kSPS ?
+	//adc_set_clkdiv(160); // 300kSPS 
+	//adc_set_clkdiv(182); // 250kSPS 
+	//adc_set_clkdiv(96*4); // 125kSPS seems long-term safe against channel swapping
+	//adc_set_clkdiv(96*100); // 5kSPS for debug
+    //sleep_ms(2000); // TODO rm?
 
 
 	// Initiate non-blocking ADC run, instead of calling dma_channel_wait_for_finish_blocking()
@@ -54,23 +67,11 @@ void iADC_DMA_IRQ_handler() {
 
 
 void iADC_DMA_setup() { 
-	
 	for (uint8_t ch=0; ch<4; ch++) { if (ADC_MASK & (1<<ch)) adc_gpio_init(26+ch); }
 	if (ADC_MASK & (1<<4)) adc_set_temp_sensor_enabled(true);
     adc_init();
-	adc_set_round_robin(ADC_MASK);
-	adc_set_clkdiv(96); // 96 -> full ADC speed at 500 kSPS
-	//adc_set_clkdiv(96); // 96 -> full ADC speed at 500 kSPS
-	//adc_set_clkdiv(120); // 400kSPS 
-	//adc_set_clkdiv(125); // 384kSPS OK?
-	//adc_set_clkdiv(130); // 366kSPS OK
-	//adc_set_clkdiv(144); // 333kSPS ?
-	//adc_set_clkdiv(160); // 300kSPS 
-	//adc_set_clkdiv(182); // 250kSPS 
-	//adc_set_clkdiv(96*4); // 125kSPS seems long-term safe against channel swapping
-	//adc_set_clkdiv(96*100); // 5kSPS for debug
-    //sleep_ms(2000); // TODO rm?
 
+	
     adc_fifo_setup(
         true,    // Write each completed conversion to the sample FIFO
         true,    // Enable DMA data request (DREQ)
