@@ -1,3 +1,6 @@
+#define DEBUG_PIN 4
+#define DEBUG2_PIN 5
+
 
 typedef struct { 
 	uint8_t channel_mask;		// default=1		min=0		max=31
@@ -10,7 +13,7 @@ typedef struct {
 internal_adc_config_t internal_adc_config;
 
 //volatile uint16_t internal_adc_configblocksize=1000; // TODO issues with channel swapping (bytes lost?) when 300+kSPS and depth~200
-volatile uint8_t ADC_MASK=(2+4+8+16); // bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor
+//volatile uint8_t ADC_MASK=(2+4+8+16); // bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor
 uint16_t iADC_buffer0[1024*16];
 uint16_t iADC_buffer1[1024*16];
 volatile uint8_t iADC_buffer_choice = 0;
@@ -22,8 +25,10 @@ int iADC_DMA_chan;
 
 void iADC_DMA_start() {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
+	//gpio_put(DEBUG_PIN, 1); 
 	adc_run(false);				
 	adc_fifo_drain(); // ??
+
 
 	adc_set_round_robin(internal_adc_config.channel_mask);
 	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
@@ -45,9 +50,9 @@ void iADC_DMA_start() {
 		true            // start immediately  (?)
 	);
 
-	// Forced ADC channel round-robin reset to the first enabled bit in ADC_MASK 
+	// Forced ADC channel round-robin reset to the first enabled bit in adc_mask 
 	uint8_t ADCch;
-	for (ADCch=0; (ADCch <= 4) && !(1<<ADCch & ADC_MASK); ADCch++) {};
+	for (ADCch=0; (ADCch <= 4) && !(1<<ADCch & internal_adc_config.channel_mask); ADCch++) {};
 	adc_select_input(ADCch);  // force ADC input channel
 	dma_channel_start(iADC_DMA_chan);
 
@@ -56,6 +61,7 @@ void iADC_DMA_start() {
 
 
 void iADC_DMA_IRQ_handler() {
+    //gpio_put(DEBUG_PIN, 0);
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 	iADC_DMA_IRQ_triggered = 1;			  // main loop on core0 will transmit data later
@@ -66,9 +72,13 @@ void iADC_DMA_IRQ_handler() {
 
 
 void iADC_DMA_setup() { 
+
     /// todo mv to DMA start
-	for (uint8_t ch=0; ch<4; ch++) { if (ADC_MASK & (1<<ch)) adc_gpio_init(26+ch); }
-	if (ADC_MASK & (1<<4)) adc_set_temp_sensor_enabled(true);
+	for (uint8_t ch=0; ch<4; ch++) {
+        if (internal_adc_config.channel_mask & (1<<ch)) 
+            adc_gpio_init(26+ch); 
+    }
+	if (internal_adc_config.channel_mask & (1<<4)) adc_set_temp_sensor_enabled(true);
     adc_init();
 
     adc_fifo_setup(

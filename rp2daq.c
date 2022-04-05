@@ -25,8 +25,6 @@ void identify() {
 		uint8_t x,y;				
 	} * args = (void*)(command_buffer+1);
 
-		gpio_put(DEBUG2_PIN, 1); 
-
 	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
 	text[args->y] = args->x;
 	//args->ii+=1;
@@ -34,7 +32,6 @@ void identify() {
 	fwrite(text, sizeof(text)-1, 1, stdout);
 	fflush(stdout); 
 
-		gpio_put(DEBUG2_PIN, 0);
 }
 
 void internal_adc() {
@@ -55,14 +52,12 @@ void internal_adc() {
 		uint16_t clkdiv;				// default=96		min=96		max=1000000
 	} * args = (void*)(command_buffer+1);
 
-		gpio_put(DEBUG_PIN, 1); 
 	internal_adc_config.channel_mask = args->channel_mask; 
 	internal_adc_config.blocksize = args->blocksize; // TODO blocksize; 
 	internal_adc_config.blockcount = args->blockcount - 1; // TODO blocksize; 
 	internal_adc_config.clkdiv = args->clkdiv; 
 	iADC_DMA_start(); 
 
-		gpio_put(DEBUG_PIN, 0);
 }
 
 
@@ -150,11 +145,13 @@ int main() {
 		if (iADC_DMA_IRQ_triggered) {
 			iADC_DMA_IRQ_triggered = 0;
 
+			//gpio_put(DEBUG2_PIN, 1); 
 			// Notes: printf() is not for binary data; putc() is slow; puts() is disguised putc
 			// fwrite blocks code execution, but transmits >850 kBps (~limit of USB 1.1)
 			// for message length >50 B (or, if PC rejects data, fwrite returns in <40us)
 			fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
 			fflush(stdout); 
+			//gpio_put(DEBUG2_PIN, 0); 
 
 		}
 	}
