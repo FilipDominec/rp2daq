@@ -9,9 +9,8 @@ typedef struct {
 
 internal_adc_config_t internal_adc_config;
 
-volatile uint16_t CAPTURE_DEPTH=1000; // TODO issues with channel swapping (bytes lost?) when 300+kSPS and depth~200
-volatile uint8_t ADC_MASK=(2+4+8+16); // 1,2,4 are GPIO26,27,28; 8 internal reference, 16 temperature sensor
-//volatile uint8_t ADC_MASK=(2); // 1,2,4 are GPIO26,27,28; 8 internal reference, 16 temperature sensor
+//volatile uint16_t internal_adc_configblocksize=1000; // TODO issues with channel swapping (bytes lost?) when 300+kSPS and depth~200
+volatile uint8_t ADC_MASK=(2+4+8+16); // bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor
 uint16_t iADC_buffer0[1024*8] = {0,0,9000,9000,9000,5000}; 
 uint16_t iADC_buffer1[1024*8] = {0,0,10000,8000,10000,10000}; 
 volatile uint8_t iADC_buffer_choice = 0;
@@ -31,7 +30,7 @@ void iADC_DMA_start() {
 	dma_channel_configure(iADC_DMA_chan, &iADC_DMA_cfg,
 		iADC_buffer_choice ? iADC_buffer1 : iADC_buffer0,    // dst
 		&adc_hw->fifo,  // src
-		CAPTURE_DEPTH,  // transfer count
+		internal_adc_config.blocksize,  // transfer count
 		true            // start immediately  (?)
 	);
 
@@ -50,7 +49,7 @@ void iADC_DMA_IRQ_handler() {
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 	iADC_DMA_IRQ_triggered = 1;			  // main loop on core0 will transmit data later
 	adc_run(false);
-	iADC_DMA_start();					  // start new acquisition
+	// TODO iADC_DMA_start();					  // start new acquisition
 }
 
 

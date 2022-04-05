@@ -33,20 +33,17 @@ void identify() {
 	fflush(stdout); 
 }
 
-struct { 
-	uint8_t clkdiv;				// default=96		min=96		max=1000000
-	uint8_t channel_mask;		// default=1		min=0		max=31
-	uint16_t blocksize;			// default=1000		min=1		max=2048
-	uint16_t blockcount;		// default=1		min=0		max=2048
-	uint8_t continued;			// default=0		min=0		max=1
-}  __attribute__((packed)) internal_adc_arguments_t;
 void internal_adc() {
-	typedef struct { 
-		uint8_t x;				
-		uint8_t y;		
-		uint8_t z;				
-	}  __attribute__((packed)) args_t; 
-	//internal_adc_config.clkdiv = args.clkdiv; TODO
+	struct { 
+		uint8_t channel_mask;		// default=1		min=0		max=31
+		uint8_t infinite;			// default=0		min=0		max=1
+		uint16_t blocksize;			// default=1000		min=1		max=2048
+		uint16_t blockcount;		// default=1		min=0		max=2048
+		uint16_t clkdiv;				// default=96		min=96		max=1000000
+	}  __attribute__((packed)) args_t;
+	//internal_adc_config.clkdiv = args.clkdiv; 
+	internal_adc_config.blocksize = 1000; // TODO blocksize; 
+	//ADC_MASK = channel_mask; 
 	iADC_DMA_start(); 
 }
 
@@ -140,7 +137,8 @@ int main() {
 			// Notes: printf() is not for binary data; putc() is slow; puts() is disguised putc
 			// fwrite blocks code execution, but transmits >850 kBps (~limit of USB 1.1)
 			// for message length >50 B (or, if PC rejects data, fwrite returns in <40us)
-			fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, CAPTURE_DEPTH, 2, stdout);
+			fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
+			fflush(stdout); 
 			
 			gpio_put(DEBUG_PIN, 0);
 
