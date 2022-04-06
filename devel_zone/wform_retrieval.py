@@ -11,10 +11,11 @@ num_ch = 4
 #bs, bc, cd = 4000,   2,   96*1 # OK, fills up both bufs
 #bs, bc, cd = 4000,   3,   96*1 # understandable: data rate trouble -> overwrites 1st buf
 #bs, bc, cd = 4000,   3,   96*5 # wrong: why, when it ADC is *a bit* slower than USB? And is it?
-bs, bc, cd = 4000,   3,   96*15 # OK: ADC is much slower than USB? Is it?
+bs, bc, cd = 4000,   40,  120  # still OK: 400ksps*16bit is approx the USB througput with default packet size 
+#bs, bc, cd = 4000,   40,  108  # will lose packets, USB is just too slow
 
 
-TAG = "1000" 
+TAG = "1002" 
 
 raw = struct.pack(r'<BBBBHHH', 
         10,  # msg length - 1
@@ -27,13 +28,13 @@ raw = struct.pack(r'<BBBBHHH',
         )
 port.write(raw)
 
-time.sleep(.2)
+time.sleep(.02)
 
 while True: 
     t0=time.time()
 
     bytesToRead = port.inWaiting() #port.read(bytesToRead) # test this?
-    if not bytesToRead and c>10: break
+    if not bytesToRead and c>250: break
     raw = port.read(bytesToRead)
     print(f"to read: {bytesToRead}")
 
@@ -44,7 +45,7 @@ while True:
     t1= time.time()
     tooktime = t1-t0
     #max01 = max(max01, raw[1]*256+raw[0])
-    time.sleep(0.1)
+    time.sleep(0.002)
 
     #print(f"LEN = {len(raw)} ", raw)
     #print(f"CUT = ", raw[4080:4160:4])
@@ -78,4 +79,6 @@ for ch in range(num_ch):
     print('ch', ch, ':', y[ch:30:num_ch], 'len', len(y[ch::num_ch]), '...')
     ax.plot(y[ch::num_ch], lw=.3, marker=',', c='rgbycm'[ch], label=f"channel {ch}")
 ax.legend()
-fig.savefig(f"output_{TAG}.png", bbox_inches='tight')
+
+plt.show()
+#fig.savefig(f"output_{TAG}.png", bbox_inches='tight')

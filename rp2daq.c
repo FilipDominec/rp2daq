@@ -145,13 +145,13 @@ int main() {
 		if (iADC_DMA_IRQ_triggered) {
 			iADC_DMA_IRQ_triggered = 0;
 
-			//gpio_put(DEBUG2_PIN, 1); 
+			gpio_put(DEBUG2_PIN, 1); 
 			// Notes: printf() is not for binary data; putc() is slow; puts() is disguised putc
 			// fwrite blocks code execution, but transmits >850 kBps (~limit of USB 1.1)
 			// for message length >50 B (or, if PC rejects data, fwrite returns in <40us)
 			fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
 			fflush(stdout); 
-			//gpio_put(DEBUG2_PIN, 0); 
+			gpio_put(DEBUG2_PIN, 0); 
 
 		}
 	}

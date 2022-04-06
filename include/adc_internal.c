@@ -25,7 +25,7 @@ int iADC_DMA_chan;
 
 void iADC_DMA_start() {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
-	//gpio_put(DEBUG_PIN, 1); 
+	gpio_put(DEBUG_PIN, 1); 
 	adc_run(false);				
 	adc_fifo_drain(); // ??
 
@@ -61,7 +61,7 @@ void iADC_DMA_start() {
 
 
 void iADC_DMA_IRQ_handler() {
-    //gpio_put(DEBUG_PIN, 0);
+    gpio_put(DEBUG_PIN, 0);
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 	iADC_DMA_IRQ_triggered = 1;			  // main loop on core0 will transmit data later
