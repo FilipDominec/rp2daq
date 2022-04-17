@@ -7,12 +7,10 @@ max01 =0
 accum = b''
 num_ch = 4
 
-#bs, bc, cd = 8000,   1,   96*1 # OK, single block is always OK (up to buffer size)
-#bs, bc, cd = 4000,   2,   96*1 # OK, fills up both bufs
-#bs, bc, cd = 4000,   3,   96*1 # understandable: data rate trouble -> overwrites 1st buf
-#bs, bc, cd = 4000,   3,   96*5 # wrong: why, when it ADC is *a bit* slower than USB? And is it?
+#bs, bc, cd = 4000,   2,   96*1 # OK, fills up both bufs  always OK (up to buffer size)
+#bs, bc, cd = 4000,   3,   96*1 # wrong, but understandable: data rate trouble -> overwrites 1st buf
+#bs, bc, cd = 4000,   40,  112  # just at the edge, USB is just too slow
 bs, bc, cd = 4000,   40,  120  # still OK: 400ksps*16bit is approx the USB througput with default packet size 
-#bs, bc, cd = 4000,   40,  108  # will lose packets, USB is just too slow
 
 
 TAG = "1002" 
@@ -45,7 +43,7 @@ while True:
     t1= time.time()
     tooktime = t1-t0
     #max01 = max(max01, raw[1]*256+raw[0])
-    time.sleep(0.002)
+    time.sleep(0.002) # note: shall poll fast until whole pre-advertised msglen is received
 
     #print(f"LEN = {len(raw)} ", raw)
     #print(f"CUT = ", raw[4080:4160:4])

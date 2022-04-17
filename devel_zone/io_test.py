@@ -10,11 +10,11 @@ b = 48
 while 1:
     b = b+1
     if b>98: b=48
-    raw = struct.pack(r'<BBBB', 
-            1+2,  # msg length - 1
+    raw = struct.pack(r'<BB', 
+            1,  # msg length - 1
             0,    # msg code XXX
-            b, 
-            3, 
+            #b, 
+            #3, 
             )
 
     print('.',b,end='')

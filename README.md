@@ -103,6 +103,11 @@ NOT FINISHED YET: You can proceed to the *Quick overview of software features*. 
         * pipeline ends: USB data transmit, setting PWM, transmit I2S 
     * [ ] high-speed external DAC (+ support for direct digital synthesis, AD9708ARZ?)
 	* [ ] SCCB support for cameras like OV2640
+	* [ ] user data in EEPROM https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/
+
+
+
+# https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/
 
 
 ### Extending and compiling the firmware

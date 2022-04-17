@@ -22,11 +22,11 @@ uint8_t command_buffer[1024];
 
 void identify() {
 	struct  __attribute__((packed)) {
-		uint8_t x,y;				
+		//uint8_t x,y;				
 	} * args = (void*)(command_buffer+1);
 
 	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
-	text[args->y] = args->x;
+	//text[args->y] = args->x; // for messaging DEBUG only
 	//args->ii+=1;
 	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
 	fwrite(text, sizeof(text)-1, 1, stdout);

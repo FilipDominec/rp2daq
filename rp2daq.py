@@ -71,6 +71,24 @@ class Rp2daq():
 
         if isinstance(required_device_tag, str): # conv
             required_device_tag = bytes.fromhex(required_device_tag.replace(":", ""))
+
+        self.port = self._connect_device(serial_port_names, required_device_tag, required_firmware_version, verbose)
+
+        # if select_device_tag=None
+        if not hasattr(self, "port"):
+            if required_device_tag:
+                raise RuntimeError(f"Error: could not find an rp2daq device with manufacturer ID {required_device_tag.hex(':')}...")
+            else:
+                raise RuntimeError("Error: could not find any rp2daq device") 
+            raise RuntimeError("Could not connect to the rp2daq device" + 
+                    (f"with tag"+required_device_tag if required_device_tag else ""))
+        #raise RuntimeError("Could not connect to the rp2daq device" + 
+                #(f"with tag"+required_device_tag if required_device_tag else ""))
+
+    def _connect_device(self, serial_port_names, required_device_tag, required_firmware_version, verbose):
+        """
+        """
+
         for serial_port_name in serial_port_names:
             if verbose: print(f"Trying port {serial_port_name}: ", end="")
 
@@ -91,9 +109,11 @@ class Rp2daq():
                 del(self.port)
                 continue
 
-            if not raw[6:12].isdigit() or int(raw[6:12]) < required_firmware_version:
-                if verbose: print(f"rp2daq reports version {raw[6:12].decode('utf-8')}, older than required {MIN_FW_VER}. " +
-                        "Please upgrade firmware, downgrade this module or take the risk and set 'required_firmware_version=0'.")
+            version_signature = raw[7:13]
+            if not version_signature.isdigit() or int(version_signature) < required_firmware_version:
+                if verbose: 
+                    print(f"rp2daq version is {version_signature.decode('utf-8')}, older than this script's {MIN_FW_VER}. " +
+                        "Please upgrade firmware (or override this with 'required_firmware_version=0' parameter).")
                 del(self.port)
                 continue
 
@@ -104,22 +124,13 @@ class Rp2daq():
                 del(self.port)
                 continue
 
-            print(f"Connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
-            return # succesful init of the port with desired device
+            print(f"Successfully connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
+            return
 
-        # if select_device_tag=None
-        if not hasattr(self, "port"):
-            if required_device_tag:
-                raise RuntimeError(f"Error: could not find an rp2daq device with manufacturer ID {required_device_tag.hex(':')}...")
-            else:
-                raise RuntimeError("Error: could not find any rp2daq device") 
-
-        return
-        #raise RuntimeError("Could not connect to the rp2daq device" + 
-                #(f"with tag"+required_device_tag if required_device_tag else ""))
-        #raise RuntimeError("Could not connect to the rp2daq device" + 
-                #(f"with tag"+required_device_tag if required_device_tag else ""))
-
+    def _wait_for_response(): # default blocking callback (useful for immediate responses from device)
+        """
+        """
+        # TODO
 
     def identify(self):
         self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
@@ -266,6 +277,8 @@ class Rp2daq():
                     "endstop. Are they connected? Is their current sufficient? Didn't they crash meanwhile?")
         return unfinished_motor_ids
 
+if __name__ == "__main__":
+    print("Note: Running this module as standalone script will only try to connect to a RP2 device.")
+    print("\tSee the 'examples' directory for further uses.")
+    rp2 = Rp2daq()
 
-
-# https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/
