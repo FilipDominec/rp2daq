@@ -127,12 +127,25 @@ class Rp2daq():
             print(f"Successfully connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
             return
 
-    def _wait_for_response(): # default blocking callback (useful for immediate responses from device)
-        """
-        """
-        # TODO
+    # TODO implement async inspired by tmx
 
-    def identify(self):
+    def _report_receiver_thread(): # polls the port for incoming messages
+        """
+        """
+
+    # TODO autogenerate e.g. the "self.internal_adc(..., cb=self._blocking_CB)" command as a new method of this class
+    # TODO test it with _blocking_CB() - a loop polling a semaphore must (?) delay this method from returning
+    # note: it seems OK that multiple reports (i.e. blocks) returned from device would not be all serviced by 
+    #   the _blocking_CB method, as it just waits for the first report arriving and returns it
+    #   user has to implement their cb themselves if multiple/infinite reports expected
+
+
+    def _blocking_CB(): # 
+        """
+        Default blocking callback (useful for immediate responses from device, )
+        """
+
+    def identify(self): 
         self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
         raw = self.port.read(30)
         #devicename = raw[0:6]
