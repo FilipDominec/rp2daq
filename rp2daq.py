@@ -12,7 +12,7 @@ More information and examples on https://github.com/FilipDominec/rp2daq
 """
 
 
-MIN_FW_VER = 210829 
+MIN_FW_VER = 210400
 
 NANOPOS_AT_ENDSTOP = 2**31 # half the range of uint32
 NANOSTEP_PER_MICROSTEP = 256 # stepper resolution finer than microstep allows smooth speed control 
@@ -35,13 +35,12 @@ CMD_GET_ADC = 22
 #CMD_SET_PIEZO =  109 # disused
 #CMD_LINESCAN = 1010 # disused
 
-import sys
-import time
-import tkinter
 import os
 import serial
 import struct
-
+import sys
+import time
+import tkinter
 
 def init_error_msgbox():  # error handling with a graphical message box
     import traceback, sys
@@ -51,6 +50,7 @@ def init_error_msgbox():  # error handling with a graphical message box
         from tkinter import messagebox
         messagebox.showerror(title=exc_value, message=message)
     sys.excepthook = myerr
+
 
 def init_settings(infile='settings.txt'):
     #infile = os.path.realpath(__file__)
@@ -65,6 +65,10 @@ def init_settings(infile='settings.txt'):
 
 class Rp2daq():
     def __init__(self, serial_port_names=None, required_device_tag=None, required_firmware_version=MIN_FW_VER, verbose=True):
+        self.verbose = verbose
+        self.log_text = "" 
+        self.start_time = time.time()
+
         if not serial_port_names:
             serial_prefix = '/dev/ttyACM' if os.name=='posix' else 'COM' # TODO test if "COM" port assigned to rp2 on windows
             serial_port_names = [serial_prefix + str(port_number) for port_number in range(5)]
@@ -72,60 +76,69 @@ class Rp2daq():
         if isinstance(required_device_tag, str): # conv
             required_device_tag = bytes.fromhex(required_device_tag.replace(":", ""))
 
-        self.port = self._connect_device(serial_port_names, required_device_tag, required_firmware_version, verbose)
+        self._initialize_port(serial_port_names, required_device_tag, required_firmware_version, verbose)
 
-        # if select_device_tag=None
-        if not hasattr(self, "port"):
-            if required_device_tag:
-                raise RuntimeError(f"Error: could not find an rp2daq device with manufacturer ID {required_device_tag.hex(':')}...")
-            else:
-                raise RuntimeError("Error: could not find any rp2daq device") 
-            raise RuntimeError("Could not connect to the rp2daq device" + 
-                    (f"with tag"+required_device_tag if required_device_tag else ""))
-        #raise RuntimeError("Could not connect to the rp2daq device" + 
-                #(f"with tag"+required_device_tag if required_device_tag else ""))
-
-    def _connect_device(self, serial_port_names, required_device_tag, required_firmware_version, verbose):
+    def _log(self, message, end="\n"):
         """
+        Like the print() command, but all debugging info is also stored in self.log_text to remain 
+        accessible in graphical user interfaces.
         """
+        message = message.replace('\n','\n\t\t') # visual align indent with timestamps
+        if self.log_text[-1:] in ('', '\n'):
+            message = f"[{time.time()-self.start_time:13.6f}] {message}"
+        self.log_text += f"{message}{end}"
+        if self.verbose: 
+            print(f"{message}{end}", end="")
 
+    def _initialize_port(self, serial_port_names, required_device_tag, required_firmware_version, verbose):
+        """
+        Seeks for a compatible rp2daq device on USB, checking for its firmware version and, if 
+        specified, for its particular unique vendor name.
+        """
         for serial_port_name in serial_port_names:
-            if verbose: print(f"Trying port {serial_port_name}: ", end="")
+            self._log(f"Trying port {serial_port_name}: ", end="")
 
             try:
                 self.port = serial.Serial(port=serial_port_name, timeout=0.1)
-            except:
-                if verbose: print("not present")
+            except serial.serialutil.SerialException:
+                self._log("not available")
                 continue 
 
             try:
-                raw = self.identify()
+                #raw = self.identify()
+                self.port.write(struct.pack(r'<BB', 1, 0)) # hard-coded implementation of "identify" command
+                time.sleep(.02) # 20ms round-trip time is enough
+                bytesToRead = self.port.inWaiting() 
+                if bytesToRead == 30: raw = self.port.read(bytesToRead)
             except:
                 raw = b''
 
             if not raw[:6] == b'rp2daq': # needed: implement timeout!
-                print(raw)
-                if verbose: print(f"can open, but device does not identify itself as rp2daq")
+                self._log(f"port open, but device does not identify itself as rp2daq")
                 del(self.port)
                 continue
 
             version_signature = raw[7:13]
             if not version_signature.isdigit() or int(version_signature) < required_firmware_version:
-                if verbose: 
-                    print(f"rp2daq version is {version_signature.decode('utf-8')}, older than this script's {MIN_FW_VER}. " +
-                        "Please upgrade firmware (or override this with 'required_firmware_version=0' parameter).")
+                self._log(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
+                        f"older than this script's {MIN_FW_VER}.\nPlease upgrade firmware " +\
+                        "or override this error using 'required_firmware_version=0'.")
                 del(self.port)
                 continue
 
             if required_device_tag and raw[12:20] != required_device_tag:
-                if verbose: 
-                    print(f"found an rp2daq device, but its ID {raw[12:20].hex(':')} does not match " + 
-                            f"required {required_device_tag.hex(':')}")
+                self._log(f"found an rp2daq device, but its ID {raw[12:20].hex(':')} does not match " + 
+                        f"required {required_device_tag.hex(':')}")
                 del(self.port)
                 continue
 
-            print(f"Successfully connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
+            self._log(f"Successfully connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
             return
+
+        else:
+            msg = "Error: could not find any matching rp2daq device"
+            self._log(msg)
+            raise RuntimeError(msg)
 
     # TODO implement async inspired by tmx
 
@@ -291,7 +304,7 @@ class Rp2daq():
         return unfinished_motor_ids
 
 if __name__ == "__main__":
-    print("Note: Running this module as standalone script will only try to connect to a RP2 device.")
+    print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
     print("\tSee the 'examples' directory for further uses.")
-    rp2 = Rp2daq()
+    rp2 = Rp2daq()       # tip: you can use required_device_tag='42:42:42:42:42:42:42:42'
 
