@@ -53,10 +53,12 @@ void internal_adc() {
 	} * args = (void*)(command_buffer+1);
 
 	internal_adc_config.channel_mask = args->channel_mask; 
-	internal_adc_config.blocksize = args->blocksize; // TODO blocksize; 
-	internal_adc_config.blockcount = args->blockcount - 1; // TODO blocksize; 
+	internal_adc_config.blocksize = args->blocksize; 
 	internal_adc_config.clkdiv = args->clkdiv; 
-	iADC_DMA_start(); 
+	if (args->blockcount) {
+		internal_adc_config.blockcount = args->blockcount - 1; 
+		iADC_DMA_start(); 
+	}
 
 }
 
