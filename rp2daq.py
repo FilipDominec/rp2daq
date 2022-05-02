@@ -66,23 +66,107 @@ def init_settings(infile='settings.txt'):
             settings[k] = v
     return settings
 
-class Rp2daq():
+communication_code = """
+def identify(self, x,y,):
+
+        self.port.write(struct.pack('BBBB', 4, 0, 
+                x,
+            y,))
+self.identify2 = identify
+"""
+
+
+class Rp2daq(threading.Thread):
     def __init__(self, required_device_id=None, verbose=True):
+
         self.verbose = verbose
         self.log_text = "" 
         self.start_time = time.time()
 
-
-
-        #self.the_deque = deque()
-        #threading.Thread.__init__(self)
-        #self.the_reporter_thread = threading.Thread(target=self._reporter)
-        #self.the_reporter_thread.daemon = True
-        #self.the_data_receive_thread = threading.Thread(target=self._report_receiver_thread)
-
-
+        self.sleep_tune = 0.01
+        
+        exec(communication_code)
 
         self.port = self._initialize_port(required_device_id=None, required_firmware_version=MIN_FW_VER)
+        self.serial_port = self.port # tmp. compat
+
+
+        # INSPIRED BY TMX
+        self.shutdown_flag = False # xx
+        threading.Thread.__init__(self)
+        self.the_reporter_thread = threading.Thread(target=self._reporter)
+        self.the_reporter_thread.daemon = True
+        self.the_data_receive_thread = threading.Thread(target=self._serial_receiver)
+
+        self.run_event = threading.Event()
+
+        self.the_reporter_thread.start()
+        self.the_data_receive_thread.start()
+
+        self.the_deque = deque()
+
+        # allow the threads to run
+        self._run_threads()
+
+        self.identify()
+
+
+
+
+    def _run_threads(self):
+        self.run_event.set()
+
+    def _is_running(self):
+        return self.run_event.is_set()
+
+    def _stop_threads(self):
+        self.run_event.clear()
+
+    def _reporter(self):
+        """
+        This is the reporter thread. It continuously pulls data from
+        the deque. When a full message is detected, that message is
+        processed.
+        """
+        self.run_event.wait()
+
+        while self._is_running() and not self.shutdown_flag:
+            if len(self.the_deque):
+                # response_data will be populated with the received data for the report
+                response_data = []
+                packet_length = 29 if self.the_deque.popleft() else 0
+
+                if packet_length:
+                    print("packet_length",packet_length)
+                    # get all the data for the report and place it into response_data
+                    for i in range(packet_length):
+                        while not len(self.the_deque):
+                            time.sleep(self.sleep_tune)
+                        data = self.the_deque.popleft()
+                        response_data.append(data)
+                    print(' -- ', bytes(response_data).decode('utf-8'))
+
+                    # get the report type and look up its dispatch method
+                    # here we pop the report type off of response_data
+                    report_type = response_data.pop(0)
+
+                    # retrieve the report handler from the dispatch table
+                    #dispatch_entry = self.report_dispatch.get(report_type)
+
+                    # if there is additional data for the report,
+                    # it will be contained in response_data
+                    # noinspection PyArgumentList
+                    #dispatch_entry(response_data)
+                    print(response_data)
+                    continue
+
+                else:
+                    if self.shutdown_on_exception:
+                        self.shutdown()
+                    raise RuntimeError(
+                        'A report with a packet length of zero was received.')
+            else:
+                time.sleep(self.sleep_tune)
 
     def _serial_receiver(self):
         """
@@ -91,28 +175,24 @@ class Rp2daq():
         """
         self.run_event.wait()
 
-        while True: # xx self._is_running() and not self.shutdown_flag:
-            if self.serial_port.inWaiting():
-                c = self.serial_port.read()
-                print(c, the_deque)
-                self.the_deque.append(ord(c))
-            else:
-                time.sleep(self.sleep_tune)
-
-                    # continue
+        while self._is_running() and not self.shutdown_flag:
             # we can get an OSError: [Errno9] Bad file descriptor when shutting down
             # just ignore it
-            #try:
-            #except OSError:
-                #pass
+            try:
+                if self.serial_port.inWaiting():
+                    c = self.serial_port.read()
+                    self.the_deque.append(ord(c))
+                else:
+                    time.sleep(self.sleep_tune)
+                    # continue
+            except OSError:
+                pass
 
     # TODO implement async inspired by tmx
-    def _report_receiver_thread(): # polls the port for incoming messages
-        """
-        """
-        while True:
-            time.sleep(.1)
-            print(time.time())
+    #def _report_receiver_thread(): # polls the port for incoming messages
+        #while True:
+            #time.sleep(.1)
+            #print(time.time())
 
 
     # TODO autogenerate e.g. the "self.internal_adc(..., cb=self._blocking_CB)" command as a new method of this class
@@ -126,8 +206,6 @@ class Rp2daq():
         """
         Default blocking callback (useful for immediate responses from device, )
         """
-
-
 
     def _log(self, message, end="\n"):# {{{
         """
@@ -152,29 +230,21 @@ class Rp2daq():
 
         # TODO new elegant approach to port autodetection
         PID, VID = 10, 11914
-        #port_list = list_ports.comports() # DEBUG
-        print(f"{port_list=}")
-        for port in port_list: self._log(f"{port=} PID={port.pid} VID={port.vid}")
+        port_list = list_ports.comports() # DEBUG
+        #print(f"{port_list=}")
+        #for port in port_list: self._log(f"{port=} PID={port.pid} VID={port.vid}")
 
         for port_name in port_list:
-            self._log(f"trying port {port_name.name=} {port_name.description=} {port_name.hwid=} {port_name.manufacturer=} {port_name.serial_number=} ", end="")
-#'apply_usb_info', 'description', 'device', 'device_path', 'hwid', 'interface', 'location', 'manufacturer', 'name', 'pid', 'product', 'read_line', 'serial_number', 'subsystem', 'usb_description', 'usb_device_path', 'usb_info', 'usb_interface_path', 'vid'
+            self._log(f"trying port {port_name.name}", end="")
+            #'apply_usb_info', 'description', 'device', 'device_path', 'hwid', 'interface', 'location', 'manufacturer', 'name', 'pid', 'product', 'read_line', 'serial_number', 'subsystem', 'usb_description', 'usb_device_path', 'usb_info', 'usb_interface_path', 'vid'  {port_name.description=} {port_name.hwid=} {port_name.manufacturer=} {port_name.serial_number=} 
 
             port = serial.Serial(port=port_name.device, timeout=0.1)
-            #port = serial.Serial(port="/dev/ttyACM0", timeout=0.1)
-            #try: # old-rm
-                #self.port = serial.serial(port=serial_port_name, timeout=0.1)
-            #except serial.serialutil.serialexception:
-                #self._log("not available")
-                #continue 
-            #todo: if port.pid != 10 or port.vid != 11914
-
 
 
             try:
                 #raw = self.identify()
                 port.write(struct.pack(r'<BB', 1, 0)) # hard-coded implementation of "identify" command
-                time.sleep(.02) # 20ms round-trip time is enough
+                time.sleep(.05) # 20ms round-trip time is enough
                 bytesToRead = port.inWaiting() 
                 if bytesToRead == 30: raw = port.read(bytesToRead)
             except:
@@ -203,7 +273,7 @@ class Rp2daq():
                 #del(self.port)
                 continue
 
-            self._log(f"Successfully connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
+            self._log(f"connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
             return port
 
         else:
@@ -363,7 +433,22 @@ if __name__ == "__main__":
     rp2 = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
     time.sleep(1)
-    rp2.identify()
+    rp2.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    #rp2.identify()
     time.sleep(1)
+    rp2.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    rp2.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    #rp2.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    time.sleep(.1)
+    rp2.shutdown_flag = True
+#
 
+
+            #port = serial.Serial(port="/dev/ttyACM0", timeout=0.1)
+            #try: # old-rm
+                #self.port = serial.serial(port=serial_port_name, timeout=0.1)
+            #except serial.serialutil.serialexception:
+                #self._log("not available")
+                #continue 
+            #todo: if port.pid != 10 or port.vid != 11914
 

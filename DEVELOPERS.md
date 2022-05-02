@@ -17,7 +17,7 @@ If you can already compile and upload [the official blinking LED example](https:
 
 I use Linux for primary development; development of firmware on other OS is not covered here yet.
 
-#### Getting the developer environment (Linux version)
+#### Prerequisities (on Linux)
 
 The official approach (TODO test afresh):
 
@@ -37,7 +37,7 @@ First compilation (or re-compilation if Cmake options changed):
 
 A new ```build/rp2daq.uf2``` file should appear. It can be uploaded by drag&drop as described in [README.md], or a following trick can be used that saves a bit of clicking.
 
-#### Flash upload without manual bootsel/reset (Linux version)
+#### Flash upload without manual bootsel/reset (on Linux)
 
 As a first step, [one can switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) udev rules so that *picotool* works without root privileges:
 
@@ -63,15 +63,11 @@ Each instance of Rp2daq class connects to a single board, but you may initialize
 
 * Avoiding defining new interfaces and constants where not necessary: The aim is not to build a wrapper for pico-SDK, but simply make its most useful features quickly accessible to one python script in the computer. The [pico-SDK docs](https://raspberrypi.github.io/pico-sdk-doxygen/) are still a good resource for details.
 
-
-
 #### Communication and messaging
 
 Rp2daq implements a custom binary communication protocol for messages in both directions. Henceforth we will call all messages going from computer "commands" and all messages going back as "reports".
 
 The device part, written in C code, holds all the details of the protocol. In contrast, on the computer side, the communication interface will be dynamically *auto-generated* at each startup by parsing the firmware code. While this solution may appear unusual, it saves the developer from writing somewhat redundant messaging interface in Python. More importantly, it also prevents them from making possibly hard-to-debug mistakes in protocol mismatch. 
-
-If adding new features, please search for the ```#new_features``` keyword in C code, and follow the tips in comments. 
 
 
 ## Resources used
@@ -85,5 +81,4 @@ If adding new features, please search for the ```#new_features``` keyword in C c
     * https://github.com/raspberrypi/pico-examples
 * Other useful articles online
     * https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
-
 

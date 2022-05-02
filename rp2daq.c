@@ -17,12 +17,15 @@
 #define DEBUG_PIN 4
 #define DEBUG2_PIN 5
 
-// === COMMAND HANDLERS ===
 uint8_t command_buffer[1024];
 
-void identify() {
-	struct  __attribute__((packed)) {
-		//uint8_t x,y;				
+// === COMMAND HANDLERS ===
+// #new_features: If a new functionality is added, please make a copy of any of following command 
+// handlers and don't forget to register this new function in the command_table below;
+// The corresponding method in the pythonic class will then be auto-generated upon RP2DAQ restart
+
+void identify() {   
+	struct  __attribute__((packed)) { 
 	} * args = (void*)(command_buffer+1);
 
 	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
@@ -34,22 +37,13 @@ void identify() {
 
 }
 
-void internal_adc() {
-	/*
-        1,  # msg length - 1
-        1,    # msg code XXX
-        #1+2+4+8,  # ch mask
-        #0,  # infi
-        #bs,  # bs 
-        #bc,  # bc
-        #cd,  # clkdiv
-		*/
-	struct __attribute__((packed)) {		// after msg_len and msg_code bytes, message parameters follow:
+void internal_adc() {   // @COMMAND_HANDLER
+	struct __attribute__((packed)) {  // @COMMAND_STRUCT		
 		uint8_t channel_mask;		// default=1		min=0		max=31
-		uint8_t infinite;			// default=0		min=0		max=1
+		uint8_t infinite;			
 		uint16_t blocksize;			// default=1000		min=1		max=2048
 		uint16_t blockcount;		// default=1		min=0		max=2048
-		uint16_t clkdiv;				// default=96		min=96		max=1000000
+		uint16_t clkdiv;			// default=96		min=96		max=1000000
 	} * args = (void*)(command_buffer+1);
 
 	internal_adc_config.channel_mask = args->channel_mask; 
@@ -59,20 +53,33 @@ void internal_adc() {
 		internal_adc_config.blockcount = args->blockcount - 1; 
 		iADC_DMA_start(); 
 	}
-
 }
 
+void test() {
+	struct  __attribute__((packed)) { // #parse_args
+		uint8_t x,y;		
+	} * args = (void*)(command_buffer+1);
+
+	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
+	text[args->y] = args->x; // for messaging DEBUG only
+	//args->ii+=1;
+	//pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
+	fwrite(text, sizeof(text)-1, 1, stdout);
+	fflush(stdout); 
+
+}
 
 
 // === MESSAGING INFRASTRUCTURE ===
 
 
+
 typedef struct { void (*command_func)(void); } command_descriptor;
-command_descriptor command_table[] =
-        {   // COMMAND_TABLE_START
-                {&identify},
+command_descriptor command_table[] = // #new_features: add your command to this table
+        {   
+                {&identify},  
                 {&internal_adc},
-        };  // COMMAND_TABLE_END
+        };  
 
 void get_next_command() {
     int packet_size;
