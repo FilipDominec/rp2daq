@@ -4,14 +4,7 @@ Raspberry Pi Pico is an inexpensive, yet relatively powerful microcontroller boa
 
 This project presents both precompiled firmware for this microcontroller and a python module to control it from a computer. Together they offer a solution to various automation tasks - which may be as simple as a digital thermometer, or as complicated as scientific experiments tend to be. 
 
- * digital pins input and output,
- * voltage measurements by internal ADC (12-bit 366kSPS sustained streaming),
- * stepper motor movement (driving multiple Stepstick boards synchronously),
- * pulse-width modulation (for analog output or servo control),
- * high frequency clock output (crystal-stabilized 250 MHz or its integer fractions),
-and more - see *Detailed features* below.
-
-The firmware takes care of all technicalities at the microcontroller side including parallel task handling and reliable communication, and is optimized to harness its maximum performance. Practical deployment of RP2DAQ therefore only requires basic Python skills, and saves the user from programming in C and error-prone hardware debugging. Entirely without programming, one can try out the supplied *Example programs*. 
+The firmware takes care of all technicalities at the microcontroller side including parallel task handling and reliable communication, and is optimized to harness its maximum performance. Practical deployment of RP2DAQ therefore only requires basic Python skills, and saves the user from programming in C and from error-prone hardware debugging. Entirely without programming, one can try out the supplied *Example programs*. 
 
 However, if entirely new capabilities are needed, the project is [open source](LICENSE) and there is also [developer documentation for the C firmware](DEVELOPERS.md). Contributing new code back is welcome. 
 
@@ -36,7 +29,7 @@ However, if entirely new capabilities are needed, the project is [open source](L
 
 ## Getting it work
 
-### What you will need
+#### What will you need
 
  * Raspberry Pi Pico ($5),
  * USB micro cable ($3),
@@ -45,10 +38,10 @@ However, if entirely new capabilities are needed, the project is [open source](L
 	* On Linux, Python3 should already be there
     * On Mac, it should be there though [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
 
-### Uploading the firmware to Raspberry once
+#### Uploading the firmware to Raspberry (once)
 
 1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. 
-    * (If preferred, you you can use ```git clone https://github.com/FilipDominec/rp2daq.git```)
+    * (If preferred, one can also use ```git clone https://github.com/FilipDominec/rp2daq.git```)
 1. Holding the white "BOOTSEL" button on Raspberry Pi Pico, connect it to your computer with the USB cable. Release the ```BOOTSEL``` switch.
     * In few seconds it should register as a new flash drive, containing INDEX.HTM and INFO_UF2.TXT. 
 1. Copy the ```build/rp2daq.uf2``` file to RP2. 
@@ -56,16 +49,22 @@ However, if entirely new capabilities are needed, the project is [open source](L
     * *The green diode on RP2 should blink twice, indicating the firmware is running and awaiting commands.*
 After few seconds, the USB storage should disconnect. Your RP2 becomes accessible for any program as a new COM/ttyACM port.  Let's try it.
 
-### Simplest test of rp2daq
+## Example programs
+
+#### Morse code transmitter
+
+TBA
+
+#### Temperature record
+
+TBA
+
+#### Graphical oscilloscope
 
 TBA
 
 
 ## PAQ - Presumably Asked Questions
-
-**Q: Are there projects with similar scope?**
-
-A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. RP2DAQ aims for higher performance in laboratory automation. Parts of RP2DAQ code was thankfully "borrowed" from Telemetrix.
 
 **Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?**
 
@@ -73,26 +72,34 @@ A: Fundamentally, but use cases may overlap. [MicroPython](https://github.com/mi
 
 In contrast, RP2DAQ assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
 
-**Q: Is the use of RP2DAQ limited to Raspberry Pi Pico, or can it be transferred on other boards with RP2040 chip?**
+**Q: Is the use of RP2DAQ limited to Raspberry Pi Pico board? **
 
-A: Not tested. Most, if not all, of the functionality should be available, but the pin definitions would probably change. 
+A: Very likely it can be transferred other boards featuring the RP2040 microcontroller, but this is not yet tested. The pin definitions would obviously change. 
+
+
+**Q: Are there projects with similar scope?**
+
+A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. RP2DAQ aims for higher performance in laboratory automation. However, parts of RP2DAQ code and concepts were inspired by Telemetrix.
 
 **Q: Does RP2DAQ implement all functions available by the Raspberry Pico SDK?**
 
-A: By far not and it is not even its scope. RP2DAQ's features make a higher layer above (a subset) of the SDK functions.
+A: By far not - and it is not even its scope. RP2DAQ's features make a higher layer above (a subset) of the SDK functions.
 
 
 **Q: Does RP2DAQ help communicating with scientific instruments, e.g. connected over GPIB/VISA?**
 
-A: This is outside of RP2DAQ's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, capabilities of RP2 could substitute some commercial instruments in less demanding use cases. 
+A: Interfacing to instruments is outside of RP2DAQ's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, capabilities of RP2 could substitute some commercial instruments in less demanding use cases. 
+
 
 **Q: Why are no displays or user interaction devices supported?**
 
-A: The Python script in your computer has a very good display and user interaction interface. RP2DAQ only takes care for the hardware interaction that computer cannot do. 
+A: The Python script has much better display and user interaction interface - that is, your computer. RP2DAQ only takes care for the hardware interaction that computer cannot do. 
+
 
 **Q: Can RP2DAQ control unipolar stepper motors using ULN2003?**
 
 A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A4988 modules, with better accuracy and efficiency than provided by ULN2003. 
+
 
 ## Legal
 

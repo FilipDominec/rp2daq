@@ -34,6 +34,13 @@
 
 
 ## Random notes 
+
+Examples like this? 
+
+| Name |             Signature Code                 |
+|----------------------------------------------|--------------------------------|
+|  <pre><b>main</b>(m,k){</b>  for(<br>    ;<br>    m%k--?:(k=m++);<br>    k^1?:printf("%i\|",m)<br>  );<br>}main(m,k){<br>  for(<br>    ;<br>    m%k--?:(k=m++);<br>    k^1?:printf("%i\|",m)<br>  );<br>}main(m,k){<br>  for(<br>    ;<br>    m%k--?:(k=m++);<br>    k^1?:printf("%i\|",m)<br>  );<br>}main(m,k){<br>  for(<br>    ;<br>    m%k--?:(k=m++);<br>    k^1?:printf("%i\|",m)<br>  );<br>}</pre> | ![](output_1000.png) |
+
 temperature reads some 258 degree C - why? Compile from examples!
 
 correctly implement messaging (instead of raw data stream)

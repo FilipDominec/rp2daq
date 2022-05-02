@@ -37,8 +37,8 @@ void identify() {
 
 }
 
-void internal_adc() {   // @COMMAND_HANDLER
-	struct __attribute__((packed)) {  // @COMMAND_STRUCT		
+void internal_adc() {
+	struct __attribute__((packed)) {
 		uint8_t channel_mask;		// default=1		min=0		max=31
 		uint8_t infinite;			
 		uint16_t blocksize;			// default=1000		min=1		max=2048
@@ -146,7 +146,6 @@ int main() {
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 
-
 		tight_loop_contents();
 
 		get_next_command();
