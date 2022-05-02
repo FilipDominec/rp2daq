@@ -4,12 +4,20 @@ In most expected use cases, pre-compiled RP2DAQ firmware only needs to be downlo
 
 But in more specific applications, where a new functionality, some communication protocol or tight timing is required, you may want to fork this project and modify the C firmware to your needs. All necessary information should be summed up in this document and in the corresponding C code.
 
-## Compiling the firmware
+We will appreciate your contributions if you decide to share them back. You can first discuss your needs and plans on the issues page.
+
+RP2DAQ can also serve as a convenient "boilerplate" for your own projects. We try to keep the code base readable and reasonably short.
+
+
+## Re-compiling the firmware
+
 The firmware is written in C language and uses [Raspberry Pi Pico SDK](https://raspberrypi.github.io/pico-sdk-doxygen/) (which was chosen instead of the Arduino ecosystem, but some libraries from the latter [can be ported](https://www.hackster.io/fhdm-dev/use-arduino-libraries-with-the-rasperry-pi-pico-c-c-sdk-eff55c)). 
 
-If you can already compile and upload [the official blinking LED example](https://www.raspberrypi.com/news/how-to-blink-an-led-with-raspberry-pi-pico-in-c/), doing the same with RP2DAQ should be straightforward. The following procedure is therefore mostly for convenience. I use Linux for primary development.
+If you can already compile and upload [the official blinking LED example](https://www.raspberrypi.com/news/how-to-blink-an-led-with-raspberry-pi-pico-in-c/), doing the same with RP2DAQ should be straightforward. The following procedure is therefore mostly for convenience. 
 
-### Prerequisities (on Linux)
+I use Linux for primary development; development of firmware on other OS is not covered here yet.
+
+#### Getting the developer environment (Linux version)
 
 The official approach (TODO test afresh):
 
@@ -17,7 +25,7 @@ The official approach (TODO test afresh):
     chmod +x pico_setup.sh
     ./pico_setup.sh
 
-### Compilation procedure (on Linux)
+#### Compilation procedure (Linux version)
 
 First compilation (or re-compilation if Cmake options changed):
 
@@ -29,7 +37,7 @@ First compilation (or re-compilation if Cmake options changed):
 
 A new ```build/rp2daq.uf2``` file should appear. It can be uploaded by drag&drop as described in [README.md], or a following trick can be used that saves a bit of clicking.
 
-### Flash upload without manual bootsel/reset (on Linux)
+#### Flash upload without manual bootsel/reset (Linux version)
 
 As a first step, [one can switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) udev rules so that *picotool* works without root privileges:
 
@@ -40,7 +48,11 @@ The procedure with [pressing the *bootsel* button](https://gist.github.com/Herma
 
     pushd build ; stty -F /dev/ttyACM0 1200; make rp2daq && ~/bin/picotool load *.uf2 && ~/bin/picotool reboot; popd
 
-## Code structure and concepts
+
+
+## Under the hood
+
+#### Code structure and concepts
 
 RP2DAQ aims to squeeze maximum power from raspberry pi, without putting programming burden on the user. To this end, it employs 
     * **parallelism in the firmware** (1st CPU core mostly for communication and immediate commands, 2nd core for real-time control; DMA use, planned PIO use),
@@ -53,12 +65,25 @@ Each instance of Rp2daq class connects to a single board, but you may initialize
 
 
 
-
-## Understanding RP2DAQ
-
-### Communication and messaging
+#### Communication and messaging
 
 Rp2daq implements a custom binary communication protocol for messages in both directions. Henceforth we will call all messages going from computer "commands" and all messages going back as "reports".
 
 The device part, written in C code, holds all the details of the protocol. In contrast, on the computer side, the communication interface will be dynamically *auto-generated* at each startup by parsing the firmware code. While this solution may appear unusual, it saves the developer from writing somewhat redundant messaging interface in Python. More importantly, it also prevents them from making possibly hard-to-debug mistakes in protocol mismatch. 
+
+If adding new features, please search for the ```#new_features``` keyword in C code, and follow the tips in comments. 
+
+
+## Resources used
+
+* Concepts and parts of code
+    * https://github.com/MrYsLab/Telemetrix4RpiPico
+    * https://docs.tinyusb.org/en/latest/reference/index.html
+* Official documentation & examples
+    * https://www.raspberrypi.com/documentation/microcontrollers/rp2040.html
+    * https://raspberrypi.github.io/pico-sdk-doxygen/index.html
+    * https://github.com/raspberrypi/pico-examples
+* Other useful articles online
+    * https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
+
 
