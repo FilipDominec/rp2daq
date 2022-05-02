@@ -39,7 +39,7 @@ Examples like this?
 
 | Name |             Signature Code                 |
 |----------------------------------------------|--------------------------------|
-|  <pre><b>main</b>(m,k){</b>  for(<br>    ;<br>    m%k--?:(k=m++);<br>    k^1?:printf("%i\|",m)<br>  );<br>}main(m,k){<br>  for(<br>    ;<br>    m%k--?:(k=m++);<br>    k^1?:printf("%i\|",m)<br>  );<br>}main(m,k){<br>  for(<br>    ;<br>    m%k--?:(k=m++);<br>    k^1?:printf("%i\|",m)<br>  );<br>}main(m,k){<br>  for(<br>    ;<br>    m%k--?:(k=m++);<br>    k^1?:printf("%i\|",m)<br>  );<br>}</pre> | ![](output_1000.png) |
+| <pre><i>#infile = os.path.realpath(__file__)</i><br>    <i>#print("DEBUG: infile = ", infile)</i><br>    settings <i>=</i> <i>{</i><i>}</i><br>    <b>with</b> <b>open</b><i>(</i>infile<i>)</i> <b>as</b> f<i>:</i><br>        <b>for</b> l <b>in</b> f<i>.</i>readlines<i>(</i><i>)</i><i>:</i><br>            l <i>=</i> l<i>.</i>split<i>(</i><b>'#'</b><i>)</i><i>[</i>0<i>]</i> <i># ignore comments</i><br>            k<i>,</i>v <i>=</i> <i>[</i>s<i>.</i>strip<i>(</i><i>)</i> <b>for</b> s <b>in</b> l<i>.</i>split<i>(</i><b>'='</b><i>,</i> 1<i>)</i><i>]</i>  <i># split at first '=' sign</i><br>            settings<i>[</i>k<i>]</i> <i>=</i> v<br>    <b>return</b> settings<br></pre> | ![](output_1000.png) |
 
 temperature reads some 258 degree C - why? Compile from examples!
 
