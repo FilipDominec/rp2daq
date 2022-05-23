@@ -20,9 +20,9 @@
 uint8_t command_buffer[1024];
 
 // === COMMAND HANDLERS ===
-// #new_features: If a new functionality is added, please make a copy of any of following command 
+// @new_features: If a new functionality is added, please make a copy of any of following command 
 // handlers and don't forget to register this new function in the command_table below;
-// The corresponding method in the pythonic class will then be auto-generated upon RP2DAQ restart
+// The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
 
 void identify() {   
 	struct  __attribute__((packed)) { 
@@ -40,7 +40,7 @@ void identify() {
 void internal_adc() {
 	struct __attribute__((packed)) {
 		uint8_t channel_mask;		// default=1		min=0		max=31
-		uint8_t infinite;			
+		uint8_t infinite;			// default=0		min=0		max=1
 		uint16_t blocksize;			// default=1000		min=1		max=2048
 		uint16_t blockcount;		// default=1		min=0		max=2048
 		uint16_t clkdiv;			// default=96		min=96		max=1000000
@@ -57,7 +57,8 @@ void internal_adc() {
 
 void test() {
 	struct  __attribute__((packed)) { // #parse_args
-		uint8_t x,y;		
+		uint8_t xx,zz; 	
+        uint16_t yy;	// default=96		min=96		max=1000000
 	} * args = (void*)(command_buffer+1);
 
 	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
@@ -79,6 +80,7 @@ command_descriptor command_table[] = // #new_features: add your command to this 
         {   
                 {&identify},  
                 {&internal_adc},
+                {&test},
         };  
 
 void get_next_command() {

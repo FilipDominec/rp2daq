@@ -430,17 +430,17 @@ class Rp2daq(threading.Thread):
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
     print("\tSee the 'examples' directory for further uses.")
-    rp2 = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
+    rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
     time.sleep(1)
-    rp2.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    #rp2.identify()
+    rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    #rp.identify()
     time.sleep(1)
-    rp2.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    rp2.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    #rp2.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
     time.sleep(.1)
-    rp2.shutdown_flag = True
+    rp.shutdown_flag = True
 #
 
 
