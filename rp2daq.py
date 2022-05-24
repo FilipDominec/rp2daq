@@ -67,12 +67,13 @@ def init_settings(infile='settings.txt'):
     return settings
 
 communication_code = """
-def identify(self, x,y,):
+def identify2(self, p,c,):
 
-        self.port.write(struct.pack('BBBB', 4, 0, 
-                x,
-            y,))
-self.identify2 = identify
+        self.port.write(struct.pack('BBBB', 4, 2, 
+                p,
+            c,))
+self.identify2 = identify2
+#self.identify2.func_globals['self'] = self
 """
 
 
@@ -84,8 +85,6 @@ class Rp2daq(threading.Thread):
         self.start_time = time.time()
 
         self.sleep_tune = 0.01
-        
-        exec(communication_code)
 
         self.port = self._initialize_port(required_device_id=None, required_firmware_version=MIN_FW_VER)
         self.serial_port = self.port # tmp. compat
@@ -108,9 +107,17 @@ class Rp2daq(threading.Thread):
         # allow the threads to run
         self._run_threads()
 
-        self.identify()
+
+        self._register_commands()
+        self.identify2(3,69)
+        
 
 
+    def _register_commands(self):
+        from functools import partial
+        exec(communication_code)
+        self.identify2 = partial(locals()['identify2'], self)
+        #self.identify2.func_globals['self'] = self
 
 
     def _run_threads(self):
@@ -134,7 +141,7 @@ class Rp2daq(threading.Thread):
             if len(self.the_deque):
                 # response_data will be populated with the received data for the report
                 response_data = []
-                packet_length = 29 if self.the_deque.popleft() else 0
+                packet_length = 29 if self.the_deque.popleft() else 0  ## FIXME TEST
 
                 if packet_length:
                     print("packet_length",packet_length)
@@ -225,18 +232,17 @@ class Rp2daq(threading.Thread):
         specified, for its particular unique vendor name.
         """
 
-        #serial_prefix = '/dev/ttyACM' if os.name=='posix' else 'COM' # TODO test if "COM" port assigned to rp2 on windows
-        #serial_port_names = [serial_prefix + str(port_number) for port_number in range(5)]
-
-        # TODO new elegant approach to port autodetection
         PID, VID = 10, 11914
-        port_list = list_ports.comports() # DEBUG
+        port_list = list_ports.comports()
         #print(f"{port_list=}")
         #for port in port_list: self._log(f"{port=} PID={port.pid} VID={port.vid}")
 
         for port_name in port_list:
             self._log(f"trying port {port_name.name}", end="")
-            #'apply_usb_info', 'description', 'device', 'device_path', 'hwid', 'interface', 'location', 'manufacturer', 'name', 'pid', 'product', 'read_line', 'serial_number', 'subsystem', 'usb_description', 'usb_device_path', 'usb_info', 'usb_interface_path', 'vid'  {port_name.description=} {port_name.hwid=} {port_name.manufacturer=} {port_name.serial_number=} 
+            #'apply_usb_info', 'description', 'device', 'device_path', 'hwid', 'interface',
+            #'location', 'manufacturer', 'name', 'pid', 'product', 'read_line', 'serial_number', 
+            # 'subsystem', 'usb_description', 'usb_device_path', 'usb_info', 'usb_interface_path', 
+            # 'vid' {port_name.description=} {port_name.hwid=} {port_name.manufacturer=} {port_name.serial_number=} 
 
             port = serial.Serial(port=port_name.device, timeout=0.1)
 
@@ -289,143 +295,6 @@ class Rp2daq(threading.Thread):
         #unique_id = (raw[6:14]).hex(':')
         return raw
 
-    def init_stepper(self, motor_id, dir_pin, step_pin, endswitch_pin, disable_pin, motor_inertia=128):
-        self.port.write(struct.pack(r'<BBBBBBI', 
-            CMD_INIT_STEPPER, 
-            motor_id, 
-            dir_pin, 
-            step_pin, 
-            endswitch_pin, 
-            disable_pin, 
-            motor_inertia))
-
-    def get_stepper_status(self, motor_id):       
-        """ Universal low-level stepper motor control: returns a dict indicating whether the motor is running, 
-        whether it has touched an end switch and an integer of the motor's current microstep count. """
-        self.port.write(struct.pack(r'<BB', CMD_GET_STEPPER_STATUS, motor_id))
-        time.sleep(.05)
-        raw = self.port.read(6)
-        print('STEPPER RAW', raw)
-        vals = list(struct.unpack(r'<BBI', raw))
-        vals[2] = (vals[2] - NANOPOS_AT_ENDSTOP) / NANOSTEP_PER_MICROSTEP
-        #print('    --> STEPPER STATUS', vals)
-        return dict(zip(['active', 'endswitch', 'micropos'], vals))
-        #try:
-        #except:
-            #return dict(zip(['active', 'endswitch', 'micropos'], [0,0,0]))
-
-
-    def stepper_go(self, motor_id, target_micropos, nanospeed=256, endstop_override=False, 
-            reset_zero_pos=False, wait=False): 
-        """ Universal low-level stepper motor control: sets the new target position of the selected
-        stepper motor, along with the maximum speed to be used. """
-        # FIXME in firmware: nanospeed should allow (a bit) more than 256
-        raw = struct.pack(r'<BBIIBB', 
-                CMD_STEPPER_GO, 
-                motor_id, 
-                max(MINIMUM_POS, target_micropos)*NANOSTEP_PER_MICROSTEP + NANOPOS_AT_ENDSTOP, 
-                nanospeed, 
-                1 if endstop_override else 0,
-                1 if reset_zero_pos else 0)
-        self.port.write(raw)
-
-        if wait: 
-            self.wait_stepper_idle(motor_id)
-
-    def get_pin(self, pin): # TODO TEST
-        assert pin <= 28
-        self.port.write(struct.pack(r'<BB', CMD_GET_PIN, pin))	
-        raw = self.port.read(1)
-        return raw
-
-    def set_pin(self, pin, value, output_mode=True): # TODO TEST
-        assert pin <= 28
-        self.port.write(struct.pack(r'<BBBB', CMD_SET_PIN, pin, 1 if value else 0, 1 if output_mode else 0))	
-
-
-    def get_ADC(self, adc_pin=26, oversampling_count=16):
-        assert adc_pin in (26,27,28)
-        self.port.write(struct.pack(r'<BBB', CMD_GET_ADC, adc_pin, oversampling_count))	
-        raw = self.port.read(4)
-        print(raw)
-        return struct.unpack(r'<I', raw)
-
-    
-    def init_pwm(self, assign_channel=1, assign_pin=19, bit_resolution=16, freq_Hz=100, init_value=6654):
-        self.port.write(struct.pack(r'<BBBBII', 
-            CMD_INIT_PWM, 
-            assign_channel, 
-            assign_pin, 
-            bit_resolution,
-            freq_Hz,
-            init_value))
-
-    def set_pwm(self, val, channel=1):
-        self.port.write(struct.pack(r'<BBI', 
-            CMD_SET_PWM, 
-            channel, 
-            int(val)))
-
-
-    def get_stm_status(self):
-        self.port.write(struct.pack(r'<B', CMD_GET_STM_STATUS))
-        raw = []
-        for count in range(100):
-            time.sleep(.10)
-            raw = self.port.read(2000*2)
-            if len(raw)==4000: break
-            print('waiting extra time for serial data...')
-            self.port.write(struct.pack(r'<B', CMD_GET_STM_STATUS))
-
-        status = dict(zip(['tip_voltage'], [struct.unpack(r'<2000H', raw)]))
-        #status['stm_data'] = struct.unpack(r'<{:d}h'.format(status['stm_data_len']//2), self.port.read(status['stm_data_len']))
-        return status
-
-
-
-    ## Additional useful functions 
-
-    def wait_stepper_idle(self, motor_ids, poll_delay=0.05):
-        if not hasattr(motor_ids, "__getitem__"): motor_ids = [motor_ids]
-        while any([self.get_stepper_status(m)['active'] for m in motor_ids]): 
-            time.sleep(poll_delay)   
-
-
-    def calibrate_stepper_positions(self, motor_ids, minimum_micropos=-1000000, 
-            nanospeed=256, bailout_micropos=1000):
-
-        ## Auto-convert single-valued target_micropos and/or nanospeed to lists, if multiple motor_ids are supplied
-        if not hasattr(motor_ids, "__getitem__"): motor_ids = [motor_ids]
-        if not hasattr(minimum_micropos, "__getitem__"): minimum_micropos = [minimum_micropos]*len(motor_ids)
-        if not hasattr(nanospeed, "__getitem__"): nanospeed = [nanospeed]*len(motor_ids)
-        if not hasattr(bailout_micropos, "__getitem__"): bailout_micropos = [bailout_micropos]*len(motor_ids)
-
-        ## Initialize the movement towards endstop(s)
-        for n,motor_id in enumerate(motor_ids):
-            self.stepper_go(motor_id=motor_id, 
-                target_micropos=minimum_micropos[n], nanospeed=nanospeed[n], wait=False, endstop_override=0)
-
-        ## Wait until all motors are done, and optionally wait until they bail out
-        some_motor_still_busy = True
-        unfinished_motor_ids = list(motor_ids)
-        while some_motor_still_busy:
-            time.sleep(.1)
-            some_motor_still_busy = False
-            for n, motor_id in enumerate(motor_ids):
-                status = self.get_stepper_status(motor_id=motor_id)
-                print(n, status)
-                if not status['active']:
-                    if status['endswitch']:
-                        self.stepper_go(motor_id=motor_id, target_micropos=bailout_micropos[n], 
-                                nanospeed=nanospeed[n], wait=False, endstop_override=1, reset_zero_pos=1)
-                        unfinished_motor_ids.remove(motor_id)
-                else:
-                    some_motor_still_busy = True
-
-        if unfinished_motor_ids:
-            print(f"Warning: motor(s) {unfinished_motor_ids} finished its calibration move but did not reach any " +
-                    "endstop. Are they connected? Is their current sufficient? Didn't they crash meanwhile?")
-        return unfinished_motor_ids
 
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
@@ -433,13 +302,12 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
     time.sleep(1)
-    rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    #rp.identify()
-    time.sleep(1)
-    rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
     #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    time.sleep(.1)
+    rp.identify2(4,74)
+    #time.sleep(1)
+    #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    #time.sleep(.1)
     rp.shutdown_flag = True
 #
 

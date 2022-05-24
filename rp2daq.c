@@ -19,7 +19,30 @@
 
 uint8_t command_buffer[1024];
 
-// === COMMAND HANDLERS ===
+// === OUTGOING REPORTS === 
+
+struct {
+    uint16_t report_length;
+    uint8_t report_code;
+    uint8_t diameter;
+} * report_prototype_a;
+
+struct {
+    uint16_t report_length;
+    uint8_t report_code;
+    uint16_t curvature;
+} * report_prototype_b;
+// ... more reports to come ...
+
+void* list_of_reports[] = 
+    {
+        {&report_prototype_a}, 
+        {&report_prototype_b} 
+    };
+
+
+
+// === INCOMING COMMAND HANDLERS ===
 // @new_features: If a new functionality is added, please make a copy of any of following command 
 // handlers and don't forget to register this new function in the command_table below;
 // The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
@@ -29,12 +52,9 @@ void identify() {
 	} * args = (void*)(command_buffer+1);
 
 	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
-	//text[args->y] = args->x; // for messaging DEBUG only
-	//args->ii+=1;
 	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
 	fwrite(text, sizeof(text)-1, 1, stdout);
 	fflush(stdout); 
-
 }
 
 void internal_adc() {
@@ -56,24 +76,19 @@ void internal_adc() {
 }
 
 void test() {
-	struct  __attribute__((packed)) { // #parse_args
-		uint8_t xx,zz; 	
-        uint16_t yy;	// default=96		min=96		max=1000000
+	struct  __attribute__((packed)) {
+		uint8_t p,c; 	
 	} * args = (void*)(command_buffer+1);
 
-	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
-	text[args->y] = args->x; // for messaging DEBUG only
-	//args->ii+=1;
-	//pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
+	uint8_t text[14+16+1] = {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', };
+	text[args->p] = args->c; // for messaging DEBUG only
 	fwrite(text, sizeof(text)-1, 1, stdout);
 	fflush(stdout); 
-
 }
 
 
-// === MESSAGING INFRASTRUCTURE ===
 
-
+// === I/O MESSAGING INFRASTRUCTURE ===
 
 typedef struct { void (*command_func)(void); } command_descriptor;
 command_descriptor command_table[] = // #new_features: add your command to this table
@@ -118,11 +133,13 @@ void get_next_command() {
 }
 
 
+// === CORE0 AND CORE1 BUSY ROUTINES ===
 
-void core1_main() { // busy loop on core1 takes care of real-time tasks
+void core1_main() { // busy loop on second CPU core takes care of real-time tasks
     while (true) {
 		while (!iADC_DMA_IRQ_triggered) { };   
-	    gpio_put(LED_PIN, 1); busy_wait_us_32(50);    gpio_put(LED_PIN, 0);
+	    gpio_put(LED_PIN, 1); busy_wait_us_32(50);    gpio_put(LED_PIN, 0);busy_wait_us_32(50); 
+	    gpio_put(LED_PIN, 1); busy_wait_us_32(50);    gpio_put(LED_PIN, 0);busy_wait_us_32(50); 
     }
 }
 
@@ -145,6 +162,10 @@ int main() {
 	// Setup routines for subsystems - ran once to initialize hardware & constants
 	iADC_DMA_setup();
 
+    gpio_put(LED_PIN, 1); busy_wait_us_32(5000);    
+    gpio_put(LED_PIN, 0); busy_wait_us_32(100000); 
+    gpio_put(LED_PIN, 1); busy_wait_us_32(5000);    
+    gpio_put(LED_PIN, 0); 
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 
