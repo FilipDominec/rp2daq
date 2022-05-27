@@ -38,12 +38,15 @@ CMD_GET_ADC = 22
 from collections import deque
 import os
 import serial
+from serial.tools import list_ports 
 import struct
 import sys
 import threading
 import time
 import tkinter
-from serial.tools import list_ports 
+import types
+
+import c_code_parser
 
 def init_error_msgbox():  # error handling with a graphical message box
     import traceback, sys
@@ -66,15 +69,14 @@ def init_settings(infile='settings.txt'):
             settings[k] = v
     return settings
 
-communication_code = """
+tmp_explicit_testing_code = """
 def identify2(self, p,c,):
 
         self.port.write(struct.pack('BBBB', 4, 2, 
                 p,
-            c,))
-self.identify2 = identify2
-#self.identify2.func_globals['self'] = self
+            c,)) 
 """
+
 
 
 class Rp2daq(threading.Thread):
@@ -109,16 +111,14 @@ class Rp2daq(threading.Thread):
 
 
         self._register_commands()
-        self.identify2(3,69)
-        
+        # TODO also register callback to dispatch report, as it arrives in future?
 
 
     def _register_commands(self):
-        from functools import partial
-        exec(communication_code)
-        self.identify2 = partial(locals()['identify2'], self)
-        #self.identify2.func_globals['self'] = self
-
+        names_codes = c_code_parser.generate_command_binary_interface(open('rp2daq.c').read())
+        for cmd_name, cmd_code in names_codes.items():
+            exec(cmd_code)
+            setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
     def _run_threads(self):
         self.run_event.set()
@@ -302,9 +302,10 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
     time.sleep(1)
-    #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    rp.identify2(4,74)
-    #time.sleep(1)
+    rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+    #rp.identify2(4, ord("J"))
+    rp.test(4, ord("J"))
+    time.sleep(1)
     #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
     #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
     #time.sleep(.1)
