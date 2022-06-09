@@ -111,14 +111,18 @@ class Rp2daq(threading.Thread):
 
 
         self._register_commands()
-        # TODO also register callback to dispatch report, as it arrives in future?
 
 
     def _register_commands(self):
+        # TODO 0: search C code for version, check it matches that one returned by Raspberry Pi at runtime
+
         names_codes = c_code_parser.generate_command_binary_interface(open('rp2daq.c').read())
         for cmd_name, cmd_code in names_codes.items():
             exec(cmd_code)
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
+
+        # TODO 2: search C code for report structs 
+        # TODO 3: also register callbacks (to dispatch reports as they arrive)
 
     def _run_threads(self):
         self.run_event.set()
@@ -302,22 +306,16 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
     time.sleep(1)
-    rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
     #rp.identify2(4, ord("J"))
+
+    rp.pin_out(25, 1)
+
     rp.test(4, ord("J"))
+    rp.test(2, ord("Q"))
     time.sleep(1)
+    rp.pin_out(25, 0)
+    time.sleep(.1)
     #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
     #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
     #time.sleep(.1)
     rp.shutdown_flag = True
-#
-
-
-            #port = serial.Serial(port="/dev/ttyACM0", timeout=0.1)
-            #try: # old-rm
-                #self.port = serial.serial(port=serial_port_name, timeout=0.1)
-            #except serial.serialutil.serialexception:
-                #self._log("not available")
-                #continue 
-            #todo: if port.pid != 10 or port.vid != 11914
-

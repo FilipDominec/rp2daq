@@ -86,6 +86,15 @@ void test() {
 	fflush(stdout); 
 }
 
+void pin_out() {
+	struct  __attribute__((packed)) {
+		uint8_t n_pin;   // min=0 max=25
+		uint8_t value; 	 // min=0 max=1
+	} * args = (void*)(command_buffer+1);
+	gpio_init(args->n_pin); gpio_set_dir(args->n_pin, GPIO_OUT);
+    gpio_put(args->n_pin, args->value);
+}
+
 
 
 // === I/O MESSAGING INFRASTRUCTURE ===
@@ -96,6 +105,7 @@ command_descriptor command_table[] = // #new_features: add your command to this 
                 {&identify},  
                 {&internal_adc},
                 {&test},
+                {&pin_out},
         };  
 
 void get_next_command() {
@@ -122,7 +132,8 @@ void get_next_command() {
         // the first byte is the command ID.
         // look up the function and execute it.
         // data for the command starts at index 1 in the command_buffer
-        command_entry = command_table[command_buffer[0]];
+        if (command_buffer[0] < sizeof(command_table)/sizeof(command_table[0])) {
+            command_entry = command_table[command_buffer[0]]; } // todo report overflow
 
         // uncomment to see the command and first byte of data
         //fwrite(command_buffer,1,2,stdout);
