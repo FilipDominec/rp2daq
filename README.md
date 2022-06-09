@@ -1,12 +1,10 @@
 # RP2DAQ - Raspberry Pi Pico for Data Acquisition (and much more)
 
-Raspberry Pi Pico is an inexpensive, yet relatively powerful microcontroller board. 
+Raspberry Pi Pico is a small, but quite powerful microcontroller board. When connected to a computer, it can serve as its interface to hardware - which may be as simple as a digital thermometer, or as complicated as scientific experiments tend to be. 
 
-This project presents both precompiled firmware for this microcontroller and a python module to control it from a computer. Together they offer a solution to various automation tasks - which may be as simple as a digital thermometer, or as complicated as scientific experiments tend to be. 
+This project presents both precompiled firmware and a user-friendly Python module to control it. The firmware takes care of all technicalities at the microcontroller side including parallel task handling and reliable communication, and is optimized to harness Raspberry Pi's maximum performance. All actions of RP2DAQ are triggered by the Python script in the computer. This saves the user from programming in C and from error-prone hardware debugging. Even without any programming, one can try out few supplied *Example programs*. 
 
-The firmware takes care of all technicalities at the microcontroller side including parallel task handling and reliable communication, and is optimized to harness its maximum performance. Practical deployment of RP2DAQ therefore only requires basic Python skills, and saves the user from programming in C and from error-prone hardware debugging. Entirely without programming, one can try out the supplied *Example programs*. 
-
-However, if entirely new capabilities are needed, the project is [open source](LICENSE) and there is also [developer documentation for the C firmware](DEVELOPERS.md). Contributing new code back is welcome. 
+If needed, entirely new capabilities can be added into the [open source](LICENSE) firmware. More is covered in the [developer documentation for the C firmware](DEVELOPERS.md). Contributing new code back is welcome. 
 
 
 ## Status: Work under progress
