@@ -24,23 +24,21 @@ uint8_t command_buffer[1024];
 struct {
     uint16_t report_length;
     uint8_t report_code;
-    uint8_t diameter;
-} * report_prototype_a;
+    uint8_t _data_count;
+    uint8_t _data_bitwidth;
+} * identify_report;
 
 struct {
     uint16_t report_length;
     uint8_t report_code;
-    uint16_t curvature;
-} * report_prototype_b;
-// ... more reports to come ...
+    uint16_t chunks_not_yet_sent;
+} * internal_adc_report;
 
 void* list_of_reports[] = 
     {
-        {&report_prototype_a}, 
-        {&report_prototype_b} 
-    };
-
-
+        &identify_report, 
+        &internal_adc_report 
+    }; 
 
 // === INCOMING COMMAND HANDLERS ===
 // @new_features: If a new functionality is added, please make a copy of any of following command 
@@ -128,18 +126,15 @@ void get_next_command() {
             command_buffer[i] = packet_data;
         }
 
-
         // the first byte is the command ID.
         // look up the function and execute it.
         // data for the command starts at index 1 in the command_buffer
-        if (command_buffer[0] < sizeof(command_table)/sizeof(command_table[0])) {
-            command_entry = command_table[command_buffer[0]]; } // todo report overflow
+        if (command_buffer[0] >= sizeof(command_table)/sizeof(command_table[0])) {
+            return; // todo: report overflow
+        }
 
-        // uncomment to see the command and first byte of data
-        //fwrite(command_buffer,1,2,stdout);
-
+        command_entry = command_table[command_buffer[0]];
         command_entry.command_func();
-
     }
 }
 
