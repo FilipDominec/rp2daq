@@ -172,8 +172,7 @@ class Rp2daq(threading.Thread):
                     continue
 
                 else:
-                    if self.shutdown_on_exception:
-                        self.shutdown()
+                    #if self.shutdown_on_exception: self.shutdown()
                     raise RuntimeError(
                         'A report with a packet length of zero was received.')
             else:
@@ -260,7 +259,7 @@ class Rp2daq(threading.Thread):
             except:
                 raw = b''
 
-            print(f"{raw=}")
+            #print(f"{raw=}")
             if not raw[:6] == b'rp2daq': # needed: implement timeout!
                 self._log(f"port open, but device does not identify itself as rp2daq")
                 #del(self.port)
@@ -305,13 +304,11 @@ if __name__ == "__main__":
     print("\tSee the 'examples' directory for further uses.")
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
-    time.sleep(1)
-    #rp.identify2(4, ord("J"))
+    time.sleep(.1)
 
     rp.pin_out(25, 1)
-
-    rp.test(4, ord("J"))
-    rp.test(2, ord("Q"))
+    #rp.test(4, ord("J"))
+    #rp.test(2, ord("Q"))
     time.sleep(1)
     rp.pin_out(25, 0)
     time.sleep(.1)

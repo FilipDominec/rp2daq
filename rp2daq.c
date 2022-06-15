@@ -21,29 +21,17 @@ uint8_t command_buffer[1024];
 
 // === OUTGOING REPORTS === 
 
-struct {
-    uint16_t report_length;
-    uint8_t report_code;
-    uint8_t _data_count;
-    uint8_t _data_bitwidth;
-} * identify_report;
-
-struct {
-    uint16_t report_length;
-    uint8_t report_code;
-    uint16_t chunks_not_yet_sent;
-} * internal_adc_report;
-
-void* list_of_reports[] = 
-    {
-        &identify_report, 
-        &internal_adc_report 
-    }; 
 
 // === INCOMING COMMAND HANDLERS ===
 // @new_features: If a new functionality is added, please make a copy of any of following command 
 // handlers and don't forget to register this new function in the command_table below;
 // The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
+
+struct {
+    uint8_t report_code;
+    uint8_t _data_count;
+    uint8_t _data_bitwidth;
+} * identify_report;
 
 void identify() {   
 	struct  __attribute__((packed)) { 
@@ -55,23 +43,12 @@ void identify() {
 	fflush(stdout); 
 }
 
-void internal_adc() {
-	struct __attribute__((packed)) {
-		uint8_t channel_mask;		// default=1		min=0		max=31
-		uint8_t infinite;			// default=0		min=0		max=1
-		uint16_t blocksize;			// default=1000		min=1		max=2048
-		uint16_t blockcount;		// default=1		min=0		max=2048
-		uint16_t clkdiv;			// default=96		min=96		max=1000000
-	} * args = (void*)(command_buffer+1);
 
-	internal_adc_config.channel_mask = args->channel_mask; 
-	internal_adc_config.blocksize = args->blocksize; 
-	internal_adc_config.clkdiv = args->clkdiv; 
-	if (args->blockcount) {
-		internal_adc_config.blockcount = args->blockcount - 1; 
-		iADC_DMA_start(); 
-	}
-}
+struct {
+    uint8_t report_code;
+    uint8_t _data_count;
+    uint8_t _data_bitwidth;
+} * test_report;
 
 void test() {
 	struct  __attribute__((packed)) {
@@ -84,6 +61,13 @@ void test() {
 	fflush(stdout); 
 }
 
+
+
+struct {
+    uint8_t report_code;
+    uint8_t tmp;
+} * pin_out_report;
+
 void pin_out() {
 	struct  __attribute__((packed)) {
 		uint8_t n_pin;   // min=0 max=25
@@ -91,25 +75,38 @@ void pin_out() {
 	} * args = (void*)(command_buffer+1);
 	gpio_init(args->n_pin); gpio_set_dir(args->n_pin, GPIO_OUT);
     gpio_put(args->n_pin, args->value);
+
+    pin_out_report->tmp = 42;
+    fwrite(pin_out_report, sizeof(pin_out_report), 1, stdout);
 }
 
 
 
-// === I/O MESSAGING INFRASTRUCTURE ===
 
-typedef struct { void (*command_func)(void); } command_descriptor;
-command_descriptor command_table[] = // #new_features: add your command to this table
+// === I/O MESSAGING INFRASTRUCTURE ===
+ 
+
+typedef struct { void (*command_func)(void); } message_descriptor; // XXX
+message_descriptor message_table[] = // #new_features: add your command to this table
         {   
                 {&identify},  
-                {&internal_adc},
                 {&test},
                 {&pin_out},
+                //{&internal_adc, &internal_adc_report},
         };  
+//typedef struct { void (*command_func)(void); uint8_t (*report_struct); } message_descriptor;
+//message_descriptor message_table[] = // #new_features: add your command to this table
+        //{   
+                //{&identify, &identify_report},  
+                //{&test, &test_report},
+                //{&pin_out, &pin_out_report},
+                //{&internal_adc, &internal_adc_report},
+        //};  
 
 void get_next_command() {
     int packet_size;
     uint8_t packet_data;
-    command_descriptor command_entry;
+    message_descriptor message_entry;
     command_buffer[0] = 0x00;
 
     // Get the number of bytes of the command packet.
@@ -129,12 +126,12 @@ void get_next_command() {
         // the first byte is the command ID.
         // look up the function and execute it.
         // data for the command starts at index 1 in the command_buffer
-        if (command_buffer[0] >= sizeof(command_table)/sizeof(command_table[0])) {
+        if (command_buffer[0] >= sizeof(message_table)/sizeof(message_table[0])) {
             return; // todo: report overflow
         }
 
-        command_entry = command_table[command_buffer[0]];
-        command_entry.command_func();
+        message_entry = message_table[command_buffer[0]];
+        message_entry.command_func();
     }
 }
 
@@ -164,6 +161,12 @@ int main() {
 	gpio_init(DEBUG2_PIN); gpio_set_dir(DEBUG2_PIN, GPIO_OUT); // DEBUG
 
     multicore_launch_core1(core1_main); 
+
+    // auto-assign reports to corresponding commands
+    //message_table[2].report_struct = 2;
+    //for (uint8_t i = 0; i < sizeof(message_table)/sizeof(message_table[0]); i++) {
+        //uint8_t j = (uint8_t*)(message_table[i].report_struct) ; // = i;  // FIXME
+    //}
 
 	// Setup routines for subsystems - ran once to initialize hardware & constants
 	iADC_DMA_setup();
