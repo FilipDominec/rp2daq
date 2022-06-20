@@ -16,24 +16,9 @@ MIN_FW_VER = 210400
 
 NANOPOS_AT_ENDSTOP = 2**31 # half the range of uint32
 NANOSTEP_PER_MICROSTEP = 256 # stepper resolution finer than microstep allows smooth speed control 
-MINIMUM_POS = -2**22
+MINIMUM_POS = -2**22 ## FIXME should be +2**22 ? 
 
 CMD_IDENTIFY = 0  # blink LED, return "rp2daq" + datecode (6B) + unique 24B identifier
-CMD_STEPPER_GO = 1
-CMD_GET_STEPPER_STATUS =  3
-CMD_INIT_STEPPER = 5 
-CMD_GET_PIN = 6
-CMD_SET_PIN = 7 
-CMD_SET_PWM = 20
-CMD_INIT_PWM = 21 
-# TODO SYMBOLS HERE
-
-CMD_GET_ADC = 22
-
-#CMD_APPROACH =  102 # disused
-#CMD_GET_STM_STATUS =  104 # disused
-#CMD_SET_PIEZO =  109 # disused
-#CMD_LINESCAN = 1010 # disused
 
 from collections import deque
 import os
@@ -43,13 +28,13 @@ import struct
 import sys
 import threading
 import time
+import traceback
 import tkinter
 import types
 
 import c_code_parser
 
 def init_error_msgbox():  # error handling with a graphical message box
-    import traceback, sys
     def myerr(exc_type, exc_value, tb): 
         message = '\r'.join(traceback.format_exception(exc_type, exc_value, tb))
         print(message)
@@ -68,14 +53,6 @@ def init_settings(infile='settings.txt'):
             k,v = [s.strip() for s in l.split('=', 1)]  # split at first '=' sign
             settings[k] = v
     return settings
-
-tmp_explicit_testing_code = """
-def identify2(self, p,c,):
-
-        self.port.write(struct.pack('BBBB', 4, 2, 
-                p,
-            c,)) 
-"""
 
 
 
@@ -122,6 +99,8 @@ class Rp2daq(threading.Thread):
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
         # TODO 2: search C code for report structs 
+        self.report_header_lenghts = {0:30, 1:2, 2:2} # TODO set this automatically
+
         # TODO 3: also register callbacks (to dispatch reports as they arrive)
 
     def _run_threads(self):
@@ -143,9 +122,11 @@ class Rp2daq(threading.Thread):
 
         while self._is_running() and not self.shutdown_flag:
             if len(self.the_deque):
+                print(f"{len(self.the_deque)=}")
                 # response_data will be populated with the received data for the report
                 response_data = []
-                packet_length = 29 if self.the_deque.popleft() else 0  ## FIXME TEST
+                report_id = self.the_deque.popleft()
+                packet_length = self.report_header_lenghts[report_id] - 1  ## FIXME TEST
 
                 if packet_length:
                     print("packet_length",packet_length)
@@ -191,7 +172,8 @@ class Rp2daq(threading.Thread):
             try:
                 if self.serial_port.inWaiting():
                     c = self.serial_port.read()
-                    self.the_deque.append(ord(c))
+                    print('byte ', c)
+                    self.the_deque.append(ord(c)) # TODO this is inefficient -> rewrite
                 else:
                     time.sleep(self.sleep_tune)
                     # continue
@@ -235,36 +217,38 @@ class Rp2daq(threading.Thread):
         specified, for its particular unique vendor name.
         """
 
-        PID, VID = 10, 11914
+        PID, VID = 10, 11914 # TODO use this info to filter out ports 
         port_list = list_ports.comports()
         #print(f"{port_list=}")
         #for port in port_list: self._log(f"{port=} PID={port.pid} VID={port.vid}")
 
         for port_name in port_list:
             self._log(f"trying port {port_name.name}", end="")
-            #'apply_usb_info', 'description', 'device', 'device_path', 'hwid', 'interface',
-            #'location', 'manufacturer', 'name', 'pid', 'product', 'read_line', 'serial_number', 
-            # 'subsystem', 'usb_description', 'usb_device_path', 'usb_info', 'usb_interface_path', 
-            # 'vid' {port_name.description=} {port_name.hwid=} {port_name.manufacturer=} {port_name.serial_number=} 
 
             port = serial.Serial(port=port_name.device, timeout=0.1)
 
 
             try:
                 #raw = self.identify()
-                port.write(struct.pack(r'<BB', 1, 0)) # hard-coded implementation of "identify" command
+                #if port.inWaiting(): port.read(port.inWaiting()) # todo: test port flush
+                port.write(struct.pack(r'<BB', 1, 0)) # hard-coded "identify" command
                 time.sleep(.05) # 20ms round-trip time is enough
                 bytesToRead = port.inWaiting() 
-                if bytesToRead == 30: raw = port.read(bytesToRead)
+                if bytesToRead == 30:    
+                    raw = port.read(bytesToRead) # assuming 30B
+                elif bytesToRead == 34:     ## TODO rm this
+                    raw = port.read(bytesToRead)
+                    print(f"{raw=}")
+                    raw = raw[4:] 
+                else:
+                    print(f"ERROR identf report, {bytesToRead=}")
             except:
                 raw = b''
 
-            #print(f"{raw=}")
             if not raw[:6] == b'rp2daq': # needed: implement timeout!
                 self._log(f"port open, but device does not identify itself as rp2daq")
                 #del(self.port)
                 continue
-
 
             version_signature = raw[7:13]
             if not version_signature.isdigit() or int(version_signature) < required_firmware_version:
@@ -304,15 +288,22 @@ if __name__ == "__main__":
     print("\tSee the 'examples' directory for further uses.")
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
-    time.sleep(.1)
-
-    rp.pin_out(25, 1)
     #rp.test(4, ord("J"))
     #rp.test(2, ord("Q"))
-    time.sleep(1)
-    rp.pin_out(25, 0)
+
+    t0=time.time()
+    for x in range(1):
+        time.sleep(.35)
+
+        rp.pin_out(25, 1) ## FIXME rx 4 bytes !
+        time.sleep(.35)
+        #print(rp.port.read(4))
+        #TODO print(self.port.read(self.report_header_lenghts[xx])) ...
+
+        #time.sleep(.35)
+        #rp.pin_out(25, 0)
+        #time.sleep(.05)
+        #print(rp.port.read(4))
+    print(f"{time.time()-t0}")
     time.sleep(.1)
-    #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    #rp.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-    #time.sleep(.1)
     rp.shutdown_flag = True

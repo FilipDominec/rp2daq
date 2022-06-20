@@ -19,10 +19,7 @@
 
 uint8_t command_buffer[1024];
 
-// === OUTGOING REPORTS === 
-
-
-// === INCOMING COMMAND HANDLERS ===
+// === INCOMING COMMAND HANDLERS AND OUTGOING REPORTS ===
 // @new_features: If a new functionality is added, please make a copy of any of following command 
 // handlers and don't forget to register this new function in the command_table below;
 // The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
@@ -66,7 +63,7 @@ void test() {
 struct {
     uint8_t report_code;
     uint8_t tmp;
-} * pin_out_report;
+} pin_out_report;
 
 void pin_out() {
 	struct  __attribute__((packed)) {
@@ -76,8 +73,9 @@ void pin_out() {
 	gpio_init(args->n_pin); gpio_set_dir(args->n_pin, GPIO_OUT);
     gpio_put(args->n_pin, args->value);
 
-    pin_out_report->tmp = 42;
-    fwrite(pin_out_report, sizeof(pin_out_report), 1, stdout);
+    pin_out_report.tmp = 42;
+    fwrite(&pin_out_report, sizeof(pin_out_report), 1, stdout);
+	fflush(stdout); 
 }
 
 
@@ -86,22 +84,14 @@ void pin_out() {
 // === I/O MESSAGING INFRASTRUCTURE ===
  
 
-typedef struct { void (*command_func)(void); } message_descriptor; // XXX
+typedef struct { void (*command_func)(void); uint8_t (*report_struct); } message_descriptor;
 message_descriptor message_table[] = // #new_features: add your command to this table
         {   
-                {&identify},  
-                {&test},
-                {&pin_out},
+                {&identify, &identify_report},  
+                {&test, &test_report},
+                {&pin_out, &pin_out_report},
                 //{&internal_adc, &internal_adc_report},
         };  
-//typedef struct { void (*command_func)(void); uint8_t (*report_struct); } message_descriptor;
-//message_descriptor message_table[] = // #new_features: add your command to this table
-        //{   
-                //{&identify, &identify_report},  
-                //{&test, &test_report},
-                //{&pin_out, &pin_out_report},
-                //{&internal_adc, &internal_adc_report},
-        //};  
 
 void get_next_command() {
     int packet_size;
@@ -113,7 +103,7 @@ void get_next_command() {
     // The first byte is the command ID and the following bytes
     // are the associated data bytes
     if ((packet_size = getchar_timeout_us(0)) == PICO_ERROR_TIMEOUT) {
-        return; // TODO allow 16bit packet_size
+        return; // TODO allow 16bit packet_size e.g. for DAC output
     } else {
         // get the rest of the packet
         for (int i = 0; i < packet_size; i++) {
@@ -162,7 +152,11 @@ int main() {
 
     multicore_launch_core1(core1_main); 
 
-    // auto-assign reports to corresponding commands
+    // FIXME: manual-assign reports to corresponding commands
+    identify_report->report_code = 0;
+    test_report->report_code = 1;
+    pin_out_report.report_code = 2;
+    // TODO auto-assign reports to corresponding commands
     //message_table[2].report_struct = 2;
     //for (uint8_t i = 0; i < sizeof(message_table)/sizeof(message_table[0]); i++) {
         //uint8_t j = (uint8_t*)(message_table[i].report_struct) ; // = i;  // FIXME
