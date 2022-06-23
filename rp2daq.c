@@ -28,7 +28,7 @@ struct {
     uint8_t report_code;
     uint8_t _data_count;
     uint8_t _data_bitwidth;
-} * identify_report;
+} identify_report;
 
 void identify() {   
 	struct  __attribute__((packed)) { 
@@ -45,7 +45,7 @@ struct {
     uint8_t report_code;
     uint8_t _data_count;
     uint8_t _data_bitwidth;
-} * test_report;
+} test_report;
 
 void test() {
 	struct  __attribute__((packed)) {
@@ -56,6 +56,7 @@ void test() {
 	text[args->p] = args->c; // for messaging DEBUG only
 	fwrite(text, sizeof(text)-1, 1, stdout);
 	fflush(stdout); 
+	// TODO try to transmit `text` as regular payload
 }
 
 
@@ -153,8 +154,8 @@ int main() {
     multicore_launch_core1(core1_main); 
 
     // FIXME: manual-assign reports to corresponding commands
-    identify_report->report_code = 0;
-    test_report->report_code = 1;
+    identify_report.report_code = 0;
+    test_report.report_code = 1;
     pin_out_report.report_code = 2;
     // TODO auto-assign reports to corresponding commands
     //message_table[2].report_struct = 2;

@@ -136,7 +136,7 @@ class Rp2daq(threading.Thread):
                             time.sleep(self.sleep_tune)
                         data = self.the_deque.popleft()
                         response_data.append(data)
-                    print(' -- ', bytes(response_data).decode('utf-8'))
+                    print(' received packet ', response_data, bytes(response_data).decode('utf-8'))
 
                     # get the report type and look up its dispatch method
                     # here we pop the report type off of response_data
@@ -149,7 +149,7 @@ class Rp2daq(threading.Thread):
                     # it will be contained in response_data
                     # noinspection PyArgumentList
                     #dispatch_entry(response_data)
-                    print(response_data)
+                    print("RespData", response_data)
                     continue
 
                 else:
@@ -236,10 +236,7 @@ class Rp2daq(threading.Thread):
                 bytesToRead = port.inWaiting() 
                 if bytesToRead == 30:    
                     raw = port.read(bytesToRead) # assuming 30B
-                elif bytesToRead == 34:     ## TODO rm this
-                    raw = port.read(bytesToRead)
-                    print(f"{raw=}")
-                    raw = raw[4:] 
+                    #print(f"{raw=}")
                 else:
                     print(f"ERROR identf report, {bytesToRead=}")
             except:
@@ -293,17 +290,13 @@ if __name__ == "__main__":
 
     t0=time.time()
     for x in range(1):
-        time.sleep(.35)
+        rp.pin_out(25, 1)
+        time.sleep(.25)
 
-        rp.pin_out(25, 1) ## FIXME rx 4 bytes !
-        time.sleep(.35)
-        #print(rp.port.read(4))
-        #TODO print(self.port.read(self.report_header_lenghts[xx])) ...
+        rp.pin_out(25, 0) # , callback=pinout_cb
+        time.sleep(.25)
 
-        #time.sleep(.35)
-        #rp.pin_out(25, 0)
-        #time.sleep(.05)
-        #print(rp.port.read(4))
+
     print(f"{time.time()-t0}")
     time.sleep(.1)
     rp.shutdown_flag = True
