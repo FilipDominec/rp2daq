@@ -24,6 +24,9 @@ uint8_t command_buffer[1024];
 // handlers and don't forget to register this new function in the command_table below;
 // The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
 
+#define TRANSMIT_REPORT(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout); 
+//#define TRANSMIT_DATA(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout); 
+
 struct {
     uint8_t report_code;
     uint8_t _data_count;
@@ -64,6 +67,7 @@ void test() {
 struct {
     uint8_t report_code;
     uint8_t tmp;
+    uint16_t tmpH;
 } pin_out_report;
 
 void pin_out() {
@@ -75,8 +79,10 @@ void pin_out() {
     gpio_put(args->n_pin, args->value);
 
     pin_out_report.tmp = 42;
-    fwrite(&pin_out_report, sizeof(pin_out_report), 1, stdout);
-	fflush(stdout); 
+    pin_out_report.tmpH = 4200;
+	TRANSMIT_REPORT(pin_out_report);
+    //fwrite(&pin_out_report, sizeof(pin_out_report), 1, stdout);
+	//fflush(stdout); 
 }
 
 

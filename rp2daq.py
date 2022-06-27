@@ -43,19 +43,6 @@ def init_error_msgbox():  # error handling with a graphical message box
     sys.excepthook = myerr
 
 
-def init_settings(infile='settings.txt'):
-    #infile = os.path.realpath(__file__)
-    #print("DEBUG: infile = ", infile)
-    settings = {}
-    with open(infile) as f:
-        for l in f.readlines():
-            l = l.split('#')[0] # ignore comments
-            k,v = [s.strip() for s in l.split('=', 1)]  # split at first '=' sign
-            settings[k] = v
-    return settings
-
-
-
 class Rp2daq(threading.Thread):
     def __init__(self, required_device_id=None, verbose=True):
 
@@ -98,10 +85,16 @@ class Rp2daq(threading.Thread):
             exec(cmd_code)
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
-        # TODO 2: search C code for report structs 
-        self.report_header_lenghts = {0:30, 1:2, 2:2} # TODO set this automatically
+        # TODO 2: search C code for report structs  &  generate automatically:
+        self.report_header_lenghts = {0:30, 1:2, 2:4} 
+        self.report_header_formats = {0:"B"*30, 1:"<B", 2:"<BH"}
+        self.report_header_varnames = {0: (), 
+                1:(), 
+                2:("alice","bob")} # 
+        self.report_cb_lock = {0:0, 1:0, 2:0} # for (default) blocking behaviour of commands
 
         # TODO 3: also register callbacks (to dispatch reports as they arrive)
+        self.report_callbacks = {0:None, 1:None, 2:test_callback}
 
     def _run_threads(self):
         self.run_event.set()
@@ -122,21 +115,29 @@ class Rp2daq(threading.Thread):
 
         while self._is_running() and not self.shutdown_flag:
             if len(self.the_deque):
-                print(f"{len(self.the_deque)=}")
+                print(f"nonzero {len(self.the_deque)=}")
                 # response_data will be populated with the received data for the report
                 response_data = []
                 report_id = self.the_deque.popleft()
-                packet_length = self.report_header_lenghts[report_id] - 1  ## FIXME TEST
+                packet_length = self.report_header_lenghts[report_id] - 1
 
                 if packet_length:
-                    print("packet_length",packet_length)
+                    print("processing packet_length",packet_length)
                     # get all the data for the report and place it into response_data
                     for i in range(packet_length):
                         while not len(self.the_deque):
                             time.sleep(self.sleep_tune)
                         data = self.the_deque.popleft()
                         response_data.append(data)
-                    print(' received packet ', response_data, bytes(response_data).decode('utf-8'))
+                    print(' received packet ', response_data, bytes(response_data) ) # .decode('utf-8'),
+                    report_args = struct.unpack(self.report_header_formats[report_id], bytes(response_data))
+                    cb_kwargs = dict(zip(self.report_header_varnames[report_id], report_args))
+                    #print(cb_kwargs)
+                    if cb := self.report_callbacks[report_id]:
+                        cb(**cb_kwargs)
+                    else:
+                        self.report_cb_lock[report_id] = 0
+                    
 
                     # get the report type and look up its dispatch method
                     # here we pop the report type off of response_data
@@ -147,9 +148,8 @@ class Rp2daq(threading.Thread):
 
                     # if there is additional data for the report,
                     # it will be contained in response_data
-                    # noinspection PyArgumentList
                     #dispatch_entry(response_data)
-                    print("RespData", response_data)
+                    print("RespType", report_type, "RespData", response_data)
                     continue
 
                 else:
@@ -172,7 +172,7 @@ class Rp2daq(threading.Thread):
             try:
                 if self.serial_port.inWaiting():
                     c = self.serial_port.read()
-                    print('byte ', c)
+                    #print('byte ', c)
                     self.the_deque.append(ord(c)) # TODO this is inefficient -> rewrite
                 else:
                     time.sleep(self.sleep_tune)
@@ -180,14 +180,6 @@ class Rp2daq(threading.Thread):
             except OSError:
                 pass
 
-    # TODO implement async inspired by tmx
-    #def _report_receiver_thread(): # polls the port for incoming messages
-        #while True:
-            #time.sleep(.1)
-            #print(time.time())
-
-
-    # TODO autogenerate e.g. the "self.internal_adc(..., cb=self._blocking_CB)" command as a new method of this class
     # TODO test it with _blocking_CB() - a loop polling a semaphore must (?) delay this method from returning
     # note: it seems OK that multiple reports (i.e. blocks) returned from device would not be all serviced by 
     #   the _blocking_CB method, as it just waits for the first report arriving and returns it
@@ -279,6 +271,8 @@ class Rp2daq(threading.Thread):
         #unique_id = (raw[6:14]).hex(':')
         return raw
 
+def test_callback(alice, **kwargs):
+    print("**** test cb ****", alice, kwargs)
 
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
@@ -287,14 +281,19 @@ if __name__ == "__main__":
 
     #rp.test(4, ord("J"))
     #rp.test(2, ord("Q"))
+    # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
     t0=time.time()
-    for x in range(1):
+    for x in range(2):
+        t0=time.time()
         rp.pin_out(25, 1)
-        time.sleep(.25)
+        print(time.time()-t0)
+        #time.sleep(.25)
 
-        rp.pin_out(25, 0) # , callback=pinout_cb
-        time.sleep(.25)
+        t0=time.time()
+        rp.pin_out(25, 0, _callback=test_callback) # , 
+        print(time.time()-t0)
+        #time.sleep(.25)
 
 
     print(f"{time.time()-t0}")
