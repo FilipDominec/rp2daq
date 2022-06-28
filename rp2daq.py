@@ -272,7 +272,7 @@ class Rp2daq(threading.Thread):
         return raw
 
 def test_callback(alice, **kwargs):
-    print("**** test cb ****", alice, kwargs)
+    print("**** test cb **** ", alice, kwargs, time.time()-t0)
 
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
@@ -285,17 +285,21 @@ if __name__ == "__main__":
 
     t0=time.time()
     for x in range(2):
+        print()
+
         t0=time.time()
         rp.pin_out(25, 1)
-        print(time.time()-t0)
-        #time.sleep(.25)
+        print("synchronous", time.time()-t0)
+        time.sleep(.0025)
 
+
+        print()
         t0=time.time()
         rp.pin_out(25, 0, _callback=test_callback) # , 
-        print(time.time()-t0)
-        #time.sleep(.25)
+        print("asynchronous - just sent cmd", time.time()-t0)
+        time.sleep(.0025)
 
 
-    print(f"{time.time()-t0}")
+    print(f"end timer {time.time()-t0}")
     time.sleep(.1)
     rp.shutdown_flag = True

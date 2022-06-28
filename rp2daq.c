@@ -78,6 +78,8 @@ void pin_out() {
 	gpio_init(args->n_pin); gpio_set_dir(args->n_pin, GPIO_OUT);
     gpio_put(args->n_pin, args->value);
 
+	// XXX TESTING ONLY
+	//sleep_ms(500);
     pin_out_report.tmp = 42;
     pin_out_report.tmpH = 4200;
 	TRANSMIT_REPORT(pin_out_report);
