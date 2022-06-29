@@ -80,21 +80,20 @@ class Rp2daq(threading.Thread):
     def _register_commands(self):
         # TODO 0: search C code for version, check it matches that one returned by Raspberry Pi at runtime
 
-        names_codes = c_code_parser.generate_command_binary_interface(open('rp2daq.c').read())
+        C_code = open('rp2daq.c').read()
+
+        names_codes = c_code_parser.generate_command_binary_interface(C_code)
         for cmd_name, cmd_code in names_codes.items():
             exec(cmd_code)
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
-        # TODO 2: search C code for report structs  &  generate automatically:
-        self.report_header_lenghts = {0:30, 1:2, 2:4} 
-        self.report_header_formats = {0:"B"*30, 1:"<B", 2:"<BH"}
-        self.report_header_varnames = {0: (), 
-                1:(), 
-                2:("alice","bob")} # 
-        self.report_cb_lock = {0:0, 1:0, 2:0} # for (default) blocking behaviour of commands
+        # search C code for report structs  &  generate automatically:
+        self.report_cb_lock = {}
+        self.report_header_lenghts, self.report_header_formats, self.report_header_varnames = \
+                c_code_parser.generate_report_binary_interface(C_code)
 
         # TODO 3: also register callbacks (to dispatch reports as they arrive)
-        self.report_callbacks = {0:None, 1:None, 2:test_callback}
+        self.report_callbacks = {} # {0:None, 1:None, 2:}
 
     def _run_threads(self):
         self.run_event.set()
@@ -115,14 +114,14 @@ class Rp2daq(threading.Thread):
 
         while self._is_running() and not self.shutdown_flag:
             if len(self.the_deque):
-                print(f"nonzero {len(self.the_deque)=}")
+                #print(f"nonzero {len(self.the_deque)=}")
                 # response_data will be populated with the received data for the report
                 response_data = []
                 report_id = self.the_deque.popleft()
                 packet_length = self.report_header_lenghts[report_id] - 1
 
                 if packet_length:
-                    print("processing packet_length",packet_length)
+                    #print("processing packet_length",packet_length)
                     # get all the data for the report and place it into response_data
                     for i in range(packet_length):
                         while not len(self.the_deque):
@@ -130,7 +129,7 @@ class Rp2daq(threading.Thread):
                         data = self.the_deque.popleft()
                         response_data.append(data)
                     print(' received packet ', response_data, bytes(response_data) ) # .decode('utf-8'),
-                    report_args = struct.unpack(self.report_header_formats[report_id], bytes(response_data))
+                    report_args = struct.unpack(self.report_header_formats[report_id], bytes([report_id]+response_data))
                     cb_kwargs = dict(zip(self.report_header_varnames[report_id], report_args))
                     #print(cb_kwargs)
                     if cb := self.report_callbacks[report_id]:
@@ -149,7 +148,7 @@ class Rp2daq(threading.Thread):
                     # if there is additional data for the report,
                     # it will be contained in response_data
                     #dispatch_entry(response_data)
-                    print("RespType", report_type, "RespData", response_data)
+                    #print("RespType", report_type, "RespData", response_data)
                     continue
 
                 else:
@@ -271,8 +270,8 @@ class Rp2daq(threading.Thread):
         #unique_id = (raw[6:14]).hex(':')
         return raw
 
-def test_callback(alice, **kwargs):
-    print("**** test cb **** ", alice, kwargs, time.time()-t0)
+def test_callback(**kwargs):
+    print("**** test cb **** ", kwargs, time.time()-t0)
 
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
@@ -284,20 +283,20 @@ if __name__ == "__main__":
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
     t0=time.time()
-    for x in range(2):
+    for x in range(3):
         print()
 
         t0=time.time()
         rp.pin_out(25, 1)
         print("synchronous", time.time()-t0)
-        time.sleep(.0025)
+        time.sleep(.100)
 
 
         print()
         t0=time.time()
         rp.pin_out(25, 0, _callback=test_callback) # , 
         print("asynchronous - just sent cmd", time.time()-t0)
-        time.sleep(.0025)
+        time.sleep(.100)
 
 
     print(f"end timer {time.time()-t0}")
