@@ -50,9 +50,9 @@ class Rp2daq(threading.Thread):
         self.log_text = "" 
         self.start_time = time.time()
 
-        self.sleep_tune = 0.01
+        self.sleep_tune = 0.001
 
-        self.port = self._initialize_port(required_device_id=None, required_firmware_version=MIN_FW_VER)
+        self.port = self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
         self.serial_port = self.port # tmp. compat
 
 
@@ -87,13 +87,13 @@ class Rp2daq(threading.Thread):
             exec(cmd_code)
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
-        # search C code for report structs  &  generate automatically:
+        # Search C code for report structs & generate automatically:
         self.report_cb_lock = {}
         self.report_header_lenghts, self.report_header_formats, self.report_header_varnames = \
                 c_code_parser.generate_report_binary_interface(C_code)
 
-        # TODO 3: also register callbacks (to dispatch reports as they arrive)
-        self.report_callbacks = {} # {0:None, 1:None, 2:}
+        # Register callbacks (to dispatch reports as they arrive)
+        self.report_callbacks = {} 
 
     def _run_threads(self):
         self.run_event.set()
@@ -131,7 +131,11 @@ class Rp2daq(threading.Thread):
                     print(' received packet ', response_data, bytes(response_data) ) # .decode('utf-8'),
                     report_args = struct.unpack(self.report_header_formats[report_id], bytes([report_id]+response_data))
                     cb_kwargs = dict(zip(self.report_header_varnames[report_id], report_args))
-                    #print(cb_kwargs)
+
+                    if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
+                        print(f"------------ {dc=} {dbw=} WOULD RECEIVE {int(dc*dbw)+.999999} EXTRA BYTES " )
+                    
+
                     if cb := self.report_callbacks[report_id]:
                         cb(**cb_kwargs)
                     else:
@@ -202,7 +206,7 @@ class Rp2daq(threading.Thread):
         if self.verbose: 
             print(f"{message}{end}", end="")
 # }}}
-    def _initialize_port(self, required_device_id, required_firmware_version):# {{{
+    def _find_device(self, required_device_id, required_firmware_version):# {{{
         """
         Seeks for a compatible rp2daq device on USB, checking for its firmware version and, if 
         specified, for its particular unique vendor name.
@@ -270,8 +274,15 @@ class Rp2daq(threading.Thread):
         #unique_id = (raw[6:14]).hex(':')
         return raw
 
+
+#mylock = 0
+check = threading.Condition()
+
+
 def test_callback(**kwargs):
     print("**** test cb **** ", kwargs, time.time()-t0)
+    #mylock = 0
+    check.acquire(); check.notify(); check.release()
 
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
@@ -287,16 +298,21 @@ if __name__ == "__main__":
         print()
 
         t0=time.time()
-        rp.pin_out(25, 1)
-        print("synchronous", time.time()-t0)
-        time.sleep(.100)
+        #rp.pin_out(25, 1); print("synchronous", time.time()-t0)
+        #mylock = 1
+        rp.pin_out(25, 1, _callback=test_callback); print(f"{x}a asynchronous - just sent cmd", time.time()-t0)
+
+        #while mylock: pass
+        check.acquire(); check.wait()
+
+        print(" .. unlock @ ", time.time()-t0)
+        time.sleep(.500)
 
 
         print()
         t0=time.time()
-        rp.pin_out(25, 0, _callback=test_callback) # , 
-        print("asynchronous - just sent cmd", time.time()-t0)
-        time.sleep(.100)
+        rp.pin_out(25, 0, _callback=test_callback); print(f"{x}b asynchronous - just sent cmd", time.time()-t0)
+        time.sleep(.500)
 
 
     print(f"end timer {time.time()-t0}")
