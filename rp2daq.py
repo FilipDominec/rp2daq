@@ -276,7 +276,7 @@ class Rp2daq(threading.Thread):
 
 
 #mylock = 0
-check = threading.Condition()
+
 
 
 def test_callback(**kwargs):
@@ -303,7 +303,7 @@ if __name__ == "__main__":
         rp.pin_out(25, 1, _callback=test_callback); print(f"{x}a asynchronous - just sent cmd", time.time()-t0)
 
         #while mylock: pass
-        check.acquire(); check.wait()
+        #check.acquire(); check.wait()
 
         print(" .. unlock @ ", time.time()-t0)
         time.sleep(.500)
