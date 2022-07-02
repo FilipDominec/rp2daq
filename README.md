@@ -12,7 +12,7 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 **Work under progress. Not ready enough to be recommended for practical use yet.**
 
  * Basic features: 
-    * [ ] async message communication
+    * [x] async message communication
     * [ ] fresh rewritten stepper control
     * [ ] analog pin direct read
 	* [ ] digital pin input/output

@@ -52,7 +52,6 @@ class Rp2daq(threading.Thread):
     def __init__(self, required_device_id=None, verbose=True):
 
         self.verbose = verbose
-        self.log_text = "" 
         self.start_time = time.time()
 
         self.sleep_tune = 0.001
@@ -93,7 +92,7 @@ class Rp2daq(threading.Thread):
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
         # Search C code for report structs & generate automatically:
-        self.report_cb_lock = {}
+        self.report_cb_queue = {}
         self.report_header_lenghts, self.report_header_formats, self.report_header_varnames = \
                 c_code_parser.generate_report_binary_interface(C_code)
 
@@ -143,11 +142,11 @@ class Rp2daq(threading.Thread):
                     
 
                     if cb := self.report_callbacks[report_type]:
-                        print("CALLING CB", cb_kwargs)
+                        logging.debug("CALLING CB {cb_kwargs}")
                         cb(**cb_kwargs)
                     else:
-                        #self.report_cb_lock[report_type] = 0
-                        self.report_cb_lock[report_type].put(cb_kwargs)
+                        #self.report_cb_queue[report_type] = 0
+                        self.report_cb_queue[report_type].put(cb_kwargs) # unblock 
                     
 
                     # get the report type and look up its dispatch method
@@ -191,30 +190,19 @@ class Rp2daq(threading.Thread):
             except OSError:
                 pass
 
-    def default_blocking_callback(command_code): # 
+    def default_blocking_callback(self, command_code): # 
         """
         Any command called without explicit `_callback` argument is blocking - i.e. the thread
         that waits here until a corresponding report arrives. This is good practice only if quick 
         response from device is expected, or your script uses multithreading. Otherwise the 
         program flow would be stalled for a while here.
         """
-        if not self.report_cb_lock.get(command_code):
-            self.report_cb_lock[command_code] = queue.Queue()
-        kwargs = self.report_cb_lock[command_code].get()
+        if not self.report_cb_queue.get(command_code):
+            self.report_cb_queue[command_code] = queue.Queue()
+        kwargs = self.report_cb_queue[command_code].get()
         print('SYNC CMD RETURNS:', kwargs)
         return kwargs
 
-    def _log(self, message, end="\n"):# {{{
-        """
-        Like the print() command, but all debugging info is also stored in self.log_text to remain 
-        accessible in graphical user interfaces.
-        """
-        message = message.replace('\n','\n\t\t') # visual align indent with timestamps
-        if self.log_text[-1:] in ('', '\n'):
-            message = f"[{time.time()-self.start_time:13.6f}] {message}"
-        self.log_text += f"{message}{end}"
-        if self.verbose: 
-            print(f"{message}{end}", end="")
 # }}}
     def _find_device(self, required_device_id, required_firmware_version):# {{{
         """
@@ -228,7 +216,7 @@ class Rp2daq(threading.Thread):
         #for port in port_list: self._log(f"{port=} PID={port.pid} VID={port.vid}")
 
         for port_name in port_list:
-            self._log(f"trying port {port_name.name}", end="")
+            logging.info(f"checking port {port_name.name}")
 
             port = serial.Serial(port=port_name.device, timeout=0.1)
 
@@ -248,13 +236,13 @@ class Rp2daq(threading.Thread):
                 raw = b''
 
             if not raw[:6] == b'rp2daq': # needed: implement timeout!
-                self._log(f"port open, but device does not identify itself as rp2daq")
+                logging.info(f"\tport open, but device does not identify itself as rp2daq")
                 #del(self.port)
                 continue
 
             version_signature = raw[7:13]
             if not version_signature.isdigit() or int(version_signature) < required_firmware_version:
-                self._log(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
+                logging.critical(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
                         f"older than this script's {MIN_FW_VER}.\nPlease upgrade firmware " +\
                         "or override this error using 'required_firmware_version=0'.")
                 #del(self.port)
@@ -263,17 +251,17 @@ class Rp2daq(threading.Thread):
             if isinstance(required_device_id, str): # optional conversion
                 required_device_id = bytes.fromhex(required_device_id.replace(":", ""))
             if required_device_id and raw[12:20] != required_device_id:
-                self._log(f"found an rp2daq device, but its ID {raw[12:20].hex(':')} does not match " + 
+                logging.critical(f"found an rp2daq device, but its ID {raw[12:20].hex(':')} does not match " + 
                         f"required {required_device_id.hex(':')}")
                 #del(self.port)
                 continue
 
-            self._log(f"connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
+            logging.info(f"connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
             return port
 
         else:
             msg = "Error: could not find any matching rp2daq device"
-            self._log(msg)
+            logging.critical(msg)
             raise RuntimeError(msg)
 # }}}
     def identify(self): # {{{
@@ -302,20 +290,20 @@ if __name__ == "__main__":
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
     t0=time.time()
-    for x in range(3):
+    for x in range(2):
         print()
 
         t0=time.time()
         rp.pin_out(25, 1); 
         print("synchronous call took", time.time()-t0)
 
-        time.sleep(.50)
+        time.sleep(.15)
         print()
 
         t0=time.time()
         rp.pin_out(25, 0, _callback=test_callback)
         print(f"asynchronous call took", time.time()-t0)
-        time.sleep(.50)
+        time.sleep(.15)
 
 
     print(f"end timer {time.time()-t0}")
