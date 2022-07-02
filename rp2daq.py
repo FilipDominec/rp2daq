@@ -21,7 +21,9 @@ MINIMUM_POS = -2**22 ## FIXME should be +2**22 ?
 CMD_IDENTIFY = 0  # blink LED, return "rp2daq" + datecode (6B) + unique 24B identifier
 
 from collections import deque
+import logging
 import os
+import queue
 import serial
 from serial.tools import list_ports 
 import struct
@@ -34,10 +36,13 @@ import types
 
 import c_code_parser
 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-9s) %(message)s',) # filename='rp2.log',
+
+
 def init_error_msgbox():  # error handling with a graphical message box
     def myerr(exc_type, exc_value, tb): 
         message = '\r'.join(traceback.format_exception(exc_type, exc_value, tb))
-        print(message)
+        logging.error(message)
         from tkinter import messagebox
         messagebox.showerror(title=exc_value, message=message)
     sys.excepthook = myerr
@@ -128,18 +133,21 @@ class Rp2daq(threading.Thread):
                             time.sleep(self.sleep_tune)
                         data = self.the_deque.popleft()
                         response_data.append(data)
-                    print(' received packet ', response_data, bytes(response_data) ) # .decode('utf-8'),
+                    logging.debug(f"received packet {response_data=} {bytes(response_data)=}") # .decode('utf-8'),
                     report_args = struct.unpack(self.report_header_formats[report_id], bytes([report_id]+response_data))
                     cb_kwargs = dict(zip(self.report_header_varnames[report_id], report_args))
 
                     if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
-                        print(f"------------ {dc=} {dbw=} WOULD RECEIVE {int(dc*dbw)+.999999} EXTRA BYTES " )
+                        # TODO payload data
+                        logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {int(dc*dbw)+.999999} EXTRA BYTES " )
                     
 
                     if cb := self.report_callbacks[report_id]:
+                        print("CALLING CB", cb_kwargs)
                         cb(**cb_kwargs)
                     else:
-                        self.report_cb_lock[report_id] = 0
+                        #self.report_cb_lock[report_id] = 0
+                        self.report_cb_lock[report_id].put(cb_kwargs)
                     
 
                     # get the report type and look up its dispatch method
@@ -183,16 +191,18 @@ class Rp2daq(threading.Thread):
             except OSError:
                 pass
 
-    # TODO test it with _blocking_CB() - a loop polling a semaphore must (?) delay this method from returning
-    # note: it seems OK that multiple reports (i.e. blocks) returned from device would not be all serviced by 
-    #   the _blocking_CB method, as it just waits for the first report arriving and returns it
-    #   user has to implement their cb themselves if multiple/infinite reports expected
-
-
-    def _blocking_CB(): # 
+    def default_blocking_callback(command_code): # 
         """
-        Default blocking callback (useful for immediate responses from device, )
+        Any command called without explicit `_callback` argument is blocking - i.e. the thread
+        that waits here until a corresponding report arrives. This is good practice only if quick 
+        response from device is expected, or your script uses multithreading. Otherwise the 
+        program flow would be stalled for a while here.
         """
+        if not self.report_cb_lock.get(command_code):
+            self.report_cb_lock[command_code] = queue.Queue()
+        kwargs = self.report_cb_lock[command_code].get()
+        print('SYNC CMD RETURNS:', kwargs)
+        return kwargs
 
     def _log(self, message, end="\n"):# {{{
         """
@@ -266,23 +276,21 @@ class Rp2daq(threading.Thread):
             self._log(msg)
             raise RuntimeError(msg)
 # }}}
-
-    def identify(self): 
+    def identify(self): # {{{
         self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
         raw = self.port.read(30)
         #devicename = raw[0:6]
         #unique_id = (raw[6:14]).hex(':')
         return raw
-
+# }}}
 
 #mylock = 0
 
 
 
 def test_callback(**kwargs):
-    print("**** test cb **** ", kwargs, time.time()-t0)
+    print("\ncallback delayed from last command by ", time.time()-t0, " with kwargs =", kwargs, )
     #mylock = 0
-    check.acquire(); check.notify(); check.release()
 
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
@@ -298,21 +306,16 @@ if __name__ == "__main__":
         print()
 
         t0=time.time()
-        #rp.pin_out(25, 1); print("synchronous", time.time()-t0)
-        #mylock = 1
-        rp.pin_out(25, 1, _callback=test_callback); print(f"{x}a asynchronous - just sent cmd", time.time()-t0)
+        rp.pin_out(25, 1); 
+        print("synchronous call took", time.time()-t0)
 
-        #while mylock: pass
-        #check.acquire(); check.wait()
-
-        print(" .. unlock @ ", time.time()-t0)
-        time.sleep(.500)
-
-
+        time.sleep(.50)
         print()
+
         t0=time.time()
-        rp.pin_out(25, 0, _callback=test_callback); print(f"{x}b asynchronous - just sent cmd", time.time()-t0)
-        time.sleep(.500)
+        rp.pin_out(25, 0, _callback=test_callback)
+        print(f"asynchronous call took", time.time()-t0)
+        time.sleep(.50)
 
 
     print(f"end timer {time.time()-t0}")

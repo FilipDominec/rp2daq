@@ -79,7 +79,7 @@ void pin_out() {
     gpio_put(args->n_pin, args->value);
 
 	// XXX TESTING ONLY
-	//sleep_ms(500);
+	busy_wait_us_32(97000);
     pin_out_report.tmp = 42;
     pin_out_report.tmpH = 4200;
 	TRANSMIT_REPORT(pin_out_report);
