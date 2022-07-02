@@ -122,8 +122,8 @@ class Rp2daq(threading.Thread):
                 #print(f"nonzero {len(self.the_deque)=}")
                 # response_data will be populated with the received data for the report
                 response_data = []
-                report_id = self.the_deque.popleft()
-                packet_length = self.report_header_lenghts[report_id] - 1
+                report_type = self.the_deque.popleft()
+                packet_length = self.report_header_lenghts[report_type] - 1
 
                 if packet_length:
                     #print("processing packet_length",packet_length)
@@ -133,21 +133,21 @@ class Rp2daq(threading.Thread):
                             time.sleep(self.sleep_tune)
                         data = self.the_deque.popleft()
                         response_data.append(data)
-                    logging.debug(f"received packet {response_data=} {bytes(response_data)=}") # .decode('utf-8'),
-                    report_args = struct.unpack(self.report_header_formats[report_id], bytes([report_id]+response_data))
-                    cb_kwargs = dict(zip(self.report_header_varnames[report_id], report_args))
+                    logging.debug(f"received packet {report_type=} {response_data=} {bytes(response_data)=}") # .decode('utf-8'),
+                    report_args = struct.unpack(self.report_header_formats[report_type], bytes([report_type]+response_data))
+                    cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
 
                     if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
                         # TODO payload data
                         logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {int(dc*dbw)+.999999} EXTRA BYTES " )
                     
 
-                    if cb := self.report_callbacks[report_id]:
+                    if cb := self.report_callbacks[report_type]:
                         print("CALLING CB", cb_kwargs)
                         cb(**cb_kwargs)
                     else:
-                        #self.report_cb_lock[report_id] = 0
-                        self.report_cb_lock[report_id].put(cb_kwargs)
+                        #self.report_cb_lock[report_type] = 0
+                        self.report_cb_lock[report_type].put(cb_kwargs)
                     
 
                     # get the report type and look up its dispatch method

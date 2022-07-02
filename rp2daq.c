@@ -24,6 +24,7 @@ uint8_t command_buffer[1024];
 // handlers and don't forget to register this new function in the command_table below;
 // The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
 
+#define ARRAY_LEN(arr)   sizeof(arr)/sizeof(arr[0]) 
 #define TRANSMIT_REPORT(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout); 
 //#define TRANSMIT_DATA(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout); 
 
@@ -80,8 +81,6 @@ void pin_out() {
 
 	// XXX TESTING ONLY
 	busy_wait_us_32(97000);
-    pin_out_report.tmp = 42;
-    pin_out_report.tmpH = 4200;
 	TRANSMIT_REPORT(pin_out_report);
     //fwrite(&pin_out_report, sizeof(pin_out_report), 1, stdout);
 	//fflush(stdout); 
@@ -97,8 +96,8 @@ typedef struct { void (*command_func)(void); uint8_t (*report_struct); } message
 message_descriptor message_table[] = // #new_features: add your command to this table
         {   
                 {&identify, &identify_report},  
-                {&test, &test_report},
                 {&pin_out, &pin_out_report},
+                {&test, &test_report},
                 //{&internal_adc, &internal_adc_report},
         };  
 
@@ -125,7 +124,7 @@ void get_next_command() {
         // the first byte is the command ID.
         // look up the function and execute it.
         // data for the command starts at index 1 in the command_buffer
-        if (command_buffer[0] >= sizeof(message_table)/sizeof(message_table[0])) {
+        if (command_buffer[0] >= ARRAY_LEN(message_table)) {
             return; // todo: report overflow
         }
 
@@ -161,15 +160,13 @@ int main() {
 
     multicore_launch_core1(core1_main); 
 
-    // FIXME: manual-assign reports to corresponding commands
-    identify_report.report_code = 0;
-    test_report.report_code = 1;
-    pin_out_report.report_code = 2;
     // TODO auto-assign reports to corresponding commands
-    //message_table[2].report_struct = 2;
-    //for (uint8_t i = 0; i < sizeof(message_table)/sizeof(message_table[0]); i++) {
-        //uint8_t j = (uint8_t*)(message_table[i].report_struct) ; // = i;  // FIXME
-    //}
+    for (uint8_t i = 0; i < sizeof(message_table)/sizeof(message_table[0]); i++) {
+		*(message_table[i].report_struct) = i;
+    }
+
+    pin_out_report.tmp = sizeof(message_table);
+    pin_out_report.tmpH = sizeof(message_table[0]);
 
 	// Setup routines for subsystems - ran once to initialize hardware & constants
 	iADC_DMA_setup();
