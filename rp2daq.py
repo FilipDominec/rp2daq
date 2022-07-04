@@ -119,26 +119,32 @@ class Rp2daq(threading.Thread):
         while self._is_running() and not self.shutdown_flag:
             if len(self.the_deque):
                 #print(f"nonzero {len(self.the_deque)=}")
-                # response_data will be populated with the received data for the report
-                response_data = []
+                # report_header_bytes will be populated with the received data for the report
+                report_header_bytes = []
                 report_type = self.the_deque.popleft()
                 packet_length = self.report_header_lenghts[report_type] - 1
 
                 if packet_length:
                     #print("processing packet_length",packet_length)
-                    # get all the data for the report and place it into response_data
+                    # get all the data for the report and place it into report_header_bytes
                     for i in range(packet_length):
                         while not len(self.the_deque):
                             time.sleep(self.sleep_tune)
-                        data = self.the_deque.popleft()
-                        response_data.append(data)
-                    logging.debug(f"received packet {report_type=} {response_data=} {bytes(response_data)=}") # .decode('utf-8'),
-                    report_args = struct.unpack(self.report_header_formats[report_type], bytes([report_type]+response_data))
+                        report_header_bytes.append(self.the_deque.popleft())
+                    logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}") # .decode('utf-8'),
+                    report_args = struct.unpack(self.report_header_formats[report_type], bytes([report_type]+report_header_bytes))
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
 
+                    report_payload_bytes = []
                     if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
                         # TODO payload data
-                        logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {int(dc*dbw)+.999999} EXTRA BYTES " )
+                        payload_length = int(dc*dbw/8+.999999)
+                        logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {payload_length} PAYLOAD BYTES " )
+                        for i in range(payload_length):
+                            while not len(self.the_deque):
+                                time.sleep(self.sleep_tune)
+                            report_payload_bytes.append(self.the_deque.popleft())
+                        logging.debug(f"             GOT PAYLOAD BYTES {report_payload_bytes}" )
                     
 
                     if cb := self.report_callbacks[report_type]:
@@ -147,19 +153,6 @@ class Rp2daq(threading.Thread):
                     else:
                         #self.report_cb_queue[report_type] = 0
                         self.report_cb_queue[report_type].put(cb_kwargs) # unblock 
-                    
-
-                    # get the report type and look up its dispatch method
-                    # here we pop the report type off of response_data
-                    report_type = response_data.pop(0)
-
-                    # retrieve the report handler from the dispatch table
-                    #dispatch_entry = self.report_dispatch.get(report_type)
-
-                    # if there is additional data for the report,
-                    # it will be contained in response_data
-                    #dispatch_entry(response_data)
-                    #print("RespType", report_type, "RespData", response_data)
                     continue
 
                 else:
@@ -285,27 +278,11 @@ if __name__ == "__main__":
     print("\tSee the 'examples' directory for further uses.")
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
-    #rp.test(4, ord("J"))
-    #rp.test(2, ord("Q"))
+    rp.test(4, ord("J"))
+    rp.test(2, ord("Q"))
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
-    t0=time.time()
-    for x in range(2):
-        print()
-
-        t0=time.time()
-        rp.pin_out(25, 1); 
-        print("synchronous call took", time.time()-t0)
-
-        time.sleep(.15)
-        print()
-
-        t0=time.time()
-        rp.pin_out(25, 0, _callback=test_callback)
-        print(f"asynchronous call took", time.time()-t0)
-        time.sleep(.15)
-
-
-    print(f"end timer {time.time()-t0}")
     time.sleep(.1)
     rp.shutdown_flag = True
+
+

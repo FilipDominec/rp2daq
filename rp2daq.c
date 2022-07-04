@@ -14,7 +14,10 @@
 #define VERSION ("220122")
 
 #define LED_PIN 25
+#define BLINK_LED_US(duration) gpio_put(LED_PIN, 1); busy_wait_us_32(duration); gpio_put(LED_PIN, 0); 
+#define ARRAY_LEN(arr)   (sizeof(arr)/sizeof((arr)[0]))
 #define DEBUG_PIN 4
+
 #define DEBUG2_PIN 5
 
 uint8_t command_buffer[1024];
@@ -24,9 +27,8 @@ uint8_t command_buffer[1024];
 // handlers and don't forget to register this new function in the command_table below;
 // The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
 
-#define ARRAY_LEN(arr)   sizeof(arr)/sizeof(arr[0]) 
-#define TRANSMIT_REPORT(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout); 
-//#define TRANSMIT_DATA(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout); 
+#define TRANSMIT_REPORT(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout);
+#define TRANSMIT_DATA(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout);
 
 struct {
     uint8_t report_code;
@@ -47,6 +49,8 @@ void identify() {
 
 struct {
     uint8_t report_code;
+    uint8_t tmp;
+    uint16_t tmpH;
     uint8_t _data_count;
     uint8_t _data_bitwidth;
 } test_report;
@@ -56,14 +60,16 @@ void test() {
 		uint8_t p,c; 	
 	} * args = (void*)(command_buffer+1);
 
+    test_report.tmp = 42;
+    test_report.tmpH = 4200;
 	test_report._data_count = 30;
 	test_report._data_bitwidth = 8;
 	TRANSMIT_REPORT(test_report);
 
 	uint8_t text[14+16+1] = {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', };
 	text[args->p] = args->c; // for messaging DEBUG only
-	fwrite(text, sizeof(text)-1, 1, stdout);
-	fflush(stdout); 
+	
+	fwrite(text, sizeof(text)-1, 1, stdout); fflush(stdout);  //xxx
 	// TODO try to transmit `text` as regular payload
 }
 
@@ -71,8 +77,6 @@ void test() {
 
 struct {
     uint8_t report_code;
-    uint8_t tmp;
-    uint16_t tmpH;
 } pin_out_report;
 
 void pin_out() {
@@ -168,16 +172,12 @@ int main() {
 		*((uint8_t*)(message_table[report_code].report_struct)) = report_code; 
     }
 
-    pin_out_report.tmp = sizeof(message_table);
-    pin_out_report.tmpH = sizeof(message_table[0]);
-
 	// Setup routines for subsystems - ran once to initialize hardware & constants
 	iADC_DMA_setup();
 
-    gpio_put(LED_PIN, 1); busy_wait_us_32(5000);    
-    gpio_put(LED_PIN, 0); busy_wait_us_32(100000); 
-    gpio_put(LED_PIN, 1); busy_wait_us_32(5000);    
-    gpio_put(LED_PIN, 0); 
+	BLINK_LED_US(5000)
+	busy_wait_us_32(100000); 
+	BLINK_LED_US(5000)
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 
