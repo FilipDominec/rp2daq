@@ -56,6 +56,10 @@ void test() {
 		uint8_t p,c; 	
 	} * args = (void*)(command_buffer+1);
 
+	test_report._data_count = 30;
+	test_report._data_bitwidth = 8;
+	TRANSMIT_REPORT(test_report);
+
 	uint8_t text[14+16+1] = {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', };
 	text[args->p] = args->c; // for messaging DEBUG only
 	fwrite(text, sizeof(text)-1, 1, stdout);
@@ -91,13 +95,12 @@ void pin_out() {
 
 // === I/O MESSAGING INFRASTRUCTURE ===
  
-
-typedef struct { void (*command_func)(void); uint8_t (*report_struct); } message_descriptor;
+typedef struct { void (*command_func)(void); void (*report_struct); } message_descriptor;
 message_descriptor message_table[] = // #new_features: add your command to this table
         {   
-                {&identify, &identify_report},  
-                {&pin_out, &pin_out_report},
-                {&test, &test_report},
+                {&identify,		&identify_report},  
+                {&pin_out,		&pin_out_report},
+                {&test,			&test_report},
                 //{&internal_adc, &internal_adc_report},
         };  
 
@@ -139,8 +142,8 @@ void get_next_command() {
 void core1_main() { // busy loop on second CPU core takes care of real-time tasks
     while (true) {
 		while (!iADC_DMA_IRQ_triggered) { };   
-	    gpio_put(LED_PIN, 1); busy_wait_us_32(50);    gpio_put(LED_PIN, 0);busy_wait_us_32(50); 
-	    gpio_put(LED_PIN, 1); busy_wait_us_32(50);    gpio_put(LED_PIN, 0);busy_wait_us_32(50); 
+	    gpio_put(LED_PIN, 1); busy_wait_us_32(50); gpio_put(LED_PIN, 0); busy_wait_us_32(50); 
+	    gpio_put(LED_PIN, 1); busy_wait_us_32(50); gpio_put(LED_PIN, 0); busy_wait_us_32(50); 
     }
 }
 
@@ -160,9 +163,9 @@ int main() {
 
     multicore_launch_core1(core1_main); 
 
-    // TODO auto-assign reports to corresponding commands
-    for (uint8_t i = 0; i < sizeof(message_table)/sizeof(message_table[0]); i++) {
-		*(message_table[i].report_struct) = i;
+    // auto-assign reports to corresponding commands, note 1st byte of any report_struct has to be its code
+    for (uint8_t report_code = 0; report_code < ARRAY_LEN(message_table); report_code++) {
+		*((uint8_t*)(message_table[report_code].report_struct)) = report_code; 
     }
 
     pin_out_report.tmp = sizeof(message_table);
