@@ -175,7 +175,7 @@ class Rp2daq(threading.Thread):
             try:
                 if self.serial_port.inWaiting():
                     c = self.serial_port.read()
-                    #print('byte ', c)
+                    print('         byte ', c)
                     self.the_deque.append(ord(c)) # TODO this is inefficient -> rewrite
                 else:
                     time.sleep(self.sleep_tune)

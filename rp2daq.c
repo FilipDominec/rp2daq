@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "pico/unique_id.h"
@@ -21,6 +22,13 @@
 #define DEBUG2_PIN 5
 
 uint8_t command_buffer[1024];
+
+#define TXBUF_LEN 256
+#define TXBUF_COUNT 8
+//uint8_t txbuf[(TXBUF_LEN*TXBUF_COUNT)];
+uint8_t txbuf[5000];
+uint8_t txbuf_bytes_to_send[TXBUF_COUNT];
+uint8_t txbuf_tofill, txbuf_tosend;
 
 // === INCOMING COMMAND HANDLERS AND OUTGOING REPORTS ===
 // @new_features: If a new functionality is added, please make a copy of any of following command 
@@ -62,14 +70,21 @@ void test() {
 
     test_report.tmp = 42;
     test_report.tmpH = 4200;
-	test_report._data_count = 30;
 	test_report._data_bitwidth = 8;
-	TRANSMIT_REPORT(test_report);
-
-	uint8_t text[14+16+1] = {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', };
-	text[args->p] = args->c; // for messaging DEBUG only
 	
-	fwrite(text, sizeof(text)-1, 1, stdout); fflush(stdout);  //xxx
+	uint8_t data[14+16+1] = {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', };
+	data[args->p] = args->c; // for messaging DEBUG only
+	
+
+	//txbuf_data_ptr[txbuf_tofill] = data;
+	//txbuf_data_len[txbuf_tofill] = 30;
+	//test_report._data_count = 30;
+	test_report._data_count = 0;
+	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], &test_report, sizeof(test_report));
+	txbuf_bytes_to_send[txbuf_tofill] = sizeof(test_report);
+	txbuf_tofill = (txbuf_tofill + 1) % TXBUF_COUNT;
+
+	//fwrite(text, sizeof(text)-1, 1, stdout); fflush(stdout);  //xxx
 	// TODO try to transmit `text` as regular payload
 }
 
@@ -115,7 +130,7 @@ void get_next_command() {
     command_buffer[0] = 0x00;
 
     // Get the number of bytes of the command packet.
-    // The first byte is the command ID and the following bytes
+    // The next byte is the command ID and the following bytes
     // are the associated data bytes
     if ((packet_size = getchar_timeout_us(0)) == PICO_ERROR_TIMEOUT) {
         return; // TODO allow 16bit packet_size e.g. for DAC output
@@ -127,10 +142,6 @@ void get_next_command() {
             }
             command_buffer[i] = packet_data;
         }
-
-        // the first byte is the command ID.
-        // look up the function and execute it.
-        // data for the command starts at index 1 in the command_buffer
         if (command_buffer[0] >= ARRAY_LEN(message_table)) {
             return; // todo: report overflow
         }
@@ -181,9 +192,16 @@ int main() {
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 
-		tight_loop_contents();
+		tight_loop_contents(); // does nothing
 
 		get_next_command();
+
+		if (txbuf_tofill != txbuf_tosend) {
+			fwrite(&txbuf[TXBUF_LEN*txbuf_tosend], txbuf_bytes_to_send[txbuf_tosend], 1, stdout);
+			// TODO handle payload here
+			fflush(stdout);
+			txbuf_tosend = (txbuf_tosend + 1) % TXBUF_COUNT;
+		}
 
 		if (iADC_DMA_IRQ_triggered) {
 			iADC_DMA_IRQ_triggered = 0;
