@@ -36,7 +36,6 @@ import types
 
 import c_code_parser
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s (%(threadName)-9s) %(message)s',) # filename='rp2.log',
 
 
 def init_error_msgbox():  # error handling with a graphical message box
@@ -51,20 +50,18 @@ def init_error_msgbox():  # error handling with a graphical message box
 class Rp2daq(threading.Thread):
     def __init__(self, required_device_id=None, verbose=True):
 
-        self.verbose = verbose
-        self.start_time = time.time()
+        logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, 
+                format='%(asctime)s (%(threadName)-9s) %(message)s',) # filename='rp2.log',
 
-        self.sleep_tune = 0.001
+        self._register_commands()
 
         self.port = self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
-        self.serial_port = self.port # tmp. compat
-
 
         # INSPIRED BY TMX
-        self.shutdown_flag = False # xx
+        self.sleep_tune = 0.001
         threading.Thread.__init__(self)
         self.the_reporter_thread = threading.Thread(target=self._reporter)
-        self.the_reporter_thread.daemon = True
+        #self.the_reporter_thread.daemon = True    # is this necessary?
         self.the_data_receive_thread = threading.Thread(target=self._serial_receiver)
 
         self.run_event = threading.Event()
@@ -75,10 +72,9 @@ class Rp2daq(threading.Thread):
         self.the_deque = deque()
 
         # allow the threads to run
-        self._run_threads()
+        self.run_event.set()
 
 
-        self._register_commands()
 
 
     def _register_commands(self):
@@ -99,9 +95,6 @@ class Rp2daq(threading.Thread):
         # Register callbacks (to dispatch reports as they arrive)
         self.report_callbacks = {} 
 
-    def _run_threads(self):
-        self.run_event.set()
-
     def _is_running(self):
         return self.run_event.is_set()
 
@@ -116,7 +109,7 @@ class Rp2daq(threading.Thread):
         """
         self.run_event.wait()
 
-        while self._is_running() and not self.shutdown_flag:
+        while self.run_event.is_set():
             if len(self.the_deque):
                 #print(f"nonzero {len(self.the_deque)=}")
                 # report_header_bytes will be populated with the received data for the report
@@ -130,14 +123,13 @@ class Rp2daq(threading.Thread):
                     for i in range(packet_length):
                         while not len(self.the_deque):
                             time.sleep(self.sleep_tune)
-                        report_header_bytes.append(self.the_deque.popleft())
+                        report_header_bytes.append(self.the_deque.popleft()) # fixme: inefficient
                     logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}") # .decode('utf-8'),
                     report_args = struct.unpack(self.report_header_formats[report_type], bytes([report_type]+report_header_bytes))
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
 
                     report_payload_bytes = []
                     if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
-                        # TODO payload data
                         payload_length = int(dc*dbw/8+.999999)
                         logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {payload_length} PAYLOAD BYTES " )
                         for i in range(payload_length):
@@ -169,26 +161,25 @@ class Rp2daq(threading.Thread):
         """
         self.run_event.wait()
 
-        while self._is_running() and not self.shutdown_flag:
+        while self.run_event.is_set():
             # we can get an OSError: [Errno9] Bad file descriptor when shutting down
             # just ignore it
             try:
-                if self.serial_port.inWaiting():
-                    c = self.serial_port.read()
+                if self.port.inWaiting():
+                    c = self.port.read()
                     print('         byte ', c)
-                    self.the_deque.append(ord(c)) # TODO this is inefficient -> rewrite
+                    self.the_deque.append(ord(c))
                 else:
                     time.sleep(self.sleep_tune)
-                    # continue
             except OSError:
                 pass
 
     def default_blocking_callback(self, command_code): # 
         """
         Any command called without explicit `_callback` argument is blocking - i.e. the thread
-        that waits here until a corresponding report arrives. This is good practice only if quick 
-        response from device is expected, or your script uses multithreading. Otherwise the 
-        program flow would be stalled for a while here.
+        that called the command waits here until a corresponding report arrives. This is good 
+        practice only if quick response from device is expected, or your script uses 
+        multithreading. Otherwise your program flow would be stalled for a while here.
         """
         if not self.report_cb_queue.get(command_code):
             self.report_cb_queue[command_code] = queue.Queue()
@@ -279,10 +270,13 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
     rp.test(4, ord("J"))
+    time.sleep(.5)
+    print('\n'*30)
+
     rp.test(2, ord("Q"))
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
     time.sleep(.1)
-    rp.shutdown_flag = True
+    rp._stop_threads()
 
 

@@ -27,7 +27,9 @@ uint8_t command_buffer[1024];
 #define TXBUF_COUNT 8
 //uint8_t txbuf[(TXBUF_LEN*TXBUF_COUNT)];
 uint8_t txbuf[5000];
-uint8_t txbuf_bytes_to_send[TXBUF_COUNT];
+uint8_t txbuf_struct_len[TXBUF_COUNT];
+void*   txbuf_data_ptr[TXBUF_COUNT];
+uint8_t txbuf_data_len[TXBUF_COUNT];
 uint8_t txbuf_tofill, txbuf_tosend;
 
 // === INCOMING COMMAND HANDLERS AND OUTGOING REPORTS ===
@@ -76,12 +78,12 @@ void test() {
 	data[args->p] = args->c; // for messaging DEBUG only
 	
 
-	//txbuf_data_ptr[txbuf_tofill] = data;
-	//txbuf_data_len[txbuf_tofill] = 30;
-	//test_report._data_count = 30;
-	test_report._data_count = 0;
+	txbuf_data_ptr[txbuf_tofill] = data;
+	txbuf_data_len[txbuf_tofill] = 30;
+	test_report._data_count = 30;
+	//test_report._data_count = 0;
 	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], &test_report, sizeof(test_report));
-	txbuf_bytes_to_send[txbuf_tofill] = sizeof(test_report);
+	txbuf_struct_len[txbuf_tofill] = sizeof(test_report);
 	txbuf_tofill = (txbuf_tofill + 1) % TXBUF_COUNT;
 
 	//fwrite(text, sizeof(text)-1, 1, stdout); fflush(stdout);  //xxx
@@ -196,9 +198,12 @@ int main() {
 
 		get_next_command();
 
-		if (txbuf_tofill != txbuf_tosend) {
-			fwrite(&txbuf[TXBUF_LEN*txbuf_tosend], txbuf_bytes_to_send[txbuf_tosend], 1, stdout);
-			// TODO handle payload here
+		if (txbuf_tosend != txbuf_tofill) {
+			fwrite(&txbuf[TXBUF_LEN*txbuf_tosend], txbuf_struct_len[txbuf_tosend], 1, stdout);
+			fwrite(txbuf_data_ptr[txbuf_tosend], txbuf_data_len[txbuf_tosend], 1, stdout);
+	// = data;
+	// = 30;
+	//test_report._data_count = 30;
 			fflush(stdout);
 			txbuf_tosend = (txbuf_tosend + 1) % TXBUF_COUNT;
 		}
