@@ -10,7 +10,7 @@
 #include "hardware/clocks.h"
 
 #include "include/adc_internal.c"
-// #pragma pack (1)
+
 
 #define VERSION ("220122")
 
@@ -25,12 +25,14 @@ uint8_t command_buffer[1024];
 
 #define TXBUF_LEN 256
 #define TXBUF_COUNT 8
-//uint8_t txbuf[(TXBUF_LEN*TXBUF_COUNT)];
-uint8_t txbuf[5000];
+uint8_t txbuf[(TXBUF_LEN*TXBUF_COUNT)];
+//uint8_t txbuf[5000];
 uint8_t txbuf_struct_len[TXBUF_COUNT];
 void*   txbuf_data_ptr[TXBUF_COUNT];
 uint8_t txbuf_data_len[TXBUF_COUNT];
 uint8_t txbuf_tofill, txbuf_tosend;
+uint8_t txbuf_lock;
+
 
 // === INCOMING COMMAND HANDLERS AND OUTGOING REPORTS ===
 // @new_features: If a new functionality is added, please make a copy of any of following command 
@@ -40,7 +42,7 @@ uint8_t txbuf_tofill, txbuf_tosend;
 #define TRANSMIT_REPORT(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout);
 #define TRANSMIT_DATA(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout);
 
-struct {
+struct {    
     uint8_t report_code;
     uint8_t _data_count;
     uint8_t _data_bitwidth;
@@ -57,6 +59,24 @@ void identify() {
 }
 
 
+void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr, 
+		uint16_t datasize, uint8_t make_copy_of_data) {
+	while (txbuf_lock); txbuf_lock=1;
+	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], headerptr, headersize);
+	if (make_copy_of_data) { // short data appended after the header (256B limit)
+		txbuf_struct_len[txbuf_tofill] = headersize + datasize;
+		txbuf_data_ptr[txbuf_tofill] = 0x0000;
+		txbuf_data_len[txbuf_tofill] = 0;
+		memcpy(&txbuf[TXBUF_LEN*txbuf_tofill+headersize], dataptr, datasize);
+	} else {  // data referenced; saves memory copy but needs persistent array until sent
+		txbuf_struct_len[txbuf_tofill] = headersize;
+		txbuf_data_ptr[txbuf_tofill] = dataptr;
+		txbuf_data_len[txbuf_tofill] = datasize;
+	}
+	txbuf_tofill = (txbuf_tofill + 1) % TXBUF_COUNT;
+	txbuf_lock=0;
+}
+
 struct {
     uint8_t report_code;
     uint8_t tmp;
@@ -65,6 +85,8 @@ struct {
     uint8_t _data_bitwidth;
 } test_report;
 
+
+
 void test() {
 	struct  __attribute__((packed)) {
 		uint8_t p,c; 	
@@ -72,22 +94,19 @@ void test() {
 
     test_report.tmp = 42;
     test_report.tmpH = 4200;
+	test_report._data_count = 30;
 	test_report._data_bitwidth = 8;
 	
 	uint8_t data[14+16+1] = {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', };
 	data[args->p] = args->c; // for messaging DEBUG only
-	
 
-	txbuf_data_ptr[txbuf_tofill] = data;
-	txbuf_data_len[txbuf_tofill] = 30;
-	test_report._data_count = 30;
-	//test_report._data_count = 0;
-	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], &test_report, sizeof(test_report));
-	txbuf_struct_len[txbuf_tofill] = sizeof(test_report);
-	txbuf_tofill = (txbuf_tofill + 1) % TXBUF_COUNT;
+	tx_header_and_data(&test_report, sizeof(test_report), 
+			&data, test_report._data_count * test_report._data_bitwidth/8,
+			1);
+
+//#define TX_REPORT(report_struct, report_data)
 
 	//fwrite(text, sizeof(text)-1, 1, stdout); fflush(stdout);  //xxx
-	// TODO try to transmit `text` as regular payload
 }
 
 
@@ -104,13 +123,11 @@ void pin_out() {
 	gpio_init(args->n_pin); gpio_set_dir(args->n_pin, GPIO_OUT);
     gpio_put(args->n_pin, args->value);
 
-	// XXX TESTING ONLY
-	busy_wait_us_32(97000);
+	// testing only busy_wait_us_32(97000);
 	TRANSMIT_REPORT(pin_out_report);
     //fwrite(&pin_out_report, sizeof(pin_out_report), 1, stdout);
 	//fflush(stdout); 
 }
-
 
 
 
@@ -199,27 +216,24 @@ int main() {
 		get_next_command();
 
 		if (txbuf_tosend != txbuf_tofill) {
+			// Notes: printf() is not for binary data; putc() is slow; puts() is disguised putc
+			// fwrite blocks code execution, but transmits >850 kBps (~limit of USB 1.1)
+			// for message length >50 B (or, if PC rejects data, fwrite returns in <40us)
 			fwrite(&txbuf[TXBUF_LEN*txbuf_tosend], txbuf_struct_len[txbuf_tosend], 1, stdout);
-			fwrite(txbuf_data_ptr[txbuf_tosend], txbuf_data_len[txbuf_tosend], 1, stdout);
-	// = data;
-	// = 30;
-	//test_report._data_count = 30;
+			if (txbuf_data_len[txbuf_tosend]) {
+				fwrite(txbuf_data_ptr[txbuf_tosend], txbuf_data_len[txbuf_tosend], 1, stdout);
+			}
 			fflush(stdout);
 			txbuf_tosend = (txbuf_tosend + 1) % TXBUF_COUNT;
 		}
 
-		if (iADC_DMA_IRQ_triggered) {
-			iADC_DMA_IRQ_triggered = 0;
-
-			gpio_put(DEBUG2_PIN, 1); 
-			// Notes: printf() is not for binary data; putc() is slow; puts() is disguised putc
-			// fwrite blocks code execution, but transmits >850 kBps (~limit of USB 1.1)
-			// for message length >50 B (or, if PC rejects data, fwrite returns in <40us)
-			fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
-			fflush(stdout); 
-			gpio_put(DEBUG2_PIN, 0); 
-
-		}
+		//if (iADC_DMA_IRQ_triggered) {
+			//iADC_DMA_IRQ_triggered = 0;
+			//gpio_put(DEBUG2_PIN, 1); 
+			//fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
+			//fflush(stdout); 
+			//gpio_put(DEBUG2_PIN, 0); 
+		//}
 	}
 }
 

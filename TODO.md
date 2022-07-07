@@ -3,12 +3,12 @@
  * implemented & tested 
 	 * [x] identification message
  * under development
-	 * [ ] voltage measurement (internal 12-bit 500kSPS ADC) 
-        * [ ] additionally, with lookup-table calibration, oversampling and burst capability
-	 * [ ] stepper motor (using Stepstick - A4988) with end-stop support
-	 * [ ] digital pin input/output
-	 * [ ] pulse width modulation (built-in PWM in RP2)
-        * [ ] wform generator using DMA channel, along https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
+	* [ ] voltage measurement (internal 12-bit 500kSPS ADC) 
+       * [ ] additionally, with lookup-table calibration, oversampling and burst capability
+	* [ ] stepper motor (using Stepstick - A4988) with end-stop support
+	* [ ] digital pin input/output
+	* [ ] pulse width modulation (built-in PWM in RP2)
+       * [ ] wform generator using DMA channel, along https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
  * planned to be added
     * [ ] high-frequency generator (direct ```clock_gpio_init``` on pins )
     * [ ] inbuilt frequency counter and accurate timer,
@@ -17,10 +17,11 @@
         * [ ] medium-speed external ADCs (e.g. [AD7685](https://www.analog.com/en/products/ad7685.html#product-overview) through I2C/SPI, 16-bit, 250 kSPS)
         * [ ] burst mode (like internal ADC), with optional programmable delay
         * [ ] optional synchronized ICG/φM/SH driving signals for [TCD1304](https://pdf1.alldatasheet.com/datasheet-pdf/view/32197/TOSHIBA/TCD1304AP.html) (linear charge-coupled light sensor)
-        * [ ] medium-speed external DACs (through I2S, e.g. [TDA1543](http://www.docethifi.com/TDA1543_.PDF) dual 192kHz 16-bit DACs; multichannel I2S protocol implemented in software)
+        * [ ] medium-speed external DACs (through I2S, e.g. [TDA1543](http://www.docethifi.com/TDA1543_.PDF) dual 192kHz 16-bit DACs (i.e. 768kB/s rx?); multichannel I2S protocol implemented in software) 
         * [ ] I2S input (e.g. from INMP441, MSM261S4030H0 or SPH0645 digital microphones)
 	* [ ] user-defined data storage in flash memory unused by firmware https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/
 	* [ ] high-speed external ADC (i.e. oscilloscope, using built-in PIO 8-Bit 100MSps, e.g. AD9288-100)
+		* [ ] uint8_t bulk_buffer[1024*128]; // todo check if 128kB can be transmitted safely
  * considered, not planned in near future
     * [ ] fast & autonomous pipe-lining infrastructure (all tasks can actually be some pipe elements) 
         * pipeline sources: USB message received, task finished, periodic timer, digital pin trigger, numeric ramp generator

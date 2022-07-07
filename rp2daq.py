@@ -137,6 +137,7 @@ class Rp2daq(threading.Thread):
                                 time.sleep(self.sleep_tune)
                             report_payload_bytes.append(self.the_deque.popleft())
                         logging.debug(f"             GOT PAYLOAD BYTES {report_payload_bytes}" )
+                        cb_kwargs["data"] = report_payload_bytes
                     
 
                     if cb := self.report_callbacks[report_type]:
@@ -167,7 +168,7 @@ class Rp2daq(threading.Thread):
             try:
                 if self.port.inWaiting():
                     c = self.port.read()
-                    print('         byte ', c)
+                    print('·', c, end='') # BYTE
                     self.the_deque.append(ord(c))
                 else:
                     time.sleep(self.sleep_tune)
@@ -269,9 +270,10 @@ if __name__ == "__main__":
     print("\tSee the 'examples' directory for further uses.")
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
-    rp.test(4, ord("J"))
-    time.sleep(.5)
-    print('\n'*30)
+    for x in "Note: Running this module as a standalone script":
+        rp.test(4, ord(x))
+        time.sleep(.2)
+        print('\n'*2)
 
     rp.test(2, ord("Q"))
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
