@@ -2,15 +2,15 @@
 #define DEBUG2_PIN 5
 
 
-typedef struct { 
-	uint8_t channel_mask;		// default=1		min=0		max=31
-	uint8_t continued;			// default=0		min=0		max=1
-	uint16_t blocksize;			// default=1000		min=1		max=2048
-	uint16_t blockcount;		// default=1		min=0		max=2048
-	uint16_t clkdiv;				// default=96		min=96		max=1000000
-} internal_adc_config_t;
+struct { 
+	uint8_t channel_mask;	
+	uint8_t infinite;		
+	uint16_t blocksize;		
+	uint16_t blockcount;	
+	uint32_t clkdiv;		
+} internal_adc_config;
 
-internal_adc_config_t internal_adc_config;
+
 
 //volatile uint16_t internal_adc_configblocksize=1000; // TODO issues with channel swapping (bytes lost?) when 300+kSPS and depth~200
 //volatile uint8_t ADC_MASK=(2+4+8+16); // bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor
@@ -28,7 +28,6 @@ void iADC_DMA_start() {
 	gpio_put(DEBUG_PIN, 1); 
 	adc_run(false);				
 	adc_fifo_drain(); // ??
-
 
 	adc_set_round_robin(internal_adc_config.channel_mask);
 	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
@@ -64,9 +63,24 @@ void iADC_DMA_IRQ_handler() {
     gpio_put(DEBUG_PIN, 0);
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
-	iADC_DMA_IRQ_triggered = 1;			  // main loop on core0 will transmit data later
+
+    // main loop on core0 will transmit data later
+	//iADC_DMA_IRQ_triggered = 1;			  
+			//fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
+            //
+    internal_adc_report._data_count = internal_adc_config.blocksize*2; // XXX
+    internal_adc_report._data_bitwidth = 8;
+    //internal_adc_report._data_count = internal_adc_config.blocksize; // todo test
+    //internal_adc_report._data_bitwidth = 8*2;
+
+	tx_header_and_data(&internal_adc_report, 
+            sizeof(internal_adc_report), 
+			iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1, 
+            internal_adc_report._data_count * internal_adc_report._data_bitwidth/8,
+			1);
+
 	adc_run(false);
-    if (internal_adc_config.continued || internal_adc_config.blockcount--)
+    if (internal_adc_config.infinite || internal_adc_config.blockcount--)
 	    iADC_DMA_start();					  // start new acquisition
 }
 

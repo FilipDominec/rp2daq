@@ -9,7 +9,6 @@
 #include "hardware/irq.h"
 #include "hardware/clocks.h"
 
-#include "include/adc_internal.c"
 
 
 #define VERSION ("220122")
@@ -33,32 +32,6 @@ uint8_t txbuf_data_len[TXBUF_COUNT];
 uint8_t txbuf_tofill, txbuf_tosend;
 uint8_t txbuf_lock;
 
-
-// === INCOMING COMMAND HANDLERS AND OUTGOING REPORTS ===
-// @new_features: If a new functionality is added, please make a copy of any of following command 
-// handlers and don't forget to register this new function in the command_table below;
-// The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
-
-#define TRANSMIT_REPORT(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout);
-#define TRANSMIT_DATA(obj)    fwrite(&obj, sizeof(obj), 1, stdout); fflush(stdout);
-
-struct {    
-    uint8_t report_code;
-    uint8_t _data_count;
-    uint8_t _data_bitwidth;
-} identify_report;
-
-void identify() {   
-	struct  __attribute__((packed)) { 
-	} * args = (void*)(command_buffer+1);
-
-	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
-	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
-	fwrite(text, sizeof(text)-1, 1, stdout);
-	fflush(stdout); 
-}
-
-
 void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr, 
 		uint16_t datasize, uint8_t make_copy_of_data) {
 	while (txbuf_lock); txbuf_lock=1;
@@ -77,6 +50,38 @@ void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr,
 	txbuf_lock=0;
 }
 
+
+
+
+
+// === INCOMING COMMAND HANDLERS AND OUTGOING REPORTS ===
+// @new_features: If a new functionality is added, please make a copy of any of following command 
+// handlers and don't forget to register this new function in the command_table below;
+// The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
+
+
+
+struct {    
+    uint8_t report_code;
+    uint8_t _data_count;
+    uint8_t _data_bitwidth;
+} identify_report;
+
+void identify() {   
+	struct  __attribute__((packed)) { 
+	} * args = (void*)(command_buffer+1);
+
+	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
+	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
+	fwrite(text, sizeof(text)-1, 1, stdout);
+	fflush(stdout); 
+}
+
+
+
+
+
+
 struct {
     uint8_t report_code;
     uint8_t tmp;
@@ -84,8 +89,6 @@ struct {
     uint8_t _data_count;
     uint8_t _data_bitwidth;
 } test_report;
-
-
 
 void test() {
 	struct  __attribute__((packed)) {
@@ -104,9 +107,6 @@ void test() {
 			&data, test_report._data_count * test_report._data_bitwidth/8,
 			1);
 
-//#define TX_REPORT(report_struct, report_data)
-
-	//fwrite(text, sizeof(text)-1, 1, stdout); fflush(stdout);  //xxx
 }
 
 
@@ -124,9 +124,37 @@ void pin_out() {
     gpio_put(args->n_pin, args->value);
 
 	// testing only busy_wait_us_32(97000);
-	TRANSMIT_REPORT(pin_out_report);
     //fwrite(&pin_out_report, sizeof(pin_out_report), 1, stdout);
 	//fflush(stdout); 
+}
+
+
+
+struct {
+    uint8_t report_code;
+    uint8_t _data_count; // TODO switch to uint16t
+    uint8_t _data_bitwidth;
+} internal_adc_report;
+
+#include "include/adc_internal.c"
+
+void internal_adc() {
+	struct __attribute__((packed)) {
+		uint8_t channel_mask;		// default=1		min=0		max=31
+		uint8_t infinite;			// default=0		min=0		max=1
+		uint16_t blocksize;			// default=1000		min=1		max=2048
+		uint16_t blockcount;		// default=1		min=0		max=2048
+		uint32_t clkdiv;			// default=96		min=96		
+	} * args = (void*)(command_buffer+1);
+
+	internal_adc_config.channel_mask = args->channel_mask; 
+	internal_adc_config.infinite = args->infinite; 
+	internal_adc_config.blocksize = args->blocksize; 
+	internal_adc_config.clkdiv = args->clkdiv; 
+	if (args->blockcount) {
+		internal_adc_config.blockcount = args->blockcount - 1; 
+		iADC_DMA_start(); 
+	}
 }
 
 
@@ -139,7 +167,7 @@ message_descriptor message_table[] = // #new_features: add your command to this 
                 {&identify,		&identify_report},  
                 {&pin_out,		&pin_out_report},
                 {&test,			&test_report},
-                //{&internal_adc, &internal_adc_report},
+                {&internal_adc, &internal_adc_report},
         };  
 
 void get_next_command() {
@@ -216,6 +244,7 @@ int main() {
 		get_next_command();
 
 		if (txbuf_tosend != txbuf_tofill) {
+			gpio_put(DEBUG2_PIN, 1); 
 			// Notes: printf() is not for binary data; putc() is slow; puts() is disguised putc
 			// fwrite blocks code execution, but transmits >850 kBps (~limit of USB 1.1)
 			// for message length >50 B (or, if PC rejects data, fwrite returns in <40us)
@@ -225,14 +254,13 @@ int main() {
 			}
 			fflush(stdout);
 			txbuf_tosend = (txbuf_tosend + 1) % TXBUF_COUNT;
+			gpio_put(DEBUG2_PIN, 0); 
 		}
 
 		//if (iADC_DMA_IRQ_triggered) {
 			//iADC_DMA_IRQ_triggered = 0;
-			//gpio_put(DEBUG2_PIN, 1); 
 			//fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
 			//fflush(stdout); 
-			//gpio_put(DEBUG2_PIN, 0); 
 		//}
 	}
 }

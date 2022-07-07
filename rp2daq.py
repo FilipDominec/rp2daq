@@ -124,8 +124,9 @@ class Rp2daq(threading.Thread):
                         while not len(self.the_deque):
                             time.sleep(self.sleep_tune)
                         report_header_bytes.append(self.the_deque.popleft()) # fixme: inefficient
-                    logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}") # .decode('utf-8'),
-                    report_args = struct.unpack(self.report_header_formats[report_type], bytes([report_type]+report_header_bytes))
+                    #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
+                    report_args = struct.unpack(self.report_header_formats[report_type], 
+                            bytes([report_type]+report_header_bytes))
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
 
                     report_payload_bytes = []
@@ -136,7 +137,7 @@ class Rp2daq(threading.Thread):
                             while not len(self.the_deque):
                                 time.sleep(self.sleep_tune)
                             report_payload_bytes.append(self.the_deque.popleft())
-                        logging.debug(f"             GOT PAYLOAD BYTES {report_payload_bytes}" )
+                        #logging.debug(f"             GOT PAYLOAD BYTES {report_payload_bytes}" )
                         cb_kwargs["data"] = report_payload_bytes
                     
 
@@ -144,8 +145,7 @@ class Rp2daq(threading.Thread):
                         logging.debug("CALLING CB {cb_kwargs}")
                         cb(**cb_kwargs)
                     else:
-                        #self.report_cb_queue[report_type] = 0
-                        self.report_cb_queue[report_type].put(cb_kwargs) # unblock 
+                        self.report_cb_queue[report_type].put(cb_kwargs) # unblock default callback (by data)
                     continue
 
                 else:
@@ -168,7 +168,7 @@ class Rp2daq(threading.Thread):
             try:
                 if self.port.inWaiting():
                     c = self.port.read()
-                    print('·', c, end='') # BYTE
+                    #print('·', c, end='') # BYTE
                     self.the_deque.append(ord(c))
                 else:
                     time.sleep(self.sleep_tune)
@@ -269,16 +269,20 @@ if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
     print("\tSee the 'examples' directory for further uses.")
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
+    t0 = time.time()
 
-    for x in "Note: Running this module as a standalone script":
-        rp.test(4, ord(x))
-        time.sleep(.2)
-        print('\n'*2)
+    rp.internal_adc(channel_mask=9, infinite=0, blocksize=120, blockcount=3, clkdiv=60000, _callback=test_callback)
 
-    rp.test(2, ord("Q"))
+
+    #for x in "Note: Running this module as a standalone script":
+        #rp.test(4, ord(x))
+        #time.sleep(.2)
+        #print('\n'*2)
+
+    #rp.test(2, ord("Q"))
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
-    time.sleep(.1)
+    time.sleep(10.9)
     rp._stop_threads()
 
 
