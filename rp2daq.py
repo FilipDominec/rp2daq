@@ -168,7 +168,7 @@ class Rp2daq(threading.Thread):
             try:
                 if self.port.inWaiting():
                     c = self.port.read()
-                    #print('·', c, end='') # BYTE
+                    #print( c, end='') # BYTE
                     self.the_deque.append(ord(c))
                 else:
                     time.sleep(self.sleep_tune)
@@ -271,7 +271,8 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
     t0 = time.time()
 
-    rp.internal_adc(channel_mask=9, infinite=0, blocksize=120, blockcount=3, clkdiv=60000, _callback=test_callback)
+    #rp.internal_adc(channel_mask=9, infinite=0, blocksize=100, blockcount=3, clkdiv=60000, _callback=test_callback)
+    rp.internal_adc(channel_mask=9, infinite=0, blocksize=2000, blockcount=3, clkdiv=96, _callback=test_callback)
 
 
     #for x in "Note: Running this module as a standalone script":

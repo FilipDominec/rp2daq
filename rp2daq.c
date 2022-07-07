@@ -28,9 +28,9 @@ uint8_t txbuf[(TXBUF_LEN*TXBUF_COUNT)];
 //uint8_t txbuf[5000];
 uint8_t txbuf_struct_len[TXBUF_COUNT];
 void*   txbuf_data_ptr[TXBUF_COUNT];
-uint8_t txbuf_data_len[TXBUF_COUNT];
+uint16_t txbuf_data_len[TXBUF_COUNT];
 uint8_t txbuf_tofill, txbuf_tosend;
-uint8_t txbuf_lock;
+volatile uint8_t txbuf_lock;
 
 void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr, 
 		uint16_t datasize, uint8_t make_copy_of_data) {
@@ -130,9 +130,9 @@ void pin_out() {
 
 
 
-struct {
+struct __attribute__((packed)) {
     uint8_t report_code;
-    uint8_t _data_count; // TODO switch to uint16t
+    uint16_t _data_count; 
     uint8_t _data_bitwidth;
 } internal_adc_report;
 
@@ -144,7 +144,7 @@ void internal_adc() {
 		uint8_t infinite;			// default=0		min=0		max=1
 		uint16_t blocksize;			// default=1000		min=1		max=2048
 		uint16_t blockcount;		// default=1		min=0		max=2048
-		uint32_t clkdiv;			// default=96		min=96		
+		uint16_t clkdiv;			// default=96		min=96		
 	} * args = (void*)(command_buffer+1);
 
 	internal_adc_config.channel_mask = args->channel_mask; 

@@ -6,7 +6,7 @@ struct {
 	uint8_t channel_mask;	
 	uint8_t infinite;		
 	uint16_t blocksize;		
-	uint16_t blockcount;	
+    uint32_t blockcount;	
 	uint32_t clkdiv;		
 } internal_adc_config;
 
@@ -77,7 +77,7 @@ void iADC_DMA_IRQ_handler() {
             sizeof(internal_adc_report), 
 			iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1, 
             internal_adc_report._data_count * internal_adc_report._data_bitwidth/8,
-			1);
+			0);
 
 	adc_run(false);
     if (internal_adc_config.infinite || internal_adc_config.blockcount--)
