@@ -1,10 +1,10 @@
 # Extending and compiling the firmware 
 
-In most expected use cases, pre-compiled RP2DAQ firmware only needs to be downloaded and flashed once, as described in the [main README document](README.md).
+In most expected use cases, pre-compiled RP2DAQ firmware only needs to be downloaded and flashed once, as described in the [main README document](README.md). All its functions will then be activated at runtime by the Python script in your computer.
 
-But in more specific applications, where a new functionality, some communication protocol or tight timing is required, you may want to fork this project and modify the C firmware to your needs. All necessary information should be summed up in this document and in the corresponding C code.
+But in more specific applications, where entirely new functionality with tight timing, or some new communication protocol is required, you may want to fork this project and modify the C firmware to your needs. All necessary information should be summed up in this document and in the corresponding C code.
 
-We will appreciate your contributions if you decide to share them back. You can first discuss your needs and plans on the issues page.
+We will appreciate your contributions if you decide to share them back. You can first discuss your needs and plans on the [issues page](https://github.com/FilipDominec/rp2daq/issues).
 
 RP2DAQ can also serve as a convenient "boilerplate" for your own projects. We try to keep the code base readable and reasonably short.
 
@@ -17,7 +17,7 @@ If you can already compile and upload [the official blinking LED example](https:
 
 I use Linux for primary development; development of firmware on other OS is not covered here yet.
 
-#### Prerequisities (on Linux)
+#### Development dependencies (on Linux)
 
 The official approach (TODO test afresh):
 
@@ -55,7 +55,7 @@ The procedure with [pressing the *bootsel* button](https://gist.github.com/Herma
 #### Code structure and concepts
 
 RP2DAQ aims to squeeze maximum power from raspberry pi, without putting programming burden on the user. To this end, it employs 
-    * **parallelism in the firmware** (1st CPU core mostly for communication and immediate commands, 2nd core for real-time control; DMA use, planned PIO use),
+    * **parallelism in the firmware** (1st CPU core mostly for communication and immediate commands, 2nd core for real-time control; DMA is used when possible; PIO use is planned),
     * Pi Pico is by default **overclocked from 133 MHz to 250 MHz**,
     * **Asynchronous operation**, i.e. multiple commands can be issued in one moment, and the corresponding reports are handled in computer later when they arrive. However, such high-performance behaviour is somewhat harder to learn, so it is kept optional. The default behaviour for all commands is to block Python code until the corresponding report is received. 
 

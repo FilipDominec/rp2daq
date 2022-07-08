@@ -3,12 +3,13 @@
  * implemented & tested 
 	 * [x] identification message
  * under development
-	* [ ] voltage measurement (internal 12-bit 500kSPS ADC) 
-       * [ ] additionally, with lookup-table calibration, oversampling and burst capability
+	* [x] voltage measurement (internal 12-bit 500kSPS ADC) 
 	* [ ] stepper motor (using Stepstick - A4988) with end-stop support
 	* [ ] digital pin input/output
 	* [ ] pulse width modulation (built-in PWM in RP2)
        * [ ] wform generator using DMA channel, along https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
+	* get rid of 'serial' module dep
+	* data bit packing & unpacking
  * planned to be added
     * [ ] high-frequency generator (direct ```clock_gpio_init``` on pins )
     * [ ] inbuilt frequency counter and accurate timer,

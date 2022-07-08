@@ -6,8 +6,8 @@ struct {
 	uint8_t channel_mask;	
 	uint8_t infinite;		
 	uint16_t blocksize;		
-    uint32_t blockcount;	
-	uint32_t clkdiv;		
+    uint32_t blocks_to_send;	
+	uint16_t clkdiv;		
 } internal_adc_config;
 
 
@@ -70,6 +70,8 @@ void iADC_DMA_IRQ_handler() {
             //
     internal_adc_report._data_count = internal_adc_config.blocksize*2; // XXX
     internal_adc_report._data_bitwidth = 8;
+    internal_adc_report.channel_mask = internal_adc_config.channel_mask;
+    internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
     //internal_adc_report._data_count = internal_adc_config.blocksize; // todo test
     //internal_adc_report._data_bitwidth = 8*2;
 
@@ -80,7 +82,7 @@ void iADC_DMA_IRQ_handler() {
 			0);
 
 	adc_run(false);
-    if (internal_adc_config.infinite || internal_adc_config.blockcount--)
+    if (internal_adc_config.infinite || internal_adc_config.blocks_to_send--)
 	    iADC_DMA_start();					  // start new acquisition
 }
 

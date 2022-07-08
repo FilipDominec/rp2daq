@@ -14,22 +14,21 @@
 #define VERSION ("220122")
 
 #define LED_PIN 25
-#define BLINK_LED_US(duration) gpio_put(LED_PIN, 1); busy_wait_us_32(duration); gpio_put(LED_PIN, 0); 
-#define ARRAY_LEN(arr)   (sizeof(arr)/sizeof((arr)[0]))
 #define DEBUG_PIN 4
-
 #define DEBUG2_PIN 5
+#define BLINK_LED_US(duration) gpio_put(LED_PIN, 1); busy_wait_us_32(duration); gpio_put(LED_PIN, 0); 
+
+#define ARRAY_LEN(arr)   (sizeof(arr)/sizeof((arr)[0]))
 
 uint8_t command_buffer[1024];
 
-#define TXBUF_LEN 256
-#define TXBUF_COUNT 8
-uint8_t txbuf[(TXBUF_LEN*TXBUF_COUNT)];
-//uint8_t txbuf[5000];
-uint8_t txbuf_struct_len[TXBUF_COUNT];
-void*   txbuf_data_ptr[TXBUF_COUNT];
-uint16_t txbuf_data_len[TXBUF_COUNT];
-uint8_t txbuf_tofill, txbuf_tosend;
+#define TXBUF_LEN 256    // report headers (and shorter data payloads) are staged here to be sent
+#define TXBUF_COUNT 8    // up to 8 reports can be stored if USB is blocked by one 
+uint8_t  txbuf[(TXBUF_LEN*TXBUF_COUNT)];
+uint16_t txbuf_struct_len[TXBUF_COUNT];
+void*    txbuf_data_ptr[TXBUF_COUNT];
+uint32_t txbuf_data_len[TXBUF_COUNT];
+uint8_t  txbuf_tofill, txbuf_tosend;
 volatile uint8_t txbuf_lock;
 
 void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr, 
@@ -134,6 +133,8 @@ struct __attribute__((packed)) {
     uint8_t report_code;
     uint16_t _data_count; 
     uint8_t _data_bitwidth;
+    uint8_t channel_mask;
+    uint16_t blocks_to_send;
 } internal_adc_report;
 
 #include "include/adc_internal.c"
@@ -143,7 +144,7 @@ void internal_adc() {
 		uint8_t channel_mask;		// default=1		min=0		max=31
 		uint8_t infinite;			// default=0		min=0		max=1
 		uint16_t blocksize;			// default=1000		min=1		max=2048
-		uint16_t blockcount;		// default=1		min=0		max=2048
+		uint16_t blocks_to_send;		// default=1		min=0		max=2048
 		uint16_t clkdiv;			// default=96		min=96		
 	} * args = (void*)(command_buffer+1);
 
@@ -151,8 +152,8 @@ void internal_adc() {
 	internal_adc_config.infinite = args->infinite; 
 	internal_adc_config.blocksize = args->blocksize; 
 	internal_adc_config.clkdiv = args->clkdiv; 
-	if (args->blockcount) {
-		internal_adc_config.blockcount = args->blockcount - 1; 
+	if (args->blocks_to_send) {
+		internal_adc_config.blocks_to_send = args->blocks_to_send - 1; 
 		iADC_DMA_start(); 
 	}
 }

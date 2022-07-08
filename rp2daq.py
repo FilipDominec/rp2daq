@@ -1,14 +1,14 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 """
-rp2daq.py  (c) Filip Dominec 2021, MIT licensed
+rp2daq.py  (c) Filip Dominec 2020-2022, MIT licensed
 
-This is a thick wrapper around the binary message interface that makes Raspberry Pi Pico 
-an universal laboratory interface.  
+This module uses c_code_parser.py to auto-generate the binary message interface. 
+Then it connects to Raspberry Pi Pico to control various hardware. 
 
 The methods provided here aim to make the hardware control as convenient as possible.  
 
-More information and examples on https://github.com/FilipDominec/rp2daq
+More information and examples on https://github.com/FilipDominec/rp2daq or in README.md
 """
 
 
@@ -262,7 +262,8 @@ class Rp2daq(threading.Thread):
 
 
 def test_callback(**kwargs):
-    print("\ncallback delayed from last command by ", time.time()-t0, " with kwargs =", kwargs, )
+    kwargs['data'] = []
+    print("\ncallback delayed from first command by ", time.time()-t0, " with kwargs =", kwargs, )
     #mylock = 0
 
 if __name__ == "__main__":
@@ -271,8 +272,8 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
     t0 = time.time()
 
-    #rp.internal_adc(channel_mask=9, infinite=0, blocksize=100, blockcount=3, clkdiv=60000, _callback=test_callback)
-    rp.internal_adc(channel_mask=9, infinite=0, blocksize=2000, blockcount=3, clkdiv=96, _callback=test_callback)
+    #rp.internal_adc(channel_mask=9, infinite=0, blocksize=100, blocks_to_send=3, clkdiv=60000, _callback=test_callback)
+    rp.internal_adc(channel_mask=9, infinite=0, blocksize=100, blocks_to_send=3, clkdiv=65535, _callback=test_callback)
 
 
     #for x in "Note: Running this module as a standalone script":

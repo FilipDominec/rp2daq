@@ -4,7 +4,7 @@ This document gives additional information that may help you get the maximum fro
 
 ## Direct measurement of voltage with internal ADC
 
-#### ADC, noise and accuracy
+#### Tip for simple calibration for internal ADC nonlinearity
 
 The built-in ADC [is not accurate due to a design flaw](https://www.hackster.io/news/raspberry-pi-confirms-it-is-investigating-a-flaw-in-the-raspberry-pi-pico-rp2040-adc-95c393b55dfb).
 
@@ -19,6 +19,8 @@ TBA
 </td>
 
 <td>
+
+
 ```python
 #HISTOGRAM FOR NOISE ANALYSIS
 histx, histy # [], [] 
