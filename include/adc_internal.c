@@ -12,7 +12,6 @@ struct {
 
 
 
-//volatile uint16_t internal_adc_configblocksize=1000; // TODO issues with channel swapping (bytes lost?) when 300+kSPS and depth~200
 //volatile uint8_t ADC_MASK=(2+4+8+16); // bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor
 uint16_t iADC_buffer0[1024*16];
 uint16_t iADC_buffer1[1024*16];
@@ -64,17 +63,27 @@ void iADC_DMA_IRQ_handler() {
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 
-    // main loop on core0 will transmit data later
-	//iADC_DMA_IRQ_triggered = 1;			  
-			//fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
-            //
-    internal_adc_report._data_count = internal_adc_config.blocksize*2; // XXX
-    internal_adc_report._data_bitwidth = 8;
+    //internal_adc_report._data_count = internal_adc_config.blocksize; 
+    //internal_adc_report._data_bitwidth = 16;
+    
+    uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1);
+
+    internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report.channel_mask = internal_adc_config.channel_mask;
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
-    //internal_adc_report._data_count = internal_adc_config.blocksize; // todo test
-    //internal_adc_report._data_bitwidth = 8*2;
-
+    
+    // compress 2x12b little-endian values from 4B into 3B
+    // e.g. from 0xBC0A 0xDE0F makes 0xBC 0xAD 0xEF to be later expanded back in computer
+    for (uint16_t i; i<internal_adc_report._data_count/2; i+=1) { 
+        uint8_t a = buf[i*4];
+        uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
+        uint8_t c = buf[i*4+2]*16 + buf[i*4+3];
+        buf[i*3] = a;
+        buf[i*3+1] = b;
+        buf[i*3+2] = c;
+    }
+    internal_adc_report._data_bitwidth = 12;
+    
 	tx_header_and_data(&internal_adc_report, 
             sizeof(internal_adc_report), 
 			iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1, 
@@ -88,8 +97,6 @@ void iADC_DMA_IRQ_handler() {
 
 
 void iADC_DMA_setup() { 
-
-    /// todo mv to DMA start
 	for (uint8_t ch=0; ch<4; ch++) {
         if (internal_adc_config.channel_mask & (1<<ch)) 
             adc_gpio_init(26+ch); 

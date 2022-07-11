@@ -49,6 +49,8 @@ After few seconds, the USB storage should disconnect. Your RP2 becomes accessibl
 
 #### Hello world
 
+Run your Python interpreter 
+
 ## Example programs
 
 #### Morse code transmitter
@@ -68,7 +70,7 @@ TBA
 
 **Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?**
 
-A: Fundamentally, but use cases may overlap. [MicroPython](https://github.com/micropython/micropython) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
+A: They are two fundamentally different paths that may lead to similar results. [MicroPython](https://github.com/micropython/micropython) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
 
 In contrast, RP2DAQ assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
 

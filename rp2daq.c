@@ -23,7 +23,7 @@
 uint8_t command_buffer[1024];
 
 #define TXBUF_LEN 256    // report headers (and shorter data payloads) are staged here to be sent
-#define TXBUF_COUNT 8    // up to 8 reports can be stored if USB is blocked by one 
+#define TXBUF_COUNT 8    // up to 8 reports can be quickly scheduled for tx if USB is busy
 uint8_t  txbuf[(TXBUF_LEN*TXBUF_COUNT)];
 uint16_t txbuf_struct_len[TXBUF_COUNT];
 void*    txbuf_data_ptr[TXBUF_COUNT];
@@ -151,7 +151,7 @@ void internal_adc() {
 	internal_adc_config.channel_mask = args->channel_mask; 
 	internal_adc_config.infinite = args->infinite; 
 	internal_adc_config.blocksize = args->blocksize; 
-	internal_adc_config.clkdiv = args->clkdiv; 
+	internal_adc_config.clkdiv = 65530; // args->clkdiv; 
 	if (args->blocks_to_send) {
 		internal_adc_config.blocks_to_send = args->blocks_to_send - 1; 
 		iADC_DMA_start(); 

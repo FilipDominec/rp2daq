@@ -129,16 +129,23 @@ class Rp2daq(threading.Thread):
                             bytes([report_type]+report_header_bytes))
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
 
-                    report_payload_bytes = []
+                    data_bytes = []
                     if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
-                        payload_length = int(dc*dbw/8+.999999)
-                        logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {payload_length} PAYLOAD BYTES " )
+                        payload_length = -((-dc*dbw)//8)    # implicit floor() can be inverted to ceil()
+                        #logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {payload_length} PAYLOAD BYTES ")
                         for i in range(payload_length):
                             while not len(self.the_deque):
                                 time.sleep(self.sleep_tune)
-                            report_payload_bytes.append(self.the_deque.popleft())
-                        #logging.debug(f"             GOT PAYLOAD BYTES {report_payload_bytes}" )
-                        cb_kwargs["data"] = report_payload_bytes
+                            data_bytes.append(self.the_deque.popleft())
+                        if dbw == 8:
+                            cb_kwargs["data"] = data_bytes
+                        elif dbw == 12:      # decompress 3B  into pairs of 12b values & flatten
+                            cb_kwargs["data"] = [(a + ((b&0xF0)<<4), (c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256)  for a,b,c
+                                    in zip(data_bytes[:-2:3], data_bytes[1:-1:3], data_bytes[2::3])]
+                            cb_kwargs["data"] = [num for couple in cb_kwargs["data"] for num in couple]
+                            print([hex(b) for b in cb_kwargs["data"]] )
+                        elif dbw == 16:      # using little endian byte order everywhere
+                            cb_kwargs["data"] = [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
                     
 
                     if cb := self.report_callbacks[report_type]:
@@ -262,8 +269,11 @@ class Rp2daq(threading.Thread):
 
 
 def test_callback(**kwargs):
-    kwargs['data'] = []
-    print("\ncallback delayed from first command by ", time.time()-t0, " with kwargs =", kwargs, )
+    print('datalen ', len(kwargs['data']))
+    kwargs['data'] = kwargs['data'][:10]
+    print("\ncallback delayed from first command by ", time.time()-t0, " with kwargs =", kwargs)
+
+    if not kwargs['blocks_to_send']: rp._stop_threads()
     #mylock = 0
 
 if __name__ == "__main__":
@@ -272,9 +282,7 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
     t0 = time.time()
 
-    #rp.internal_adc(channel_mask=9, infinite=0, blocksize=100, blocks_to_send=3, clkdiv=60000, _callback=test_callback)
-    rp.internal_adc(channel_mask=9, infinite=0, blocksize=100, blocks_to_send=3, clkdiv=65535, _callback=test_callback)
-
+    rp.internal_adc(channel_mask=16, infinite=0, blocksize=100, blocks_to_send=3, clkdiv=60000, _callback=test_callback)
 
     #for x in "Note: Running this module as a standalone script":
         #rp.test(4, ord(x))
@@ -284,7 +292,7 @@ if __name__ == "__main__":
     #rp.test(2, ord("Q"))
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
-    time.sleep(10.9)
-    rp._stop_threads()
+    #time.sleep(10.9)
+    #rp._stop_threads()
 
 
