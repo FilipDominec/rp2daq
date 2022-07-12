@@ -143,9 +143,9 @@ void internal_adc() {
 	struct __attribute__((packed)) {
 		uint8_t channel_mask;		// default=1		min=0		max=31
 		uint8_t infinite;			// default=0		min=0		max=1
-		uint16_t blocksize;			// default=1000		min=1		max=2048
-		uint16_t blocks_to_send;		// default=1		min=0		max=2048
-		uint16_t clkdiv;			// default=96		min=96		
+		uint16_t blocksize;			// default=1000		min=1		max=8192
+		uint16_t blocks_to_send;	// default=1		min=0		
+		uint16_t clkdiv;			// default=96		min=96		max=65535
 	} * args = (void*)(command_buffer+1);
 
 	internal_adc_config.channel_mask = args->channel_mask; 

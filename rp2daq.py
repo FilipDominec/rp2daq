@@ -113,18 +113,24 @@ class Rp2daq(threading.Thread):
             if len(self.the_deque):
                 #print(f"nonzero {len(self.the_deque)=}")
                 # report_header_bytes will be populated with the received data for the report
-                report_header_bytes = []
                 report_type = self.the_deque.popleft()
                 packet_length = self.report_header_lenghts[report_type] - 1
 
                 if packet_length:
                     #print("processing packet_length",packet_length)
                     # get all the data for the report and place it into report_header_bytes
-                    for i in range(packet_length):
-                        while not len(self.the_deque):
-                            time.sleep(self.sleep_tune)
-                        report_header_bytes.append(self.the_deque.popleft()) # fixme: inefficient
+
+                    #for i in range(packet_length):
+                        #while not len(self.the_deque):
+                            #time.sleep(self.sleep_tune)
+                        #report_header_bytes.append(self.the_deque.popleft()) # fixme: inefficient
+
+                    while len(self.the_deque) < packet_length:
+                        time.sleep(self.sleep_tune)
+                    report_header_bytes = [self.the_deque.popleft() for _ in range(packet_length)]
+
                     #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
+
                     report_args = struct.unpack(self.report_header_formats[report_type], 
                             bytes([report_type]+report_header_bytes))
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
@@ -132,27 +138,23 @@ class Rp2daq(threading.Thread):
                     data_bytes = []
                     if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
                         payload_length = -((-dc*dbw)//8)    # implicit floor() can be inverted to ceil()
-                        #payload_length = ((dc*dbw)//8)    # implicit floor() can be inverted to ceil() XXX fix for  odd bytes
                         #logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {payload_length} EXTRA RAW BYTES")
-                        for i in range(payload_length):
-                            while not len(self.the_deque):
-                                time.sleep(self.sleep_tune)
-                            data_bytes.append(self.the_deque.popleft())
+
+                        while len(self.the_deque) < payload_length:
+                            time.sleep(self.sleep_tune)
+                        data_bytes = [self.the_deque.popleft() for _ in range(payload_length)]
+
                         #print()
                         #print([hex(b) for b in data_bytes] )
                         if dbw == 8:
                             cb_kwargs["data"] = data_bytes
                         elif dbw == 12:      # decompress 3B  into pairs of 12b values & flatten
-                            #cb_kwargs["data"] = [(a + ((b&0xF0)<<4), (c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256)  for a,b,c
-                                    #in zip(data_bytes[:-2:3], data_bytes[1:-1:3], data_bytes[2::3])]
-                            #cb_kwargs["data"] = [num for couple in cb_kwargs["data"] for num in couple]
                             odd = [a + ((b&0xF0)<<4)  for a,b
                                     in zip(data_bytes[::3], data_bytes[1::3])]
                             even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
                                     in zip(                   data_bytes[1:-1:3], data_bytes[2::3])]
                             cb_kwargs["data"] = [x for l in zip(odd,even) for x in l]
                             if len(odd)>len(even): cb_kwargs["data"].append(odd[-1])
-                            #print(f"decomp data len = {len(cb_kwargs['data'])}" , [hex(b) for b in cb_kwargs["data"]] )
 
                         elif dbw == 16:      # using little endian byte order everywhere
                             cb_kwargs["data"] = [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
@@ -183,10 +185,14 @@ class Rp2daq(threading.Thread):
             # we can get an OSError: [Errno9] Bad file descriptor when shutting down
             # just ignore it
             try:
-                if self.port.inWaiting():
-                    c = self.port.read()
-                    #print( c, end='') # BYTE
-                    self.the_deque.append(ord(c))
+                #if self.port.inWaiting():
+                    #c = self.port.read()
+                    #self.the_deque.append(c) # this may be slow
+
+                if w := self.port.inWaiting():
+                    c = self.port.read(w)
+                    self.the_deque.extend(c)
+
                 else:
                     time.sleep(self.sleep_tune)
             except OSError:
@@ -279,6 +285,7 @@ total_b = 0
 def test_callback(**kwargs):
     #print('datalen ', len(kwargs['data']))
     global total_b
+    global can_end
     total_b += len(kwargs['data'] )
     print("callback delayed from first command by ", time.time()-t0, 'bts', kwargs['blocks_to_send'])# " with kwargs =", kwargs, "\n\n")
     if not kwargs['blocks_to_send']: 
@@ -291,8 +298,8 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
     t0 = time.time()
 
-
-    rp.internal_adc(channel_mask=16, infinite=0, blocksize=1000, blocks_to_send=100, clkdiv=960,_callback=test_callback)
+    #rp.internal_adc(channel_mask=16, blocksize=500, blocks_to_send=100, clkdiv=48000//43, _callback=test_callback) # 42ksps OK
+    rp.internal_adc(channel_mask=16, blocksize=1000, blocks_to_send=1000, clkdiv=48000//500, _callback=test_callback) # 42ksps OK
 
     # Temperature logger
     #def adc_to_temperature(adc, Vref=3.30): 
@@ -313,7 +320,7 @@ if __name__ == "__main__":
     #rp.test(2, ord("Q"))
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
-    time.sleep(.9)
-    rp._stop_threads()
+    #time.sleep(.9)
+    #rp._stop_threads()
 
 

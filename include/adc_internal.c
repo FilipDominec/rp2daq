@@ -30,15 +30,6 @@ void iADC_DMA_start() {
 
 	adc_set_round_robin(internal_adc_config.channel_mask);
 	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
-	//adc_set_clkdiv(96); // 96 -> full ADC speed at 500 kSPS
-	//adc_set_clkdiv(120); // 400kSPS 
-	//adc_set_clkdiv(125); // 384kSPS OK?
-	//adc_set_clkdiv(130); // 366kSPS OK
-	//adc_set_clkdiv(144); // 333kSPS ?
-	//adc_set_clkdiv(160); // 300kSPS 
-	//adc_set_clkdiv(182); // 250kSPS 
-	//adc_set_clkdiv(96*4); // 125kSPS seems long-term safe against channel swapping
-	//adc_set_clkdiv(96*100); // 5kSPS for debug
 
 	// Initiate non-blocking ADC run, instead of calling dma_channel_wait_for_finish_blocking()
 	dma_channel_configure(iADC_DMA_chan, &iADC_DMA_cfg,
@@ -84,6 +75,7 @@ void iADC_DMA_IRQ_handler() {
         buf[i*3+2] = c;
     }
     internal_adc_report._data_bitwidth = 12;
+    //internal_adc_report._data_bitwidth = 16;
     
 	tx_header_and_data(&internal_adc_report, 
             sizeof(internal_adc_report), 
