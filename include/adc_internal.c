@@ -73,8 +73,9 @@ void iADC_DMA_IRQ_handler() {
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
     
     // compress 2x12b little-endian values from 4B into 3B
-    // e.g. from 0xBC0A 0xDE0F makes 0xBC 0xAD 0xEF to be later expanded back in computer
-    for (uint16_t i; i<internal_adc_report._data_count/2; i+=1) { 
+    // e.g. from two decimal values 2748 3567, stored little-endian as four bytes 0xBC 0x0A 0xEF 0x0D, 
+    // this makes 0xBC 0xAD 0xEF to be later expanded back in computer
+    for (uint16_t i; i<(internal_adc_report._data_count+1)/2; i+=1) { 
         uint8_t a = buf[i*4];
         uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
         uint8_t c = buf[i*4+2]*16 + buf[i*4+3];
@@ -87,7 +88,7 @@ void iADC_DMA_IRQ_handler() {
 	tx_header_and_data(&internal_adc_report, 
             sizeof(internal_adc_report), 
 			iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1, 
-            internal_adc_report._data_count * internal_adc_report._data_bitwidth/8,
+            (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8, // FIXME for 12bitwidth
 			0);
 
 	adc_run(false);
@@ -101,8 +102,8 @@ void iADC_DMA_setup() {
         if (internal_adc_config.channel_mask & (1<<ch)) 
             adc_gpio_init(26+ch); 
     }
-	if (internal_adc_config.channel_mask & (1<<4)) adc_set_temp_sensor_enabled(true);
     adc_init();
+    adc_set_temp_sensor_enabled(true);
 
     adc_fifo_setup(
         true,    // Write each completed conversion to the sample FIFO

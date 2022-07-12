@@ -151,7 +151,7 @@ void internal_adc() {
 	internal_adc_config.channel_mask = args->channel_mask; 
 	internal_adc_config.infinite = args->infinite; 
 	internal_adc_config.blocksize = args->blocksize; 
-	internal_adc_config.clkdiv = 65530; // args->clkdiv; 
+	internal_adc_config.clkdiv = args->clkdiv; 
 	if (args->blocks_to_send) {
 		internal_adc_config.blocks_to_send = args->blocks_to_send - 1; 
 		iADC_DMA_start(); 
