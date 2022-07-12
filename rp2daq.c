@@ -9,7 +9,8 @@
 #include "hardware/irq.h"
 #include "hardware/clocks.h"
 
-
+#define TUD_OPT_HIGH_SPEED (1)
+//#define CFG_TUD_CDC_EP_BUFSIZE 256 // legacy; needs to go into tusb_config.h that is being used
 
 #define VERSION ("220122")
 
@@ -70,7 +71,8 @@ void identify() {
 	struct  __attribute__((packed)) { 
 	} * args = (void*)(command_buffer+1);
 
-	uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
+	//uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
+	uint8_t text[14+16+1] = {"rp2daq_220120_"};
 	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
 	fwrite(text, sizeof(text)-1, 1, stdout);
 	fflush(stdout); 

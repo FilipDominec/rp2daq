@@ -66,21 +66,21 @@ void iADC_DMA_IRQ_handler() {
     // compress 2x12b little-endian values from 4B into 3B
     // e.g. from two decimal values 2748 3567, stored little-endian as four bytes 0xBC 0x0A 0xEF 0x0D, 
     // this makes 0xBC 0xAD 0xEF to be later expanded back in computer
-    for (uint16_t i; i<(internal_adc_report._data_count+1)/2; i+=1) { 
-        uint8_t a = buf[i*4];
-        uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
-        uint8_t c = buf[i*4+2]*16 + buf[i*4+3];
-        buf[i*3] = a;
-        buf[i*3+1] = b;
-        buf[i*3+2] = c;
-    }
-    internal_adc_report._data_bitwidth = 12;
-    //internal_adc_report._data_bitwidth = 16;
+    //for (uint16_t i; i<(internal_adc_report._data_count+1)/2; i+=1) { 
+        //uint8_t a = buf[i*4];
+        //uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
+        //uint8_t c = buf[i*4+2]*16 + buf[i*4+3];
+        //buf[i*3] = a;
+        //buf[i*3+1] = b;
+        //buf[i*3+2] = c;
+    //}
+    //internal_adc_report._data_bitwidth = 12;
+    internal_adc_report._data_bitwidth = 16; // todo check timing difference from 12-bit packing
     
 	tx_header_and_data(&internal_adc_report, 
             sizeof(internal_adc_report), 
 			iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1, 
-            (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8, // FIXME for 12bitwidth
+            (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8,
 			0);
 
 	adc_run(false);

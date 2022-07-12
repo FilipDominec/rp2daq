@@ -298,8 +298,7 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
     t0 = time.time()
 
-    #rp.internal_adc(channel_mask=16, blocksize=500, blocks_to_send=100, clkdiv=48000//43, _callback=test_callback) # 42ksps OK
-    rp.internal_adc(channel_mask=16, blocksize=1000, blocks_to_send=1000, clkdiv=48000//500, _callback=test_callback) # 42ksps OK
+    rp.internal_adc(channel_mask=16, blocksize=80, blocks_to_send=2000, clkdiv=48000//500, _callback=test_callback) # 480ksps OK
 
     # Temperature logger
     #def adc_to_temperature(adc, Vref=3.30): 
