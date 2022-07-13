@@ -52,12 +52,17 @@ void iADC_DMA_start() {
 void iADC_DMA_IRQ_handler() {
     gpio_put(DEBUG_PIN, 0);
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
+    // TODO another DMA channel can swap buffers **entirely** without irq causing dead-time
+    // now we achieve 494 ksps, but true 500 would be possible with that 
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
+	adc_run(false);
+    if (internal_adc_config.blocks_to_send--) // internal_adc_config.infinite || 
+	    iADC_DMA_start();					  // start new acquisition
 
-    //internal_adc_report._data_count = internal_adc_config.blocksize; 
-    //internal_adc_report._data_bitwidth = 16;
-    
-    uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1);
+
+
+    //uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1); // TODO check if they these are to be swapped...
+    uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer1 : &iADC_buffer0); // TODO check if they these are to be swapped...
 
     internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report.channel_mask = internal_adc_config.channel_mask;
@@ -66,16 +71,15 @@ void iADC_DMA_IRQ_handler() {
     // compress 2x12b little-endian values from 4B into 3B
     // e.g. from two decimal values 2748 3567, stored little-endian as four bytes 0xBC 0x0A 0xEF 0x0D, 
     // this makes 0xBC 0xAD 0xEF to be later expanded back in computer
-    //for (uint16_t i; i<(internal_adc_report._data_count+1)/2; i+=1) { 
-        //uint8_t a = buf[i*4];
-        //uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
-        //uint8_t c = buf[i*4+2]*16 + buf[i*4+3];
-        //buf[i*3] = a;
-        //buf[i*3+1] = b;
-        //buf[i*3+2] = c;
-    //}
-    //internal_adc_report._data_bitwidth = 12;
-    internal_adc_report._data_bitwidth = 16; // todo check timing difference from 12-bit packing
+    for (uint16_t i; i<(internal_adc_report._data_count+1)/2; i+=1) { 
+        uint8_t a = buf[i*4];
+        uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
+        uint8_t c = buf[i*4+2]*16 + buf[i*4+3];
+        buf[i*3] = a;
+        buf[i*3+1] = b;
+        buf[i*3+2] = c;
+    }
+    internal_adc_report._data_bitwidth = 12;
     
 	tx_header_and_data(&internal_adc_report, 
             sizeof(internal_adc_report), 
@@ -83,11 +87,22 @@ void iADC_DMA_IRQ_handler() {
             (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8,
 			0);
 
-	adc_run(false);
-    if (internal_adc_config.infinite || internal_adc_config.blocks_to_send--)
-	    iADC_DMA_start();					  // start new acquisition
+
+
 }
 
+
+    // when tx schedule before DMA_start:
+    // timing check for 12bitwidth @500 ksps nom.: core0 ~16160us transmitting, 584us outside loop (i.e. near full load)
+    // (note: compiled with the TUD_OPT_HIGH_SPEED trick)
+    // 524280 out of expected 524280 kB received, 100% success, real 477345 ksps
+
+    //internal_adc_report._data_bitwidth = 16; 
+    // timing check for 16bitwidth @500 ksps nom.: core0 ~16000us transmitting, 0.9us outside loop (overload, data loss:)
+    // 523960 out of expected 524280 kB received, 327 out of 65535 chunks lost (~0.06% loss)
+    
+    // TODO  why is USB clogged even on low ksps?
+    
 
 void iADC_DMA_setup() { 
 	for (uint8_t ch=0; ch<4; ch++) {

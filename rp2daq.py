@@ -290,6 +290,7 @@ def test_callback(**kwargs):
     print("callback delayed from first command by ", time.time()-t0, 'bts', kwargs['blocks_to_send'])# " with kwargs =", kwargs, "\n\n")
     if not kwargs['blocks_to_send']: 
         print(total_b, "in", time.time()-t0, " means ", total_b/(time.time()-t0) , "sample rate" )
+        time.sleep(.1)
         rp._stop_threads()
 
 if __name__ == "__main__":
@@ -298,7 +299,10 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
     t0 = time.time()
 
-    rp.internal_adc(channel_mask=16, blocksize=80, blocks_to_send=2000, clkdiv=48000//500, _callback=test_callback) # 480ksps OK
+    rp.internal_adc(channel_mask=16, blocksize=8000, blocks_to_send=1000, clkdiv=48000//500, _callback=test_callback) # 480ksps OK
+     # always 1st cb missing?
+
+
 
     # Temperature logger
     #def adc_to_temperature(adc, Vref=3.30): 

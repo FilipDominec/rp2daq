@@ -71,7 +71,6 @@ void identify() {
 	struct  __attribute__((packed)) { 
 	} * args = (void*)(command_buffer+1);
 
-	//uint8_t text[14+16+1] = {'r','p','2','d','a','q','_', '2','2','0','1','2','0', '_'};
 	uint8_t text[14+16+1] = {"rp2daq_220120_"};
 	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
 	fwrite(text, sizeof(text)-1, 1, stdout);
@@ -155,7 +154,7 @@ void internal_adc() {
 	internal_adc_config.blocksize = args->blocksize; 
 	internal_adc_config.clkdiv = args->clkdiv; 
 	if (args->blocks_to_send) {
-		internal_adc_config.blocks_to_send = args->blocks_to_send - 1; 
+		internal_adc_config.blocks_to_send = args->blocks_to_send; 
 		iADC_DMA_start(); 
 	}
 }
@@ -242,7 +241,7 @@ int main() {
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 
-		tight_loop_contents(); // does nothing
+		//tight_loop_contents(); // does nothing
 
 		get_next_command();
 
