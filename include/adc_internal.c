@@ -24,7 +24,6 @@ int iADC_DMA_chan;
 
 void iADC_DMA_start() {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
-	gpio_put(DEBUG_PIN, 1); 
 	adc_run(false);				
 	adc_fifo_drain(); // ??
 
@@ -50,19 +49,20 @@ void iADC_DMA_start() {
 
 
 void iADC_DMA_IRQ_handler() {
-    gpio_put(DEBUG_PIN, 0);
+    gpio_put(DEBUG_PIN, 1);
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
-    // TODO another DMA channel can swap buffers **entirely** without irq causing dead-time
-    // now we achieve 494 ksps, but true 500 would be possible with that 
+    // TODO check if 2nd DMA ch would swap buffers **entirely** without irq causing 1% dead-time
+    // now we achieve 494 ksps, but true 500 ksps would be possible with that 
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 	adc_run(false);
-    if (internal_adc_config.blocks_to_send--) // internal_adc_config.infinite || 
+    if (--internal_adc_config.blocks_to_send) // internal_adc_config.infinite || 
+    { 
 	    iADC_DMA_start();					  // start new acquisition
+    }
 
 
 
-    //uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1); // TODO check if they these are to be swapped...
-    uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer1 : &iADC_buffer0); // TODO check if they these are to be swapped...
+    uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1); // TODO check if they these are to be swapped...
 
     internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report.channel_mask = internal_adc_config.channel_mask;
@@ -70,7 +70,7 @@ void iADC_DMA_IRQ_handler() {
     
     // compress 2x12b little-endian values from 4B into 3B
     // e.g. from two decimal values 2748 3567, stored little-endian as four bytes 0xBC 0x0A 0xEF 0x0D, 
-    // this makes 0xBC 0xAD 0xEF to be later expanded back in computer
+    // this makes 0xBC 0xAE 0xFD to be later expanded back in computer
     for (uint16_t i; i<(internal_adc_report._data_count+1)/2; i+=1) { 
         uint8_t a = buf[i*4];
         uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
@@ -88,6 +88,7 @@ void iADC_DMA_IRQ_handler() {
 			0);
 
 
+    gpio_put(DEBUG_PIN, 0);
 
 }
 

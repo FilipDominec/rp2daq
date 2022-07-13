@@ -48,7 +48,7 @@ def init_error_msgbox():  # error handling with a graphical message box
 
 
 class Rp2daq(threading.Thread):
-    def __init__(self, required_device_id=None, verbose=True):
+    def __init__(self, required_device_id=None, verbose=False):
 
         logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, 
                 format='%(asctime)s (%(threadName)-9s) %(message)s',) # filename='rp2.log',
@@ -98,7 +98,7 @@ class Rp2daq(threading.Thread):
     def _is_running(self):
         return self.run_event.is_set()
 
-    def _stop_threads(self):
+    def quit(self):
         self.run_event.clear()
 
     def _reporter(self):
@@ -281,18 +281,6 @@ class Rp2daq(threading.Thread):
 # }}}
 
 
-total_b = 0
-def test_callback(**kwargs):
-    #print('datalen ', len(kwargs['data']))
-    global total_b
-    global can_end
-    total_b += len(kwargs['data'] )
-    print("callback delayed from first command by ", time.time()-t0, 'bts', kwargs['blocks_to_send'])# " with kwargs =", kwargs, "\n\n")
-    if not kwargs['blocks_to_send']: 
-        print(total_b, "in", time.time()-t0, " means ", total_b/(time.time()-t0) , "sample rate" )
-        time.sleep(.1)
-        rp._stop_threads()
-
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
     print("\tSee the 'examples' directory for further uses.")
@@ -324,6 +312,6 @@ if __name__ == "__main__":
     # TODO test receiving reports split in halves - should trigger callback only when full report is received 
 
     #time.sleep(.9)
-    #rp._stop_threads()
+    #rp.quit()
 
 
