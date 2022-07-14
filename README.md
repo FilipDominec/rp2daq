@@ -49,7 +49,23 @@ After few seconds, the USB storage should disconnect. Your RP2 becomes accessibl
 
 #### Hello world
 
-Run your Python interpreter 
+To check everything is ready, run in your Python interpreter:
+
+```Python
+import rp2daq
+rp = rp2daq.Rp2daq()
+rp.pin_out(25, 1)
+```
+
+The pin number 25 is connected to the green onboard LED - it should turn on.
+
+Or similarly, you can get ADC readout (with default configuration):
+
+```Python
+import rp2daq
+rp = rp2daq.Rp2daq()
+rp.internal_adc()
+```
 
 ## Example programs
 
@@ -88,6 +104,7 @@ A: Perhaps, but - the firmware and computer communicate over a binary interface 
 **Q: Are there projects with similar scope?**
 
 A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. RP2DAQ aims for higher performance in laboratory automation. However, parts of RP2DAQ code and concepts were inspired by Telemetrix.
+
 
 **Q: Does RP2DAQ implement all functions available by the Raspberry Pico SDK?**
 

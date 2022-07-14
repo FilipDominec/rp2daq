@@ -1,15 +1,15 @@
 ## Detailed features - roadmap
 
  * implemented & tested 
-	 * [x] identification message
- * under development
+	* [x] identification message
 	* [x] voltage measurement (internal 12-bit 500kSPS ADC) 
-	* [ ] stepper motor (using Stepstick - A4988) with end-stop support
-	* [ ] digital pin input/output
+ * under development
+	* [ ] digital pin input/output - do not halt w/out cb
 	* [ ] pulse width modulation (built-in PWM in RP2)
        * [ ] wform generator using DMA channel, along https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
+	* [ ] stepper motor (using Stepstick - A4988) with end-stop support
 	* get rid of 'serial' module dep
-	* data bit packing & unpacking
+	* [ ] extra data transfer from computer
  * planned to be added
     * [ ] high-frequency generator (direct ```clock_gpio_init``` on pins )
     * [ ] inbuilt frequency counter and accurate timer,
@@ -31,6 +31,21 @@
     * [ ] high-speed external DAC (+ support for direct digital synthesis, AD9708ARZ?)
 	* [ ] SCCB support for cameras like OV2640
 	* [ ] user data in EEPROM https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/
+
+ * out of the box
+	* code audit from some real C programmer
+		* checking fresh compilation according to instructions
+	* remove dependency on pyserial module?  - you can copy the serial folder into your project as a package, and it would work without installing anything.you can copy the serial folder into your project as a package, and it would work without installing anything.
+	* check ttyACM* can be accessed without being root & without setting udev rules
+	* check installation & operation on Win, MacOS, 
+	* check with USB hub https://github.com/hathach/tinyusb/discussions/1248
+	* check max really working cable length 
+	* auto-generate VERSION on each compilation? 
+	* resources to "assimilate"
+		https://github.com/dorsic/PicoPET
+		https://github.com/dorsic/PicoDIV
+	* HW to support?
+		GY-BMP280-3.3
 
 
 
@@ -81,17 +96,6 @@ Contribute back with  non-blocking DMA as alternative to:
         TP5 GPIO25/LED (not recommended to be used)
         TP6 BOOTSEL */
 
-* remove dependency on pyserial module?  - you can copy the serial folder into your project as a package, and it would work without installing anything.you can copy the serial folder into your project as a package, and it would work without installing anything.
-* check ttyACM* can be accessed without being root & without setting udev rules
-* check installation & operation on Win, MacOS, 
-* check with USB hub https://github.com/hathach/tinyusb/discussions/1248
-* check max really working cable length 
-* auto-generate VERSION on each compilation? 
-* resources to "assimilate"
-    https://github.com/dorsic/PicoPET
-    https://github.com/dorsic/PicoDIV
-* HW to support?
-    GY-BMP280-3.3
 
 
 TODO Check installer istructions:

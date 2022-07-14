@@ -79,38 +79,6 @@ void identify() {
 
 
 
-
-
-
-struct {
-    uint8_t report_code;
-    uint8_t tmp;
-    uint16_t tmpH;
-    uint8_t _data_count;
-    uint8_t _data_bitwidth;
-} test_report;
-
-void test() {
-	struct  __attribute__((packed)) {
-		uint8_t p,c; 	
-	} * args = (void*)(command_buffer+1);
-
-    test_report.tmp = 42;
-    test_report.tmpH = 4200;
-	test_report._data_count = 30;
-	test_report._data_bitwidth = 8;
-	
-	uint8_t data[14+16+1] = {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', };
-	data[args->p] = args->c; // for messaging DEBUG only
-
-	tx_header_and_data(&test_report, sizeof(test_report), 
-			&data, test_report._data_count * test_report._data_bitwidth/8,
-			1);
-
-}
-
-
-
 struct {
     uint8_t report_code;
 } pin_out_report;
@@ -123,9 +91,7 @@ void pin_out() {
 	gpio_init(args->n_pin); gpio_set_dir(args->n_pin, GPIO_OUT);
     gpio_put(args->n_pin, args->value);
 
-	// testing only busy_wait_us_32(97000);
-    //fwrite(&pin_out_report, sizeof(pin_out_report), 1, stdout);
-	//fflush(stdout); 
+	tx_header_and_data(&pin_out_report, sizeof(pin_out_report), 0, 0, 0);
 }
 
 
@@ -168,7 +134,6 @@ message_descriptor message_table[] = // #new_features: add your command to this 
         {   
                 {&identify,		&identify_report},  
                 {&pin_out,		&pin_out_report},
-                {&test,			&test_report},
                 {&internal_adc, &internal_adc_report},
         };  
 
