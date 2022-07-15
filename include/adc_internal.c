@@ -17,7 +17,6 @@ uint16_t iADC_buffer0[1024*16];
 uint16_t iADC_buffer1[1024*16];
 volatile uint8_t iADC_buffer_choice = 0;
 
-volatile uint8_t iADC_DMA_IRQ_triggered;
 dma_channel_config iADC_DMA_cfg;
 int iADC_DMA_chan;
 
@@ -48,29 +47,10 @@ void iADC_DMA_start() {
 }
 
 
-void iADC_DMA_IRQ_handler() {
-    gpio_put(DEBUG_PIN, 1);
-    dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
-    // TODO check if 2nd DMA ch would swap buffers **entirely** without irq causing 1% dead-time
-    // now we achieve 494 ksps, but true 500 ksps would be possible with that 
-    iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
-	adc_run(false);
-    if (--internal_adc_config.blocks_to_send) // internal_adc_config.infinite || 
-    { 
-	    iADC_DMA_start();					  // start new acquisition
-    }
-
-
-
-    uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1); // TODO check if they these are to be swapped...
-
-    internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
-    internal_adc_report.channel_mask = internal_adc_config.channel_mask;
-    internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
-    
-    // compress 2x12b little-endian values from 4B into 3B
-    // e.g. from two decimal values 2748 3567, stored little-endian as four bytes 0xBC 0x0A 0xEF 0x0D, 
-    // this makes 0xBC 0xAE 0xFD to be later expanded back in computer
+void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
+    // Squashes a pair of 0..4095 short integers from 4B into 3B, saves 25% of USB bandwidth
+    // e.g. from two decimal values 2748 3567, originally stored little-endian as four bytes 
+    // 0xBC 0x0A 0xEF 0x0D,  this makes 0xBC 0xAE 0xFD to be later expanded back in computer
     for (uint16_t i; i<(internal_adc_report._data_count+1)/2; i+=1) { 
         uint8_t a = buf[i*4];
         uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
@@ -79,6 +59,27 @@ void iADC_DMA_IRQ_handler() {
         buf[i*3+1] = b;
         buf[i*3+2] = c;
     }
+}
+
+void iADC_DMA_IRQ_handler() {
+    // TODO check if 2nd DMA ch could swap buffers **entirely** without irq avoiding 1% dead-time;
+    // Now we achieve 494 ksps, but true 500 ksps would be possible with that 
+    gpio_put(DEBUG_PIN, 1);
+    dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
+    iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
+	adc_run(false);
+    if (--internal_adc_config.blocks_to_send) // internal_adc_config.infinite || 
+    { 
+	    iADC_DMA_start();					  // start new acquisition
+    }
+
+    uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1);
+
+    internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
+    internal_adc_report.channel_mask = internal_adc_config.channel_mask;
+    internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
+    
+    compress_2x12b_to_24b_inplace(buf, data_count) {
     internal_adc_report._data_bitwidth = 12;
     
 	tx_header_and_data(&internal_adc_report, 

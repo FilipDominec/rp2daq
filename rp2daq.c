@@ -170,9 +170,6 @@ void get_next_command() {
 
 void core1_main() { // busy loop on second CPU core takes care of real-time tasks
     while (true) {
-		while (!iADC_DMA_IRQ_triggered) { };   
-	    gpio_put(LED_PIN, 1); busy_wait_us_32(50); gpio_put(LED_PIN, 0); busy_wait_us_32(50); 
-	    gpio_put(LED_PIN, 1); busy_wait_us_32(50); gpio_put(LED_PIN, 0); busy_wait_us_32(50); 
     }
 }
 

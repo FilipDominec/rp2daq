@@ -15,8 +15,8 @@ matplotlib's interactive plot.
 """
 
 import rp2daq 
-import time
 import threading
+import time
 
 ## Connect to the device
 rp = rp2daq.Rp2daq()

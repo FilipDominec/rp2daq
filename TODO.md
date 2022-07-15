@@ -32,7 +32,7 @@
 	* [ ] SCCB support for cameras like OV2640
 	* [ ] user data in EEPROM https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/
 
- * out of the box
+ * extras
 	* code audit from some real C programmer
 		* checking fresh compilation according to instructions
 	* remove dependency on pyserial module?  - you can copy the serial folder into your project as a package, and it would work without installing anything.you can copy the serial folder into your project as a package, and it would work without installing anything.
