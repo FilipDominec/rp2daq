@@ -23,6 +23,7 @@
 	* [ ] user-defined data storage in flash memory unused by firmware https://www.aranacorp.com/en/using-the-eeprom-with-the-rp2daq/
 	* [ ] high-speed external ADC (i.e. oscilloscope, using built-in PIO 8-Bit 100MSps, e.g. AD9288-100)
 		* [ ] uint8_t bulk_buffer[1024*128]; // todo check if 128kB can be transmitted safely
+		* note there is another option of fast sampling scopes, e.g. https://hackaday.com/2020/02/10/recreating-fast-oscilloscopes-is-a-slow-process/
  * considered, not planned in near future
     * [ ] fast & autonomous pipe-lining infrastructure (all tasks can actually be some pipe elements) 
         * pipeline sources: USB message received, task finished, periodic timer, digital pin trigger, numeric ramp generator

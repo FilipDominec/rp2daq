@@ -25,9 +25,9 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
     * [x] second core for time-critical tasks
     * [x] o/c @250 MHz
 
-## Getting it work
+## Getting it work (without any programming)
 
-#### What will you need
+#### What you will need
 
  * Raspberry Pi Pico ($5),
  * USB micro cable ($3),

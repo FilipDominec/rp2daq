@@ -80,7 +80,7 @@ class Rp2daq(threading.Thread):
     def _register_commands(self):
         # TODO 0: search C code for version, check it matches that one returned by Raspberry Pi at runtime
 
-        C_code = open('rp2daq.c').read()
+        C_code = open('rp2daq.c').read() # TODO search rel to script
 
         names_codes = c_code_parser.generate_command_binary_interface(C_code)
         for cmd_name, cmd_code in names_codes.items():
@@ -94,9 +94,6 @@ class Rp2daq(threading.Thread):
 
         # Register callbacks (to dispatch reports as they arrive)
         self.report_callbacks = {} 
-
-    def _is_running(self):
-        return self.run_event.is_set()
 
     def quit(self):
         self.run_event.clear()
@@ -192,12 +189,11 @@ class Rp2daq(threading.Thread):
         """
         if not self.report_cb_queue.get(command_code):
             self.report_cb_queue[command_code] = queue.Queue()
-        kwargs = self.report_cb_queue[command_code].get()
+        kwargs = self.report_cb_queue[command_code].get() # waits until report arrives
         #print('SYNC CMD RETURNS:', kwargs)
         return kwargs
 
-# }}}
-    def _find_device(self, required_device_id, required_firmware_version):# {{{
+    def _find_device(self, required_device_id, required_firmware_version):
         """
         Seeks for a compatible rp2daq device on USB, checking for its firmware version and, if 
         specified, for its particular unique vendor name.
@@ -256,14 +252,13 @@ class Rp2daq(threading.Thread):
             msg = "Error: could not find any matching rp2daq device"
             logging.critical(msg)
             raise RuntimeError(msg)
-# }}}
-    def identify(self): # {{{
+
+    def identify(self):  # TODO rm this & use common auto-gen interf
         self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
         raw = self.port.read(30)
         #devicename = raw[0:6]
         #unique_id = (raw[6:14]).hex(':')
         return raw
-# }}}
 
 
 if __name__ == "__main__":
@@ -271,6 +266,13 @@ if __name__ == "__main__":
     print("\tSee the 'examples' directory for further uses.")
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
     t0 = time.time()
+
     rp.pin_out(25,1)
+
+    #rp.pin_PWM(25, 1)
+
+    #rp.set_PWM_global(frequency=100000) TODO
+
+    #rp.pin_in(25,1) TODO 
     rp.quit()
 

@@ -1,4 +1,6 @@
-# Extending and compiling the firmware 
+# Developer information
+
+## Don't write C code, unless you are sure you want to
 
 In most expected use cases, pre-compiled RP2DAQ firmware only needs to be downloaded and flashed once, as described in the [main README document](README.md). All its functions will then be activated at runtime by the Python script in your computer.
 
@@ -7,6 +9,7 @@ But in more specific applications, where entirely new functionality with tight t
 We will appreciate your contributions if you decide to share them back. You can first discuss your needs and plans on the [issues page](https://github.com/FilipDominec/rp2daq/issues).
 
 RP2DAQ can also serve as a convenient "boilerplate" for your own projects. We try to keep the code base readable and reasonably short.
+
 
 
 ## Re-compiling the firmware
@@ -55,20 +58,21 @@ The procedure with [pressing the *bootsel* button](https://gist.github.com/Herma
 #### Code structure and concepts
 
 RP2DAQ aims to squeeze maximum power from raspberry pi, without putting programming burden on the user. To this end, it employs 
-    * **parallelism in the firmware** (1st CPU core mostly for communication and immediate commands, 2nd core for real-time control; DMA is used when possible; PIO use is planned),
+    * **parallelism in the firmware** (1st CPU core mostly for communication and immediate commands, 2nd core for real-time control; other subsystems like ADC+DMA and PWM operate independent the CPU cores),
     * Pi Pico is by default **overclocked from 133 MHz to 250 MHz**,
     * **Asynchronous operation**, i.e. multiple commands can be issued in one moment, and the corresponding reports are handled in computer later when they arrive. However, such high-performance behaviour is somewhat harder to learn, so it is kept optional. The default behaviour for all commands is to block Python code until the corresponding report is received. 
 
-Each instance of Rp2daq class connects to a single board, but you may initialize more instances easily. Doing so, use the "required_device_tag=" parameter to tell devices apart.
+Each instance of Rp2daq class in Python connects to a single board. In demanding applications, one may connects to several boards simultaneously; this requires to initialize more Rp2daq instances. Doing so, use the "required_device_tag=" parameter to tell devices apart.
 
-* Avoiding defining new interfaces and constants where not necessary: The aim is not to build a wrapper for pico-SDK, but simply make its most useful features quickly accessible to one python script in the computer. The [pico-SDK docs](https://raspberrypi.github.io/pico-sdk-doxygen/) are still a good resource for details.
+RP2DAQ had to define its own Python interface; however, the firmware relies on the [Pi Pico C SDK](https://github.com/raspberrypi/pico-sdk) and it adheres to its logic where possible. The aim is not to build a new wrapper for the SDK, but simply make its most useful features quickly accessible to one python script in the computer. The [pico-SDK docs](https://raspberrypi.github.io/pico-sdk-doxygen/) are still a good resource for details.
 
 #### Communication and messaging
 
-Rp2daq implements a custom binary communication protocol for messages in both directions. Henceforth we will call all messages going from computer "commands" and all messages going back as "reports".
+Rp2daq implements its own binary communication protocol for efficient data transfer in both directions. Henceforth we will call all messages going from computer "commands" and all messages going back as "reports". For every defined command, one report is defined. Calling one command from computer will result in least one report being received, either immediately (e.g. device ID would be reported within microseconds) or later (e.g. if motor movement is to be finished first). Some commands may result in several or even unlimited number of reports (e.g. continuous ADC measurement).
 
-The device part, written in C code, holds all the details of the protocol. In contrast, on the computer side, the communication interface will be dynamically *auto-generated* at each startup by parsing the firmware code. While this solution may appear unusual, it saves the developer from writing somewhat redundant messaging interface in Python. More importantly, it also prevents them from making possibly hard-to-debug mistakes in protocol mismatch. 
+All commands and reports are fully defined in the C code found in the ```include/``` directory. During compilation, they are hard-coded in the firmware. In contrast, on the computer side, the Python communication interface will be dynamically *auto-generated* at each startup, by Python parsing the C firmware code. While this solution may appear unusual, it completely avoids redundant definitions between C and Python. Even more importantly, it also elegantly prevents possible hard-to-debug errors from protocol mismatch. 
 
+In the device, all reports are *scheduled* into a cyclic buffer of buffers. This approach is thread-safe even if a report is to be issued from *core1* while 1st *core0* is busy transmitting. It also does not block execution of time-critical code. 
 
 ## Resources used
 

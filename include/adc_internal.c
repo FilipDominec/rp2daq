@@ -51,7 +51,7 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
     // Squashes a pair of 0..4095 short integers from 4B into 3B, saves 25% of USB bandwidth
     // e.g. from two decimal values 2748 3567, originally stored little-endian as four bytes 
     // 0xBC 0x0A 0xEF 0x0D,  this makes 0xBC 0xAE 0xFD to be later expanded back in computer
-    for (uint16_t i; i<(internal_adc_report._data_count+1)/2; i+=1) { 
+    for (uint16_t i; i<(data_count+1)/2; i+=1) { 
         uint8_t a = buf[i*4];
         uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
         uint8_t c = buf[i*4+2]*16 + buf[i*4+3];
@@ -73,18 +73,18 @@ void iADC_DMA_IRQ_handler() {
 	    iADC_DMA_start();					  // start new acquisition
     }
 
-    uint8_t* buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1);
+    uint8_t* finished_adc_buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1);
 
     internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report.channel_mask = internal_adc_config.channel_mask;
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
     
-    compress_2x12b_to_24b_inplace(buf, data_count) {
+    compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
     internal_adc_report._data_bitwidth = 12;
     
 	tx_header_and_data(&internal_adc_report, 
             sizeof(internal_adc_report), 
-			iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1, 
+			finished_adc_buf, 
             (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8,
 			0);
 

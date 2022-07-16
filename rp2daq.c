@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include <string.h>
-#include "pico/stdlib.h"
-#include "pico/binary_info.h"
-#include "pico/unique_id.h"
-#include "pico/multicore.h"
-#include "hardware/adc.h"
-#include "hardware/dma.h"
-#include "hardware/irq.h"
-#include "hardware/clocks.h"
+#include <hardware/adc.h>
+#include <hardware/clocks.h>
+#include <hardware/dma.h>
+#include <hardware/irq.h>
+#include <hardware/pwm.h>
+#include <pico/binary_info.h>
+#include <pico/multicore.h>
+#include <pico/stdlib.h>
+#include <pico/unique_id.h>
+
 
 #define TUD_OPT_HIGH_SPEED (1)
 //#define CFG_TUD_CDC_EP_BUFSIZE 256 // legacy; needs to go into tusb_config.h that is being used
@@ -127,6 +129,7 @@ void internal_adc() {
 
 
 
+
 // === I/O MESSAGING INFRASTRUCTURE ===
  
 typedef struct { void (*command_func)(void); void (*report_struct); } message_descriptor;
@@ -151,8 +154,8 @@ void get_next_command() {
     } else {
         // get the rest of the packet
         for (int i = 0; i < packet_size; i++) {
-            if ((packet_data = (uint8_t) getchar_timeout_us(0)) == PICO_ERROR_TIMEOUT) {
-                sleep_ms(1);
+            while ((packet_data = (uint8_t) getchar_timeout_us(0)) == PICO_ERROR_TIMEOUT) {
+                busy_wait_us_32(1);
             }
             command_buffer[i] = packet_data;
         }
@@ -197,14 +200,12 @@ int main() {
 	// Setup routines for subsystems - ran once to initialize hardware & constants
 	iADC_DMA_setup();
 
-	BLINK_LED_US(5000)
+	BLINK_LED_US(5000);
 	busy_wait_us_32(100000); 
-	BLINK_LED_US(5000)
+	BLINK_LED_US(5000);
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 
-		//tight_loop_contents(); // does nothing
-
 		get_next_command();
 
 		if (txbuf_tosend != txbuf_tofill) {
@@ -220,12 +221,6 @@ int main() {
 			txbuf_tosend = (txbuf_tosend + 1) % TXBUF_COUNT;
 			gpio_put(DEBUG2_PIN, 0); 
 		}
-
-		//if (iADC_DMA_IRQ_triggered) {
-			//iADC_DMA_IRQ_triggered = 0;
-			//fwrite(iADC_buffer_choice ? iADC_buffer0 : iADC_buffer1, internal_adc_config.blocksize, 2, stdout);
-			//fflush(stdout); 
-		//}
 	}
 }
 
