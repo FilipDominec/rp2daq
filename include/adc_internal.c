@@ -1,6 +1,16 @@
+
+void iADC_DMA_start();
+void iADC_DMA_IRQ_handler();
 #define DEBUG_PIN 4
 #define DEBUG2_PIN 5
 
+struct __attribute__((packed)) {
+    uint8_t report_code;
+    uint16_t _data_count; 
+    uint8_t _data_bitwidth;
+    uint8_t channel_mask;
+    uint16_t blocks_to_send;
+} internal_adc_report;
 
 struct { 
 	uint8_t channel_mask;	
@@ -9,6 +19,26 @@ struct {
     uint32_t blocks_to_send;	
 	uint16_t clkdiv;		
 } internal_adc_config;
+
+void internal_adc() {
+	struct __attribute__((packed)) {
+		uint8_t channel_mask;		// default=1		min=0		max=31
+		uint8_t infinite;			// default=0		min=0		max=1
+		uint16_t blocksize;			// default=1000		min=1		max=8192
+		uint16_t blocks_to_send;	// default=1		min=0		
+		uint16_t clkdiv;			// default=96		min=96		max=65535
+	} * command = (void*)(command_buffer+1);
+
+	internal_adc_config.channel_mask = command->channel_mask; 
+	internal_adc_config.infinite = command->infinite; 
+	internal_adc_config.blocksize = command->blocksize; 
+	internal_adc_config.clkdiv = command->clkdiv; 
+	if (command->blocks_to_send) {
+		internal_adc_config.blocks_to_send = command->blocks_to_send; 
+		iADC_DMA_start(); 
+	}
+}
+
 
 
 
@@ -102,8 +132,6 @@ void iADC_DMA_IRQ_handler() {
     //internal_adc_report._data_bitwidth = 16; 
     // timing check for 16bitwidth @500 ksps nom.: core0 ~16000us transmitting, 0.9us outside loop (overload, data loss:)
     // 523960 out of expected 524280 kB received, 327 out of 65535 chunks lost (~0.06% loss)
-    
-    // TODO  why is USB clogged even on low ksps?
     
 
 void iADC_DMA_setup() { 

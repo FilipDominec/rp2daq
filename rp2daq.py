@@ -80,17 +80,16 @@ class Rp2daq(threading.Thread):
     def _register_commands(self):
         # TODO 0: search C code for version, check it matches that one returned by Raspberry Pi at runtime
 
-        C_code = open('rp2daq.c').read() # TODO search rel to script
-
-        names_codes = c_code_parser.generate_command_binary_interface(C_code)
+        names_codes = c_code_parser.generate_command_binary_interface()
         for cmd_name, cmd_code in names_codes.items():
             exec(cmd_code)
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
         # Search C code for report structs & generate automatically:
         self.report_cb_queue = {}
+        H_code = open('rp2daq.c').read() # TODO search rel to script
         self.report_header_lenghts, self.report_header_formats, self.report_header_varnames = \
-                c_code_parser.generate_report_binary_interface(C_code)
+                c_code_parser.generate_report_binary_interface()
 
         # Register callbacks (to dispatch reports as they arrive)
         self.report_callbacks = {} 
@@ -165,20 +164,15 @@ class Rp2daq(threading.Thread):
         self.run_event.wait()
 
         while self.run_event.is_set():
-            # 
             try:
-                #if self.port.inWaiting():
-                    #c = self.port.read()
-                    #self.the_deque.append(c) # this may be slow
-
                 if w := self.port.inWaiting():
                     c = self.port.read(w)
                     self.the_deque.extend(c)
-
                 else:
                     time.sleep(self.sleep_tune)
             except OSError:
-                print("we can get an OSError: [Errno9] Bad file descriptor when shutting down just ignore it")
+                logging.error("Device disconnected")
+                self.quit()
 
     def default_blocking_callback(self, command_code): # 
         """
@@ -269,10 +263,5 @@ if __name__ == "__main__":
 
     rp.pin_out(25,1)
 
-    #rp.pin_PWM(25, 1)
-
-    #rp.set_PWM_global(frequency=100000) TODO
-
-    #rp.pin_in(25,1) TODO 
     rp.quit()
 

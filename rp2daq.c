@@ -11,134 +11,28 @@
 #include <pico/unique_id.h>
 
 
-#define TUD_OPT_HIGH_SPEED (1)
-//#define CFG_TUD_CDC_EP_BUFSIZE 256 // legacy; needs to go into tusb_config.h that is being used
-
-#define VERSION ("220122")
-
-#define LED_PIN 25
-#define DEBUG_PIN 4
-#define DEBUG2_PIN 5
-#define BLINK_LED_US(duration) gpio_put(LED_PIN, 1); busy_wait_us_32(duration); gpio_put(LED_PIN, 0); 
-
-#define ARRAY_LEN(arr)   (sizeof(arr)/sizeof((arr)[0]))
-
-uint8_t command_buffer[1024];
-
-#define TXBUF_LEN 256    // report headers (and shorter data payloads) are staged here to be sent
-#define TXBUF_COUNT 8    // up to 8 reports can be quickly scheduled for tx if USB is busy
-uint8_t  txbuf[(TXBUF_LEN*TXBUF_COUNT)];
-uint16_t txbuf_struct_len[TXBUF_COUNT];
-void*    txbuf_data_ptr[TXBUF_COUNT];
-uint32_t txbuf_data_len[TXBUF_COUNT];
-uint8_t  txbuf_tofill, txbuf_tosend;
-volatile uint8_t txbuf_lock;
-
-void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr, 
-		uint16_t datasize, uint8_t make_copy_of_data) {
-	while (txbuf_lock); txbuf_lock=1;
-	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], headerptr, headersize);
-	if (make_copy_of_data) { // short data appended after the header (256B limit)
-		txbuf_struct_len[txbuf_tofill] = headersize + datasize;
-		txbuf_data_ptr[txbuf_tofill] = 0x0000;
-		txbuf_data_len[txbuf_tofill] = 0;
-		memcpy(&txbuf[TXBUF_LEN*txbuf_tofill+headersize], dataptr, datasize);
-	} else {  // data referenced; saves memory copy but needs persistent array until sent
-		txbuf_struct_len[txbuf_tofill] = headersize;
-		txbuf_data_ptr[txbuf_tofill] = dataptr;
-		txbuf_data_len[txbuf_tofill] = datasize;
-	}
-	txbuf_tofill = (txbuf_tofill + 1) % TXBUF_COUNT;
-	txbuf_lock=0;
-}
-
-
-
-
-
-// === INCOMING COMMAND HANDLERS AND OUTGOING REPORTS ===
-// @new_features: If a new functionality is added, please make a copy of any of following command 
-// handlers and don't forget to register this new function in the command_table below;
-// The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
-
-
-
-struct {    
-    uint8_t report_code;
-    uint8_t _data_count;
-    uint8_t _data_bitwidth;
-} identify_report;
-
-void identify() {   
-	struct  __attribute__((packed)) { 
-	} * args = (void*)(command_buffer+1);
-
-	uint8_t text[14+16+1] = {"rp2daq_220120_"};
-	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
-	fwrite(text, sizeof(text)-1, 1, stdout);
-	fflush(stdout); 
-}
-
-
-
-struct {
-    uint8_t report_code;
-} pin_out_report;
-
-void pin_out() {
-	struct  __attribute__((packed)) {
-		uint8_t n_pin;   // min=0 max=25
-		uint8_t value; 	 // min=0 max=1
-	} * args = (void*)(command_buffer+1);
-	gpio_init(args->n_pin); gpio_set_dir(args->n_pin, GPIO_OUT);
-    gpio_put(args->n_pin, args->value);
-
-	tx_header_and_data(&pin_out_report, sizeof(pin_out_report), 0, 0, 0);
-}
-
-
-
-struct __attribute__((packed)) {
-    uint8_t report_code;
-    uint16_t _data_count; 
-    uint8_t _data_bitwidth;
-    uint8_t channel_mask;
-    uint16_t blocks_to_send;
-} internal_adc_report;
-
+#include "rp2daq.h"
+#include "include/identify.c"
+#include "include/pin_out.c"
 #include "include/adc_internal.c"
-
-void internal_adc() {
-	struct __attribute__((packed)) {
-		uint8_t channel_mask;		// default=1		min=0		max=31
-		uint8_t infinite;			// default=0		min=0		max=1
-		uint16_t blocksize;			// default=1000		min=1		max=8192
-		uint16_t blocks_to_send;	// default=1		min=0		
-		uint16_t clkdiv;			// default=96		min=96		max=65535
-	} * args = (void*)(command_buffer+1);
-
-	internal_adc_config.channel_mask = args->channel_mask; 
-	internal_adc_config.infinite = args->infinite; 
-	internal_adc_config.blocksize = args->blocksize; 
-	internal_adc_config.clkdiv = args->clkdiv; 
-	if (args->blocks_to_send) {
-		internal_adc_config.blocks_to_send = args->blocks_to_send; 
-		iADC_DMA_start(); 
-	}
-}
-
-
-
+//#include "include/pwm.c"
+//#include "include/stepper.c"
+//#include "include/"
 
 // === I/O MESSAGING INFRASTRUCTURE ===
+// If a new functionality is added, please make a copy of any of following command 
+// handlers and don't forget to register this new function in the command_table below;
+// The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
  
-typedef struct { void (*command_func)(void); void (*report_struct); } message_descriptor;
+typedef struct { void (*command_func)(); void (*report_struct); } message_descriptor;
 message_descriptor message_table[] = // #new_features: add your command to this table
         {   
-                {&identify,		&identify_report},  
-                {&pin_out,		&pin_out_report},
-                {&internal_adc, &internal_adc_report},
+                {&identify,			&identify_report},  
+                {&pin_out,			&pin_out_report},
+                {&internal_adc,		&internal_adc_report},
+			 // {command handler,	report struct instance}
         };  
+
 
 void get_next_command() {
     int packet_size;
@@ -164,9 +58,29 @@ void get_next_command() {
         }
 
         message_entry = message_table[command_buffer[0]];
-        message_entry.command_func();
+        message_entry.command_func(command_buffer);
     }
 }
+
+
+void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr, 
+		uint16_t datasize, uint8_t make_copy_of_data) {
+	while (txbuf_lock); txbuf_lock=1;
+	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], headerptr, headersize);
+	if (make_copy_of_data) { // short data appended after the header (256B limit)
+		txbuf_struct_len[txbuf_tofill] = headersize + datasize;
+		txbuf_data_ptr[txbuf_tofill] = 0x0000;
+		txbuf_data_len[txbuf_tofill] = 0;
+		memcpy(&txbuf[TXBUF_LEN*txbuf_tofill+headersize], dataptr, datasize);
+	} else {  // data referenced; saves memory copy but needs persistent array until sent
+		txbuf_struct_len[txbuf_tofill] = headersize;
+		txbuf_data_ptr[txbuf_tofill] = dataptr;
+		txbuf_data_len[txbuf_tofill] = datasize;
+	}
+	txbuf_tofill = (txbuf_tofill + 1) % TXBUF_COUNT;
+	txbuf_lock=0;
+}
+
 
 
 // === CORE0 AND CORE1 BUSY ROUTINES ===
