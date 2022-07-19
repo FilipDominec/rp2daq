@@ -48,7 +48,13 @@ rp.internal_adc(channel_mask=sum(2**ch for ch in channels),
         _callback=append_ADC_data)
 
 ## ... OK, here we *want* to wait until all data are received (but do not have to)
-all_ADC_done.wait()
+while not all_ADC_done.is_set():
+    #print("w")
+    rp.pin_out(22,1)
+    time.sleep(.05)
+    rp.pin_out(22,0)
+    time.sleep(.05)
+#all_ADC_done.wait()
 
 rp.quit() # relase the device (or the app will wait indefinitely)
 
