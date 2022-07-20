@@ -55,7 +55,7 @@ class Rp2daq(threading.Thread):
 
         self._register_commands()
 
-        self.port = self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
+        self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
 
         # INSPIRED BY TMX
         self.sleep_tune = 0.001
@@ -107,7 +107,6 @@ class Rp2daq(threading.Thread):
 
         while self.run_event.is_set():
             if len(self.the_deque):
-                #print(f"nonzero {len(self.the_deque)=}")
                 # report_header_bytes will be populated with the received data for the report
                 report_type = self.the_deque.popleft()
                 packet_length = self.report_header_lenghts[report_type] - 1
@@ -131,8 +130,6 @@ class Rp2daq(threading.Thread):
                         time.sleep(self.sleep_tune)
                     data_bytes = [self.the_deque.popleft() for _ in range(payload_length)]
 
-                    #print()
-                    #print([hex(b) for b in data_bytes] )
                     if dbw == 8:
                         cb_kwargs["data"] = data_bytes
                     elif dbw == 12:      # decompress 3B  into pairs of 12b values & flatten
@@ -195,64 +192,59 @@ class Rp2daq(threading.Thread):
 
         PID, VID = 10, 11914 # TODO use this info to filter out ports 
         port_list = list_ports.comports()
-        #print(f"{port_list=}")
-        #for port in port_list: self._log(f"{port=} PID={port.pid} VID={port.vid}")
 
         for port_name in port_list:
+
+            self.port = serial.Serial(port=port_name.device, timeout=0.1)
             logging.info(f"checking port {port_name.name}")
 
-            port = serial.Serial(port=port_name.device, timeout=0.1)
-
-
             try:
-                #raw = self.identify()
-                #if port.inWaiting(): port.read(port.inWaiting()) # todo: test port flush
-                port.write(struct.pack(r'<BB', 1, 0)) # hard-coded "identify" command
-                time.sleep(.05) # 20ms round-trip time is enough
-                bytesToRead = port.inWaiting() 
-                if bytesToRead == 30:    
-                    raw = port.read(bytesToRead) # assuming 30B
-                    #print(f"{raw=}")
-                else:
-                    print(f"ERROR identf report, {bytesToRead=}")
-            except:
-                raw = b''
+                self.port.flush()
 
-            if not raw[:6] == b'rp2daq': # needed: implement timeout!
+                # the probing "identify" command is hard-coded here, as the receiver thread are not 
+                # ready yet
+                self.port.write(struct.pack(r'<BB', 1, 0)) 
+                time.sleep(.05) # 20ms round-trip time is enough
+                bytesToRead = self.port.inWaiting() 
+                assert bytesToRead == 1+2+1+30
+                id_data = self.port.read(bytesToRead)[4:] 
+            except:
+                id_data = b''
+
+            if not id_data[:6] == b'rp2daq': # needed: implement timeout!
                 logging.info(f"\tport open, but device does not identify itself as rp2daq")
                 #del(self.port)
                 continue
 
-            version_signature = raw[7:13]
+            version_signature = id_data[7:13]
             if not version_signature.isdigit() or int(version_signature) < required_firmware_version:
                 logging.critical(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
                         f"older than this script's {MIN_FW_VER}.\nPlease upgrade firmware " +\
                         "or override this error using 'required_firmware_version=0'.")
-                #del(self.port)
+                del(self.port)
                 continue
 
             if isinstance(required_device_id, str): # optional conversion
                 required_device_id = bytes.fromhex(required_device_id.replace(":", ""))
-            if required_device_id and raw[12:20] != required_device_id:
-                logging.critical(f"found an rp2daq device, but its ID {raw[12:20].hex(':')} does not match " + 
+            if required_device_id and id_data[12:20] != required_device_id:
+                logging.critical(f"found an rp2daq device, but its ID {id_data[12:20].hex(':')} does not match " + 
                         f"required {required_device_id.hex(':')}")
-                #del(self.port)
+                del(self.port)
                 continue
 
-            logging.info(f"connected to rp2daq device with manufacturer ID = {raw[12:20].hex(':')}")
-            return port
+            logging.info(f"connected to rp2daq device with manufacturer ID = {id_data[12:20].hex(':')}")
+            return
 
         else:
             msg = "Error: could not find any matching rp2daq device"
+            self.port = None
             logging.critical(msg)
             raise RuntimeError(msg)
 
-    def identify(self):  # TODO rm this & use common auto-gen interf
-        self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-        raw = self.port.read(30)
-        #devicename = raw[0:6]
-        #unique_id = (raw[6:14]).hex(':')
-        return raw
+    #def identify(self):  # TODO rm this & use common auto-gen interf
+        #self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
+        #raw = self.port.read(30)
+        #return raw
 
 
 if __name__ == "__main__":
