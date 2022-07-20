@@ -44,13 +44,13 @@ After few seconds, the USB storage should disconnect. Your RP2 becomes accessibl
 
 #### hello_world.py
 
-Launch the ```hello_world.py``` script in the main project folder. If an rp2daq device is available, a window like the one depicted on left should appear; you can interactively control the onboard LED with the buttons.  
+Launch the ```hello_world.py``` script in the main project folder. 
+* If an rp2daq device is available, a window like the one depicted on left should appear; you can interactively control the onboard LED with the buttons.  
+* If an error message appears (like depicted right), the device does not respond correctly. Check it blinks twice when USB is re-connected, or make sure you uploaded fresh firmware. 
+* If no window appears, there is some trouble with your Python installation.
+
 
 ![](docs/hello_world_screens.png)
-
-If an error message appears (like depicted right), the device does not respond correctly. Check it blinks twice when USB is re-connected, or make sure you uploaded fresh firmware. 
-
-If no window appears, there is some trouble with your Python installation.
 
 
 ## Programming concepts

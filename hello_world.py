@@ -1,14 +1,11 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 
-
-import tkinter
-window = tkinter.Tk()
+import tkinter      
+window = tkinter.Tk()   # initialize the graphical interface
 window.title("RP2DAQ test app")
 
-
-
-label = tkinter.Label(window, )
+label = tkinter.Label(window)
 label.grid(column=0, row=0)
 
 try:
@@ -27,10 +24,7 @@ try:
     btn_off = tkinter.Button(window, text='LED off', bg='red3', command=lambda:set_LED(0))
     btn_off.grid(column=0, row=2)
 
-
 except Exception as e: 
     label.config(text=str(e))
-
-
 
 window.mainloop()
