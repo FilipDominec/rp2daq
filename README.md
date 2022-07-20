@@ -42,7 +42,18 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
     * *The green diode on RP2 should blink twice, indicating the firmware is running and awaiting commands.*
 After few seconds, the USB storage should disconnect. Your RP2 becomes accessible for any program as a new COM/ttyACM port.  Let's try it.
 
-#### Hello world
+#### hello_world.py
+
+Launch the ```hello_world.py``` script in the main project folder. If an rp2daq device is available, a window like the one depicted on left should appear; you can interactively control the onboard LED with the buttons.  
+
+![](docs/hello_world_screens.png)
+
+If an error message appears (like depicted right), the device does not respond correctly. Check it blinks twice when USB is re-connected, or make sure you uploaded fresh firmware. 
+
+If no window appears, there is some trouble with your Python installation.
+
+
+## Programming concepts
 
 To check everything is ready, run in your Python3 interpreter:
 
@@ -61,20 +72,6 @@ import rp2daq
 rp = rp2daq.Rp2daq()
 print(rp.internal_adc())
 ```
-
-## Example programs
-
-#### Morse code transmitter
-
-TBA
-
-#### Temperature record
-
-TBA
-
-#### Graphical oscilloscope
-
-TBA
 
 
 ## PAQ - Presumably Asked Questions
