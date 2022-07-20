@@ -74,6 +74,8 @@ class Rp2daq(threading.Thread):
 
     def _register_commands(self):
         # TODO 0: search C code for version, check it matches that one returned by Raspberry Pi at runtime
+        # #define FIRMWARE_VERSION {"rp2daq_220720_"}
+        # self.expected_firmware_v = 
 
         names_codes = c_code_parser.generate_command_binary_interface()
         for cmd_name, cmd_code in names_codes.items():
@@ -82,7 +84,6 @@ class Rp2daq(threading.Thread):
 
         # Search C code for report structs & generate automatically:
         self.report_cb_queue = {}
-        H_code = open('rp2daq.c').read() # TODO search rel to script
         self.report_header_lenghts, self.report_header_formats, self.report_header_varnames = \
                 c_code_parser.generate_report_binary_interface()
 

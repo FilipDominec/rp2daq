@@ -6,19 +6,30 @@ void pwm_configure_pair() {
 	struct __attribute__((packed)) {
 		uint8_t pin;				// default=0		min=0		max=25
 		uint16_t wrap_value;		// default=999		min=1		max=65535
-		uint16_t clkdiv;			// default=1		min=1		max=65535
-		uint8_t clkdiv_int_frac;	// default=0		min=0		max=9
-		// note: clkdiv of 833 yields 300 Hz (at wrap=999) - suitable for servos
-		//		clkdiv of   1 is a good default for most other uses
+		uint16_t clkdiv;			// default=1		min=1		max=255
+		uint8_t clkdiv_int_frac;	// default=0		min=0		max=15
 	} * args = (void*)(command_buffer+1);
 
+	// To control usual small servos, set wrap=65536, clkdiv=13 to get 300 Hz
+	// cycle. Value of 19202 (1ms pulse) then turns servo to its minimum value,
+	// and value of 38404 (2ms pulse) turns it to maximum value.
+	
+	// When PWM is smoothed to generate analog signal (like a poor man's DAC),
+	// clkdiv=1 will yield best results; the wrap value can be reduced to get 
+	// faster cycle, thus more efficient filtering & better time resolution.
+	
+	// Note while almost all GPIO pins can be enabled for PWM output, there are
+	// only 16 channels (e.g. pins 0, 16 will have the same value, if PWM output 
+	// enabled), and there are only 8 slices (e.g. pins 0, 1, 16 and 17 sharing 
+	// also the same clkdiv, wrap and other config)
+
 	// TODO remember settings - reconfig only on change (or if undefined)
+	
     uint slice_num = pwm_gpio_to_slice_num(args->pin);
     pwm_config config = pwm_get_default_config();
     pwm_init(slice_num, &config, true);
 	pwm_set_wrap(slice_num, args->wrap_value);
     pwm_set_clkdiv_int_frac(slice_num, args->clkdiv, args->clkdiv_int_frac);
-    //pwm_set_gpio_level(args->pin, args->value_A); value re-set needed?
 
 	tx_header_and_data(&pwm_configure_pair_report, sizeof(pwm_configure_pair_report), 0, 0, 0);
 }
@@ -35,8 +46,12 @@ void pwm_set_value() {
 		uint16_t value;				// default=0		min=0		max=65535
 	} * args = (void*)(command_buffer+1);
 
-	// TODO remember settings - if pin not defined as pwm
+	// TODO remember settings - check if pin is defined as pwm, if not, init it here
+	
     gpio_set_function(args->pin, GPIO_FUNC_PWM);
+
+    pwm_set_gpio_level(args->pin, args->value); 
+    //pwm_set_gpio_level(args->pin, 1025); 
 
 	tx_header_and_data(&pwm_set_value_report, sizeof(pwm_set_value_report), 0, 0, 0);
 }

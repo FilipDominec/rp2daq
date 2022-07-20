@@ -28,7 +28,7 @@ typedef struct { void (*command_func)(); void (*report_struct); } message_descri
 message_descriptor message_table[] = // #new_features: add your command to this table
         {   
                 {&identify,			&identify_report},  
-                {&pin_out,			&pin_out_report},
+                {&pin_set,			&pin_set_report},
                 {&internal_adc,		&internal_adc_report},
                 {&pwm_configure_pair, &pwm_configure_pair_report},
                 {&pwm_set_value,	&pwm_set_value_report},
@@ -102,7 +102,7 @@ int main() {
     stdio_set_translate_crlf(&stdio_usb, false); // crucial for correct binary data transmission
     stdio_init_all();
 
-	gpio_init(LED_PIN); gpio_set_dir(LED_PIN, GPIO_OUT);
+	//gpio_init(LED_PIN); gpio_set_dir(LED_PIN, GPIO_OUT);
 	gpio_init(DEBUG_PIN); gpio_set_dir(DEBUG_PIN, GPIO_OUT); // DEBUG
 	gpio_init(DEBUG2_PIN); gpio_set_dir(DEBUG2_PIN, GPIO_OUT); // DEBUG
 
@@ -112,6 +112,10 @@ int main() {
     for (uint8_t report_code = 0; report_code < ARRAY_LEN(message_table); report_code++) {
 		*((uint8_t*)(message_table[report_code].report_struct)) = report_code; 
     }
+
+    //gpio_set_function(25, GPIO_FUNC_PWM); XXX
+    //pwm_set_gpio_level(25, 1000); 
+
 
 	// Setup routines for subsystems - ran once to initialize hardware & constants
 	iADC_DMA_setup();
