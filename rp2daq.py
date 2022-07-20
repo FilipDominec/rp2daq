@@ -55,7 +55,7 @@ class Rp2daq(threading.Thread):
 
         self._register_commands()
 
-        self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
+        self.port = self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
 
         # Asynchronous communication using threads
         self.sleep_tune = 0.001
@@ -190,25 +190,24 @@ class Rp2daq(threading.Thread):
 
         for port_name in port_list:
 
-            self.port = serial.Serial(port=port_name.device, timeout=0.1)
+            try_port = serial.Serial(port=port_name.device, timeout=0.1)
             logging.info(f"checking port {port_name.name}")
 
             try:
-                self.port.flush()
+                try_port.flush()
 
                 # the probing "identify" command is hard-coded here, as the receiver thread are not 
                 # ready yet
-                self.port.write(struct.pack(r'<BB', 1, 0)) 
+                try_port.write(struct.pack(r'<BB', 1, 0)) 
                 time.sleep(.05) # 20ms round-trip time is enough
-                bytesToRead = self.port.inWaiting() 
+                bytesToRead = try_port.inWaiting() 
                 assert bytesToRead == 1+2+1+30
-                id_data = self.port.read(bytesToRead)[4:] 
+                id_data = try_port.read(bytesToRead)[4:] 
             except:
                 id_data = b''
 
-            if not id_data[:6] == b'rp2daq': # needed: implement timeout!
+            if not id_data[:6] == b'rp2daq': 
                 logging.info(f"\tport open, but device does not identify itself as rp2daq")
-                #del(self.port)
                 continue
 
             version_signature = id_data[7:13]
@@ -216,7 +215,6 @@ class Rp2daq(threading.Thread):
                 logging.critical(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
                         f"older than this script's {MIN_FW_VER}.\nPlease upgrade firmware " +\
                         "or override this error using 'required_firmware_version=0'.")
-                del(self.port)
                 continue
 
             if isinstance(required_device_id, str): # optional conversion
@@ -225,22 +223,15 @@ class Rp2daq(threading.Thread):
             if required_device_id and found_device_id != required_device_id:
                 logging.critical(f"found an rp2daq device, but its ID {found_device_id} does not match " + 
                         f"required {required_device_id}")
-                del(self.port)
                 continue
 
             logging.info(f"connected to rp2daq device with manufacturer ID = {found_device_id.decode()}")
-            return
-
+            return try_port
         else:
             msg = "Error: could not find any matching rp2daq device"
-            self.port = None
             logging.critical(msg)
             raise RuntimeError(msg)
 
-    #def identify(self):  # TODO rm this & use common auto-gen interf
-        #self.port.write(struct.pack(r'<B', CMD_IDENTIFY))
-        #raw = self.port.read(30)
-        #return raw
 
 
 if __name__ == "__main__":
