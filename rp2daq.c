@@ -15,7 +15,7 @@
 #include "include/identify.c"
 #include "include/pin_out.c"
 #include "include/adc_internal.c"
-//#include "include/pwm.c"
+#include "include/pwm.c"
 //#include "include/stepper.c"
 //#include "include/"
 
@@ -30,6 +30,8 @@ message_descriptor message_table[] = // #new_features: add your command to this 
                 {&identify,			&identify_report},  
                 {&pin_out,			&pin_out_report},
                 {&internal_adc,		&internal_adc_report},
+                {&pwm_configure_pair, &pwm_configure_pair_report},
+                {&pwm_set_value,	&pwm_set_value_report},
 			 // {command handler,	report struct instance}
         };  
 

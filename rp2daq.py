@@ -57,21 +57,16 @@ class Rp2daq(threading.Thread):
 
         self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
 
-        # INSPIRED BY TMX
+        # Asynchronous communication using threads
         self.sleep_tune = 0.001
         threading.Thread.__init__(self)
-        self.the_reporter_thread = threading.Thread(target=self._reporter)
-        #self.the_reporter_thread.daemon = True    # is this necessary?
-        self.the_data_receive_thread = threading.Thread(target=self._serial_receiver)
+        self.data_receive_thread = threading.Thread(target=self._serial_receiver, daemon=True)
+        self.reporter_thread = threading.Thread(target=self._reporter, daemon=True)
 
+        self.rx_bytes = deque()
         self.run_event = threading.Event()
-
-        self.the_reporter_thread.start()
-        self.the_data_receive_thread.start()
-
-        self.the_deque = deque()
-
-        # allow the threads to run
+        self.data_receive_thread.start()
+        self.reporter_thread.start()
         self.run_event.set()
 
 
@@ -97,6 +92,24 @@ class Rp2daq(threading.Thread):
     def quit(self):
         self.run_event.clear()
 
+    def _serial_receiver(self):
+        """
+        Thread to continuously check for incoming data.
+        When a byte comes in, place it onto the deque.
+        """
+        self.run_event.wait()
+
+        while self.run_event.is_set():
+            try:
+                if w := self.port.inWaiting():
+                    c = self.port.read(w)
+                    self.rx_bytes.extend(c)
+                else:
+                    time.sleep(self.sleep_tune)
+            except OSError:
+                logging.error("Device disconnected")
+                self.quit()
+
     def _reporter(self):
         """
         This is the reporter thread. It continuously pulls data from
@@ -106,14 +119,14 @@ class Rp2daq(threading.Thread):
         self.run_event.wait()
 
         while self.run_event.is_set():
-            if len(self.the_deque):
+            if len(self.rx_bytes):
                 # report_header_bytes will be populated with the received data for the report
-                report_type = self.the_deque.popleft()
+                report_type = self.rx_bytes.popleft()
                 packet_length = self.report_header_lenghts[report_type] - 1
 
-                while len(self.the_deque) < packet_length:
+                while len(self.rx_bytes) < packet_length:
                     time.sleep(self.sleep_tune)
-                report_header_bytes = [self.the_deque.popleft() for _ in range(packet_length)]
+                report_header_bytes = [self.rx_bytes.popleft() for _ in range(packet_length)]
 
                 #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
 
@@ -126,9 +139,9 @@ class Rp2daq(threading.Thread):
                     payload_length = -((-dc*dbw)//8)    # implicit floor() can be inverted to ceil()
                     #logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {payload_length} EXTRA RAW BYTES")
 
-                    while len(self.the_deque) < payload_length:
+                    while len(self.rx_bytes) < payload_length:
                         time.sleep(self.sleep_tune)
-                    data_bytes = [self.the_deque.popleft() for _ in range(payload_length)]
+                    data_bytes = [self.rx_bytes.popleft() for _ in range(payload_length)]
 
                     if dbw == 8:
                         cb_kwargs["data"] = data_bytes
@@ -152,24 +165,6 @@ class Rp2daq(threading.Thread):
                 continue
             else:
                 time.sleep(self.sleep_tune)
-
-    def _serial_receiver(self):
-        """
-        Thread to continuously check for incoming data.
-        When a byte comes in, place it onto the deque.
-        """
-        self.run_event.wait()
-
-        while self.run_event.is_set():
-            try:
-                if w := self.port.inWaiting():
-                    c = self.port.read(w)
-                    self.the_deque.extend(c)
-                else:
-                    time.sleep(self.sleep_tune)
-            except OSError:
-                logging.error("Device disconnected")
-                self.quit()
 
     def default_blocking_callback(self, command_code): # 
         """
@@ -225,14 +220,15 @@ class Rp2daq(threading.Thread):
                 continue
 
             if isinstance(required_device_id, str): # optional conversion
-                required_device_id = bytes.fromhex(required_device_id.replace(":", ""))
-            if required_device_id and id_data[12:20] != required_device_id:
-                logging.critical(f"found an rp2daq device, but its ID {id_data[12:20].hex(':')} does not match " + 
-                        f"required {required_device_id.hex(':')}")
+                required_device_id = required_device_id.replace(":", "")
+            found_device_id = id_data[14:]
+            if required_device_id and found_device_id != required_device_id:
+                logging.critical(f"found an rp2daq device, but its ID {found_device_id} does not match " + 
+                        f"required {required_device_id}")
                 del(self.port)
                 continue
 
-            logging.info(f"connected to rp2daq device with manufacturer ID = {id_data[12:20].hex(':')}")
+            logging.info(f"connected to rp2daq device with manufacturer ID = {found_device_id.decode()}")
             return
 
         else:

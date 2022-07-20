@@ -98,7 +98,7 @@ void iADC_DMA_IRQ_handler() {
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 	adc_run(false);
-    if (--internal_adc_config.blocks_to_send) // internal_adc_config.infinite || 
+    if (internal_adc_config.infinite || --internal_adc_config.blocks_to_send)
     { 
 	    iADC_DMA_start();					  // start new acquisition
     }
