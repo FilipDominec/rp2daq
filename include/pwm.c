@@ -24,7 +24,7 @@ void pwm_configure_pair() {
 	// enabled), and there are only 8 slices (e.g. pins 0, 1, 16 and 17 sharing 
 	// also the same clkdiv, wrap and other config)
 
-	// TODO remember settings - reconfig only on change (or if undefined)
+	// TODO remember settings - reconfig only if undefined, or if they change
 	
     uint slice_num = pwm_gpio_to_slice_num(args->pin);
     pwm_config config = pwm_get_default_config();
@@ -56,3 +56,6 @@ void pwm_set_value() {
 
 	tx_header_and_data(&pwm_set_value_report, sizeof(pwm_set_value_report), 0, 0, 0);
 }
+
+// TODO facilitate further PWM uses for accurate timer, pulse counter, and freq & duty 
+//		cycle measurement

@@ -20,9 +20,14 @@
 //#include "include/"
 
 // === I/O MESSAGING INFRASTRUCTURE ===
-// If a new functionality is added, please make a copy of any of following command 
-// handlers and don't forget to register this new function in the command_table below;
-// The corresponding method in the pythonic interface will then be auto-generated upon RP2DAQ restart
+// Note the commands & reports here will be auto-assigned unique numbers according to their 
+// order in the following table. This happens at runtime in firmware, and independently,
+// at import-time in Python; there is no explicit numbering. Shuffling these lines and
+// uploading new recompiled firmware makes no difference in function.
+//
+// If a new functionality is added, we suggest to start with a copy of any of above included
+// command handlers. Then don't forget to register this new function in the command_table below;
+// The corresponding method in the pythonic interface will then be auto-generated on restart.
  
 typedef struct { void (*command_func)(); void (*report_struct); } message_descriptor;
 message_descriptor message_table[] = // #new_features: add your command to this table
