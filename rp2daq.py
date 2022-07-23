@@ -241,7 +241,10 @@ if __name__ == "__main__":
     rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
     t0 = time.time()
 
-    rp.pin_out(25,1)
+    rp.pin_set(11, 1, high_z=1, pull_up=1)
+    print(rp.pin_get(11))
+
+    #rp.pin_set(25,1)
 
     rp.quit()
 
