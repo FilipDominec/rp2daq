@@ -3,8 +3,8 @@
 
 ## User options
 width, height = 800, 600
-channels = [0, 1, 2, 3, 4]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
-kSPS_per_ch = 1 * len(channels)  # one-second run
+channels = [0, 1, 2,] #,  3, 4]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
+kSPS_per_ch = 100 * len(channels)  # one-second run
 
 import rp2daq
 import sys
@@ -29,7 +29,7 @@ class StupidPlot(tkinter.Frame):
         self.drawnlines = []
 
     def plot(self, channel_data):
-        for values, color in zip(channel_data, ("red", "yellow", "green", "blue", "violet")):
+        for values, color in zip(channel_data, ("red2", "yellow2", "green2", "blue2", "violet")):
             self.drawnlines.append(self.canvas.create_line(*enumerate(values), fill=color))
         #Label4 = canvas.create_text(30, 46, text='aoeu', fill="green") #del(Label4)
 

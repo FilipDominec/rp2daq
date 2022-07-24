@@ -70,7 +70,7 @@ void iADC_DMA_start() {
 	// Forced ADC channel round-robin reset to the first enabled bit in adc_mask 
 	uint8_t ADCch;
 	for (ADCch=0; (ADCch <= 4) && !(1<<ADCch & internal_adc_config.channel_mask); ADCch++) {};
-	adc_select_input(ADCch);  // force ADC input channel
+	adc_select_input(ADCch);  // force 1st enabled ADC input channel
 	dma_channel_start(iADC_DMA_chan);
 
 	adc_run(true);				
@@ -93,6 +93,7 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
 
 void iADC_DMA_IRQ_handler() {
     // TODO check if 2nd DMA ch could swap buffers **entirely** without irq avoiding 1% dead-time;
+	// DMA chain trigger should do this (chap. 2.5.6.2)
     // Now we achieve 494 ksps, but true 500 ksps would be possible with that 
     gpio_put(DEBUG_PIN, 1);
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
@@ -108,6 +109,7 @@ void iADC_DMA_IRQ_handler() {
     internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report.channel_mask = internal_adc_config.channel_mask;
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
+	// TODO transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2)
     
     compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
     internal_adc_report._data_bitwidth = 12;

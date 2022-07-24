@@ -12,7 +12,7 @@ void pwm_configure_pair() {
 
 	// To control usual small servos, set wrap=65536, clkdiv=20 to get 190 Hz
 	// cycle. Value of 10000 (0.8ms pulse) then turns servo near its minimum value,
-	// and value of 30000 (2.4ms pulse) turns it to maximum value.
+	// and value of 30000 (2.4ms pulse) turns it near maximum value. YMMV.
 	// (see https://en.wikipedia.org/wiki/Servo_control)
 	
 	// When PWM is smoothed to generate analog signal (like a poor man's DAC),

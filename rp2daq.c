@@ -35,6 +35,7 @@ message_descriptor message_table[] = // #new_features: add your command to this 
                 {&identify,			&identify_report},  
                 {&pin_set,			&pin_set_report},
                 {&pin_get,			&pin_get_report},
+                {&pin_on_change,	&pin_on_change_report},
                 {&internal_adc,		&internal_adc_report},
                 {&pwm_configure_pair, &pwm_configure_pair_report},
                 {&pwm_set_value,	&pwm_set_value_report},
