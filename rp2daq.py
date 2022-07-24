@@ -234,6 +234,8 @@ class Rp2daq(threading.Thread):
             raise RuntimeError(msg)
 
 
+def handler(**kwargs):
+    print("HANDLER", kwargs)
 
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
@@ -243,10 +245,16 @@ if __name__ == "__main__":
 
     #rp.pin_set(11, 1, high_z=1, pull_up=1)
     #print(rp.pin_get(11))
-    rp.pwm_configure_pair(0, clkdiv=255, wrap_value=500)
-    rp.pwm_set_value(0, 200)
-    rp.pwm_configure_pair(0, clkdiv=255, wrap_value=500)
-    rp.pwm_set_value(1, 100)
-    rp.pwm_configure_pair(2, clkdiv=255, wrap_value=1000)
-    rp.pwm_set_value(2, 300)
+    #rp.pwm_configure_pair(0, clkdiv=255, wrap_value=500)
+    #rp.pwm_set_value(0, 200)
+    #rp.pwm_configure_pair(0, clkdiv=255, wrap_value=500)
+    #rp.pwm_set_value(1, 100)
+    #rp.pwm_configure_pair(2, clkdiv=255, wrap_value=1000)
+    #rp.pwm_set_value(2, 300)
+
+    #print(rp.pin_on_change(0))
+#
+    rp.pin_on_change(0, _callback=handler)
+    rp.pin_on_change(1, _callback=handler)
+    time.sleep(10)
 

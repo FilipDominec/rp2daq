@@ -57,6 +57,8 @@ struct __attribute__((packed)) {
 void pin_on_change_IRQ(uint pin, uint32_t events) {
 	pin_on_change_report.pin = pin;
 	pin_on_change_report.events = events;
+	//BLINK_LED_US(100000);
+
 	tx_header_and_data(&pin_on_change_report, sizeof(pin_on_change_report), 0, 0, 0);
 }
 
