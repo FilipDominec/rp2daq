@@ -58,6 +58,7 @@ void pin_on_change_IRQ(uint pin, uint32_t events) {
 	pin_on_change_report.pin = pin;
 	pin_on_change_report.events = events;
 	//BLINK_LED_US(100000);
+	// TODO this really should be debounced; test with resistors
 
 	tx_header_and_data(&pin_on_change_report, sizeof(pin_on_change_report), 0, 0, 0);
 }
@@ -69,11 +70,10 @@ void pin_on_change() {
 		uint8_t on_falling_edge;		// min=0 max=1 default=1
 	} * args = (void*)(command_buffer+1);
 	
-	//uint8_t edge_mask; TODO TEST
-	//if (args->on_rising_edge) edge_mask |= GPIO_IRQ_EDGE_RISE;
-	//if (args->on_falling_edge) edge_mask |= GPIO_IRQ_EDGE_FALL;
-	gpio_set_irq_enabled_with_callback(args->pin, 
-			GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &pin_on_change_IRQ);
+	uint8_t edge_mask;
+	if (args->on_rising_edge) edge_mask |= GPIO_IRQ_EDGE_RISE;
+	if (args->on_falling_edge) edge_mask |= GPIO_IRQ_EDGE_FALL;
+	gpio_set_irq_enabled_with_callback(args->pin, edge_mask, true, &pin_on_change_IRQ);
 }
 
 
