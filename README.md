@@ -118,7 +118,7 @@ Calling commands asynchronously allows one to simultaneously orchestrate multipl
 
 ### Receiving a lot of data
 
-Another useful application of the asynchronous command allows one to acquire exactly one million ADC samples. Such a large array could not fit into Pico's RAM, let alone into single report message (there is 8 kB limit for it). Following code thus can monitor slow processes, like temperature changes or battery discharge.
+Another useful application of the asynchronous command allows one to acquire exactly one million ADC samples. Such a large array could not fit into Pico's RAM, let alone into single report message (there is 8k sample buffer). Following code thus can monitor slow processes, like temperature changes or battery discharge.
 
 ```Python
 import rp2daq
