@@ -16,16 +16,16 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 	* [x] pulse-width modulation (up to 16 PWM channels)
 	* [ ] pulse frequency and timing measurement
 	* [ ] digital messaging (USART/I2C/I2S/SPI) for sensors 
-	* [ ] high-speed digital acquisition (i.e. 100 MSPS oscilloscope using AD9288)
+	* [ ] high-speed digital acquisition (e.g. 100 MSPS logic analyzer, or oscilloscope using AD9288)
  * Documentation:
-    * [x] [No programming: setting up hardware and first tests](#no-programming:-setting-up-hardware-and-first-tests)
+    * [x] [No programming: setting up hardware and first tests](#no-programming-setting-up-hardware-and-first-tests)
     * [ ] Python programming: basic concepts and examples
     * [ ] [C programming: extending rp2daq's capabilities](docs/DEVELOPERS.md)
-    * [x] [PAQ: Presumably asked questions](#paq:-presumably-asked-questions)
+    * [x] [PAQ - Presumably asked questions](#paq-presumably-asked-questions)
 
 # No programming: setting up hardware and first tests
 
-## What you will need
+### Get material
 
  * Raspberry Pi Pico ($5),
  * USB micro cable ($3),
@@ -34,7 +34,7 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 	* On Linux, Python3 should already be there
     * On Mac, it should be there though [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
 
-## Uploading the firmware to Raspberry (once)
+### Upload the firmware (only once)
 
 1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. 
     * (If preferred, you can also use ```git clone https://github.com/FilipDominec/rp2daq.git```)
@@ -44,15 +44,15 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
     * *The flashdrive should disconnect in a second.* 
     * *The green diode on RP2 then blinks twice, indicating the firmware is running and awaiting commands.*
 
-## hello_world.py
+### Run hello_world.py
 
 Launch the ```hello_world.py``` script in the main project folder. 
+
+![](docs/hello_world_screens.png)
+
 * If an rp2daq device is available, a window like the one depicted on left should appear; you can interactively control the onboard LED with the buttons.  
 * If an error message appears (like depicted right), the device does not respond correctly. Check it blinks twice when USB is re-connected, or make sure you uploaded fresh firmware. 
 * If no window appears, there is some trouble with your Python installation.
-
-
-![](docs/hello_world_screens.png)
 
 
 # Python programming: basic concepts and examples
@@ -76,7 +76,7 @@ print(rp.internal_adc())
 ```
 
 
-## PAQ: Presumably Asked Questions
+### PAQ: Presumably Asked Questions
 
 **Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?**
 
@@ -122,7 +122,7 @@ A: The Python script has a much better display and user interaction interface - 
 A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A4988 modules, with better accuracy and efficiency than provided by ULN2003. 
 
 
-## Legal
+# Legal
 
 The firmware and software are released under the [MIT license](LICENSE). 
 
