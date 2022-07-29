@@ -118,7 +118,7 @@ Calling commands asynchronously allows one to simultaneously orchestrate multipl
 
 ### Receiving a lot of data
 
-Another useful application of the asynchronous command allows one to acquire exactly one million ADC samples. Such a large array could not fit into Pico's RAM, let alone into single report message (there is 8 kB limit for it). 
+Another useful application of the asynchronous command allows one to acquire exactly one million ADC samples. Such a large array could not fit into Pico's RAM, let alone into single report message (there is 8 kB limit for it). Following code thus can monitor slow processes, like temperature changes or battery discharge.
 
 ```Python
 import rp2daq
@@ -127,19 +127,22 @@ rp = rp2daq.Rp2daq()
 all_data = []
 
 def my_callback(**kwargs):
-    all_data.extend(kwargs['data'])
+    all_data.extend([sum(kwargs["data"])/1000])
     print(f"{len(all_data)} ADC samples received so far")
+print(all_data)
 
 rp.internal_adc(_callback=my_callback, blocks_to_send=1000)
 
 print("code does not wait for ADC data here")
 import time
 time.sleep(.5)
+rp.internal_adc(blocks_to_send=0)
 ```
 
-This allows for long-term sampling of slow processes. If high temporal resolution is not necessary, each data packet can be averaged into a single number with ```[sum(kwargs["data"])/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
-
-[!TIP] With option ```infinite=1```, the ADC reports will keep coming forever. Or until they are stopped by ```rp.internal_adc(blocks_to_send=0)```.
+Few practical notes:
+   * If high temporal resolution is not necessary, each data packet can be averaged into a single number by not storing ```kwargs['data']```, but ```[sum(kwargs["data"])/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
+   * With option ```infinite=1```, the ADC reports will keep coming forever. Or until they are stopped by ```rp.internal_adc(blocks_to_send=0)```.
+   * The built-in ADC is somewhat nonlinear.
 
 More elaborate uses of ADC, as well as other features, can be found in the [example_ADC_async.py](example_ADC_async.py) and other example scripts.
 
