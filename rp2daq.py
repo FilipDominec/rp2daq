@@ -254,7 +254,7 @@ if __name__ == "__main__":
 
     st = 0
     print("STEPPER INIT", )
-    print(rp.stepper_init(st, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=25, inertia=32))
+    print(rp.stepper_init(st, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=25, inertia=30))
 
     print("STEPPER STATUS", )
     print(rp.stepper_status(st))
@@ -267,11 +267,14 @@ if __name__ == "__main__":
     pos = [10, 0, 5, 0]
     def stepper_cb(**kwargs):
         try:
-            rp.stepper_move(st, to=2**31+pos.pop()*100000, speed=512, _callback=stepper_cb)
+            rp.stepper_move(st, to=2**31+pos.pop()*100000, speed=512*1, _callback=stepper_cb)
         except IndexError:
             rp.quit()
         print("CB", time.time(), kwargs) 
-    rp.stepper_move(st, to=2**31+200000, speed=51, _callback=stepper_cb)
 
-    time.sleep(100)
+    rp.stepper_move(st, to=2**31+200000, speed=256, _callback=stepper_cb)
+
+
+    while pos: pass
+    time.sleep(.3)
     #print(time.time())

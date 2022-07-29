@@ -7,15 +7,24 @@ This project presents both precompiled firmware and a user-friendly Python modul
 If needed, entirely new capabilities can be added into the [open source](LICENSE) firmware. More is covered in the [developer documentation for the C firmware](docs/DEVELOPERS.md). Contributing new code back is welcome. 
 
 
-**Project status: Work under progress**
+**Project status: basic work done, testing in real lab **
 
- * Basic features: 
-    * [x] async message communication
-    * [ ] fresh rewritten stepper control
-    * [ ] analog pin direct read
-	* [ ] digital pin input/output
+ * Implemented features: 
+    * [x] built-in ADC (continuous 12-bit measurement, at 500k samples per second)
+    * [x] stepper motors (accurate pulse sequences for up to 16 "stepstick" drivers simultaneously)
+	* [x] digital pin output
+	* [x] digital pin input (direct, or set up event on change)
+	* [x] pulse-width modulation
+	* [more to come](TODO.md)
+ * Hilights:
+	* All features can be used in parallel without interference.
+	* Two CPU cores of RP2040 handle real-time work, overclocked at 250 MHz.
+	* Friendly (i)Python interface - all commands return human-readable dicts with more or less useful data.
+	* Every command can be either synchronous (easier to program) or asynchronous (allowing actions to run in parallel).
+	* RP2DAQ [is](LICENSE) free software.
+	* Tested in practice. No animals nor humans were harmed.
  * Documentation:
-    * [ ] No programming: setting up hardware and first tests
+    * [x] No programming: setting up hardware and first tests
     * [ ] Python programming: basic concepts and examples
     * [ ] C programming: extending rp2daq's capabilities
     * [ ] Presumably asked questions
