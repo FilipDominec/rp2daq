@@ -59,7 +59,7 @@ Launch the ```hello_world.py``` script in the main project folder.
 
 ### Let's start with an example
 
-To check everything is ready, your Python3 interpreter and paste there following three lines:
+To check everything is ready,  launch your python3 interpreter (i.e. ```python3```, or better ```ipython3```) and paste following three lines:
 
 ```Python
 import rp2daq          # import the module (must be available in your PYTHONPATH)
@@ -81,15 +81,9 @@ result = rp.internal_adc()
 print(result)
 ```
 
-The last line prints a standard pythonic dictionary, where several (more or less useful) quantities are addressed by a descriptive name. 
+The last line prints a standard pythonic dictionary, with several (more or less useful) key:value pairs. Among these, the ADC readouts are simply named ```data```.
 
-Pure ADC data can be easily extracted as
-
-```Python
-print(result["data"])
-```
-
-### Optional parameters
+### Finding out optional parameters
 
 Most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
 
@@ -145,9 +139,9 @@ time.sleep(.5)
 
 This allows for long-term sampling of slow processes. If high temporal resolution is not necessary, each data packet can be averaged into a single number with ```[sum(kwargs["data"])/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
 
-Tip: with option ```infinite=1```, the ADC reports will keep coming forever. Or until they are stopped by ```rp.internal_adc(blocks_to_send=0)```.
+[!TIP] With option ```infinite=1```, the ADC reports will keep coming forever. Or until they are stopped by ```rp.internal_adc(blocks_to_send=0)```.
 
-
+More elaborate uses of ADC, as well as other features, can be found in the [example_ADC_async.py](example_ADC_async.py) and other example scripts.
 
 
 # PAQ: Presumably Asked Questions
