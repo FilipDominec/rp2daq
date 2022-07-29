@@ -48,35 +48,109 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 Launch the ```hello_world.py``` script in the main project folder. 
 
-![](docs/hello_world_screens.png)
+![Two possible outcomes of the script](docs/hello_world_screens.png)
 
 * If an rp2daq device is available, a window like the one depicted on left should appear; you can interactively control the onboard LED with the buttons.  
 * If an error message appears (like depicted right), the device does not respond correctly. Check it blinks twice when USB is re-connected, or make sure you uploaded fresh firmware. 
 * If no window appears, there is some trouble with your Python installation.
 
 
-# Python programming: basic concepts and examples
+# Python programming: basic concepts
 
-To check everything is ready, run in your Python3 interpreter:
+### Let's start with an example
+
+To check everything is ready, your Python3 interpreter and paste there following three lines:
 
 ```Python
-import rp2daq
-rp = rp2daq.Rp2daq()
-rp.pin_out(25, 1)
+import rp2daq          # import the module (must be available in your PYTHONPATH)
+rp = rp2daq.Rp2daq()   # connect to first Pi Pico where RP2DAQ is uploaded
+rp.pin_out(25, 1)      # sets pin no. 25 to logical 1
 ```
 
 The pin number 25 is connected to the green onboard LED - it should turn on.
 
-Or similarly, you can get ADC readout. With default configuration, it will spit out 1000 numbers sampled from the pin 26:
+### Receiving data
+
+Similarly, you can get ADC readout. With default configuration, it will measure 1000 voltage values on the pin 26:
 
 ```Python
 import rp2daq
 rp = rp2daq.Rp2daq()
-print(rp.internal_adc())
+
+result = rp.internal_adc()
+print(result)
 ```
 
+The last line prints a standard pythonic dictionary, where several (more or less useful) quantities are addressed by a descriptive name. 
 
-### PAQ: Presumably Asked Questions
+Pure ADC data can be easily extracted as
+
+```Python
+print(result["data"])
+```
+
+### Optional parameters
+
+Most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
+
+A complete list of parameters for a command can be obtained e.g. in ipython environment by replacing ```()``` with a ```?``` and hitting enter:
+
+![ipython console printout for rp.internal_adc?](docs/ipython01.png)
+
+Note that list of commands is suggested by ipython when one hits tab after writing ```rp.```
+
+
+### Asynchronous commands
+
+Consider the following example, which does almost the same as the previous one:
+
+```Python
+import rp2daq
+rp = rp2daq.Rp2daq()
+
+def my_callback(**result):
+	print(result)
+
+rp.internal_adc(_callback=my_callback)
+
+print("code does not wait for ADC data here")
+import time
+time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
+```
+
+One difference is that it looks a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the device responds data packet arrives back, the ```_callback``` function is called (in a separate thread) to process it. 
+
+Calling commands asynchronously allows one to simultaneously orchestrate multiple functions like long ADC acquisition and stepping motor movement. Raspberry Pi may be busy for a while, but your program remains responsive all the time.
+
+### Receiving a lot of data
+
+Another useful application of the asynchronous command allows one to acquire exactly one million ADC samples. Such a large array could not fit into Pico's RAM, let alone into single report message (there is 8 kB limit for it). 
+
+```Python
+import rp2daq
+rp = rp2daq.Rp2daq()
+
+all_data = []
+
+def my_callback(**kwargs):
+    all_data.extend(kwargs['data'])
+    print(f"{len(all_data)} ADC samples received so far")
+
+rp.internal_adc(_callback=my_callback, blocks_to_send=1000)
+
+print("code does not wait for ADC data here")
+import time
+time.sleep(.5)
+```
+
+This allows for long-term sampling of slow processes. If high temporal resolution is not necessary, each data packet can be averaged into a single number with ```[sum(kwargs["data"])/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
+
+Tip: with option ```infinite=1```, the ADC reports will keep coming forever. Or until they are stopped by ```rp.internal_adc(blocks_to_send=0)```.
+
+
+
+
+# PAQ: Presumably Asked Questions
 
 **Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?**
 
