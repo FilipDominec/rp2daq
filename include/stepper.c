@@ -1,67 +1,73 @@
 
 // Stepper support using Stepstick
-#define NANOPOS_AT_ENDSTOP  (uint32_t)(1<<31)   // so that motor can move symmetrically from origin
+#define NANOPOS_AT_ENDSWITCH  (uint32_t)(1<<31)   // so that motor can move symmetrically from origin
 #define NANOSTEP_PER_MICROSTEP  256             // for fine-grained position control
 #define MAX_STEPPER_COUNT 16
+#define STEPPER_IS_MOVING(m)	(stepper[m].nanopos != stepper[m].target_nanopos)
+#define STEPPER_ON_ENDSWITCH(m) ((stepper[m].endswitch_pin) && \
+			(!stepper[m].endswitch_override) && (!gpio_get(stepper[m].endswitch_pin)))
 
 
 typedef struct __attribute__((packed)) {
     uint8_t  initialized;      
     uint8_t  dir_pin;      // always byte 0
     uint8_t  step_pin;
-    uint8_t  lowstop_pin;
+    uint8_t  endswitch_pin;
     uint8_t  disable_pin;
-    uint8_t  endstop_override;
+    uint8_t  endswitch_override;
     uint32_t nanopos;
     uint32_t target_nanopos;
     uint32_t max_nanospeed;
     uint32_t inertia_coef;
     uint32_t initial_nanopos;
-} stepper_config;
-volatile stepper_config stepper[MAX_STEPPER_COUNT];
+} stepper_config_t;
+volatile stepper_config_t stepper[MAX_STEPPER_COUNT];
 
 
 
 struct __attribute__((packed)) {
     uint8_t report_code;
+    uint32_t initial_nanopos;
 } stepper_init_report;
 
 void stepper_init() {
 	struct __attribute__((packed)) {
-		uint8_t  stepper_number; 
-		uint8_t  dir_pin;
-		uint8_t  step_pin;
-		uint8_t  endswitch_pin;
-		uint8_t  disable_pin;
-		uint32_t inertia_coef;
+		uint8_t  stepper_number;	// min=0	max=15 
+		uint8_t  dir_pin;			// min=0	max=24
+		uint8_t  step_pin;			// min=0	max=24
+		int8_t  endswitch_pin;		// min=-1	max=24		default=-1
+		int8_t  disable_pin;		// min=-1	max=25		default=-1
+		uint32_t inertia;			// min=0	max=10000	default=30
 	} * args = (void*)(command_buffer+1);
 
 	uint8_t m = args->stepper_number;
 	if (m<MAX_STEPPER_COUNT) {
-		stepper[m].initialized = 1;
-		stepper[m].endstop_override = 0;
+		stepper[m].endswitch_override = 0;
 		stepper[m].dir_pin     = args->dir_pin;
 		stepper[m].step_pin    = args->step_pin;
-		stepper[m].lowstop_pin = args->endswitch_pin;
+		stepper[m].endswitch_pin = args->endswitch_pin;
 		stepper[m].disable_pin = args->disable_pin;
-		stepper[m].inertia_coef  = max(args->inertia_coef, 1); // prevent div/0 error
+		stepper[m].inertia_coef  = max(args->inertia, 1); // prevent div/0 error
 
 		gpio_init(stepper[m].dir_pin); gpio_set_dir(stepper[m].dir_pin, GPIO_OUT);
 		gpio_init(stepper[m].step_pin); gpio_set_dir(stepper[m].step_pin, GPIO_OUT);
-		if (stepper[m].lowstop_pin) {
-			gpio_set_dir(stepper[m].lowstop_pin, GPIO_IN);
-			gpio_pull_up(stepper[m].lowstop_pin); }
-		if (stepper[m].disable_pin) {
+		if (stepper[m].endswitch_pin >= 0) {
+			gpio_set_dir(stepper[m].endswitch_pin, GPIO_IN);
+			gpio_pull_up(stepper[m].endswitch_pin); }
+		if (stepper[m].disable_pin >= 0) {
 			gpio_init(stepper[m].disable_pin);
 			gpio_set_dir(stepper[m].disable_pin, GPIO_OUT);
         }
 
-		if ((stepper[m].nanopos == 0)) { // nanopos==0 means motor has not been initialized yet
-			stepper[m].nanopos = NANOPOS_AT_ENDSTOP; // default position !=0 to allow going back
+		if (!stepper[m].initialized) { // nanopos==0 means motor has not been initialized yet
+			stepper[m].nanopos = NANOPOS_AT_ENDSWITCH; // default position !=0 to allow going back
 			stepper[m].target_nanopos = stepper[m].nanopos;  // motor stands still when (re)defined
 		}
+
+		stepper[m].initialized = 1;
 	}
 
+	stepper_init_report.initial_nanopos = stepper[m].nanopos;
 	tx_header_and_data(&stepper_init_report, sizeof(stepper_init_report), 0,0,0);
 }
 
@@ -70,74 +76,74 @@ void stepper_init() {
 
 struct __attribute__((packed)) {
     uint8_t report_code;
-    uint8_t stepper_number; // TODO
-    uint8_t steppers_init_bitmask; // TODO
-    uint8_t steppers_moving_bitmask; // TODO
-    uint8_t steppers_endstop_bitmask; // TODO
-} stepper_move_report; // used later, when stepper actually finishes its move
+    uint8_t stepper_number;
+    uint8_t endswitch;
+		// even sorcerers are subject to work safety regulations, else a motor "ends" them
+    uint32_t nanopos; // TODO
+    uint16_t steppers_init_bitmask; // TODO
+    uint16_t steppers_moving_bitmask; // TODO
+    uint16_t steppers_endswitch_bitmask; // TODO
+} stepper_status_report;
 
-void stepper_move() {
-	struct __attribute__((packed))  {
-		uint8_t  stepper_number;
-		uint32_t motor_targetpos;
-		uint32_t max_nanospeed;
-		uint8_t  endstop_override;
-		uint8_t  reset_nanopos;
+void stepper_status() {
+	struct __attribute__((packed)) {
+		uint8_t  stepper_number;	// min=0	max=15
 	} * args = (void*)(command_buffer+1);
-
-    uint8_t m = args->stepper_number; if (m<MAX_STEPPER_COUNT) {
-		if (args->reset_nanopos) {stepper[m].nanopos = NANOPOS_AT_ENDSTOP;} // a.k.a. relative movement
-        stepper[m].initial_nanopos      = stepper[m].nanopos; // remember the starting position (for smooth start)
-        stepper[m].target_nanopos       = args->motor_targetpos;
-        stepper[m].max_nanospeed        = args->max_nanospeed;
-        stepper[m].endstop_override     = args->endstop_override;
-		if (stepper[m].target_nanopos == stepper[m].nanopos) {
-			// TODO tx finish
-			//stepper_finished_report_message[2] = m;
-			//stepper_finished_report_message[3] = 0;
-			//serial_write(stepper_finished_report_message,
-					//sizeof(stepper_finished_report_message)/sizeof(int) );
-		}
-    }
+	uint8_t m = args->stepper_number;
+	stepper_status_report.stepper_number = m;
+	stepper_status_report.endswitch = (STEPPER_ON_ENDSWITCH(m)); // ? 1 : 0 TODO 
+	stepper_status_report.nanopos = stepper[m].nanopos;
+	for (uint8_t m=0; m<MAX_STEPPER_COUNT; m++) {
+		if (stepper[m].initialized) 
+			stepper_status_report.steppers_init_bitmask |= (1<<m);
+		if (STEPPER_IS_MOVING(m))
+			stepper_status_report.steppers_moving_bitmask |= (1<<m);
+		if (STEPPER_ON_ENDSWITCH(m))
+			stepper_status_report.steppers_endswitch_bitmask |= (1<<m);
+        //uint64_t ts = (uint64_t)to_us_since_boot(get_absolute_time()); TODO
+	}
+	tx_header_and_data(&stepper_status_report, sizeof(stepper_status_report), 0, 0, 0);
 }
+
 
 
 struct __attribute__((packed)) {
     uint8_t report_code;
-    uint8_t stepper_number; // TODO
-    uint8_t steppers_init_bitmask; // TODO
-    uint8_t steppers_moving_bitmask; // TODO
-    uint8_t steppers_endstop_bitmask; // TODO
-} stepper_status_report; // used later, when stepper actually finishes its move
+    uint8_t stepper_number;
+    uint8_t endswitch_detected;
+    uint8_t endswitch_expected;
+    uint16_t steppers_init_bitmask;		// TODO
+    uint16_t steppers_moving_bitmask;	// TODO
+    uint16_t steppers_endswitch_bitmask; // TODO
+} stepper_move_report;  // (transmitted when a stepper actually finishes its move)
 
-// stepper status message
-//int stepper_status_message[] = {8+4, GET_STEPPER_STATUS, 0, 0, 0, 0,0,0,0, 0,0,0,0};
-
-
-void get_stepper_status() {
-	struct __attribute__((packed)) {
-		uint8_t  stepper_number;
+void stepper_move() {
+	struct __attribute__((packed))  {
+		uint8_t  stepper_number;		// min=0 max=15
+		uint32_t to;					
+		uint32_t speed;					// min=0 max=2000
+		uint8_t  endswitch_override;	// min=0 max=1		default=0
+		uint8_t  reset_nanopos;			// min=0 max=1		default=0
 	} * args = (void*)(command_buffer+1);
-	uint8_t m = args->stepper_number;
-	if (m<MAX_STEPPER_COUNT) {
-        //stepper_status_message[2] = m;
-        //stepper_status_message[3] = (stepper[m].nanopos == stepper[m].target_nanopos)? 1 : 0;
-        //stepper_status_message[4] = (!gpio_get(stepper[m].lowstop_pin))?  1 : 0;
-//
-        //stepper_status_message[5] = (uint8_t)(stepper[m].nanopos>>24) & 0xFF;
-        //stepper_status_message[6] = (uint8_t)(stepper[m].nanopos>>16) & 0xFF;
-        //stepper_status_message[7] = (uint8_t)(stepper[m].nanopos>>8) & 0xFF;
-        //stepper_status_message[8] = (uint8_t)(stepper[m].nanopos) & 0xFF;
-//
-        //uint64_t ts = (uint64_t)to_us_since_boot(get_absolute_time());
-        //stepper_status_message[9] = (uint8_t)(ts>>(24)) & 0xFF;
-        //stepper_status_message[10] = (uint8_t)(ts>>(16)) & 0xFF;
-        //stepper_status_message[11] = (uint8_t)(ts>>(8)) & 0xFF;
-        //stepper_status_message[12] = (uint8_t)(ts>>32) & 0xFF;
-//
-        //serial_write(stepper_status_message, sizeof(stepper_status_message)/sizeof(int) );
-	}
+
+    uint8_t m = args->stepper_number; if (m<MAX_STEPPER_COUNT) {
+		if (args->reset_nanopos) {stepper[m].nanopos = NANOPOS_AT_ENDSWITCH;} // a.k.a. relative movement
+        stepper[m].initial_nanopos      = stepper[m].nanopos; // remember the starting position (for smooth start)
+        stepper[m].target_nanopos       = args->to;
+        stepper[m].max_nanospeed        = args->speed;
+        stepper[m].endswitch_override     = args->endswitch_override;
+		if (stepper[m].target_nanopos == stepper[m].nanopos) {
+			stepper_move_report.stepper_number = m;
+			//stepper_move_report.endswitch_detected =    ;
+			//stepper_move_report.endswitch_expected =    ;
+			//stepper_move_report.steppers_init_bitmask =    ; // TODO
+			//stepper_move_report.steppers_moving_bitmask =    ; // TODO
+			//stepper_move_report.steppers_endswitch_bitmask =    ; // TODO
+			tx_header_and_data(&stepper_move_report, sizeof(stepper_move_report), 0, 0, 0);
+		}
+    }
 }
+
 
 
 inline uint32_t usqrt(uint32_t val) { // fast and terribly inaccurate uint32 square root
@@ -161,10 +167,11 @@ inline uint32_t udiff(uint32_t a, uint32_t b) {  // absolute value of difference
 
 void stepper_update() {
 	for (uint8_t m=0; m<MAX_STEPPER_COUNT; m++) {
-		if (stepper[m].initialized) {  // one running stepper takes ca. 450 CPU cycles (if not messaging)
+		if (stepper[m].initialized) {  // one moving stepper takes ca. 450 CPU cycles (if not messaging) // TODO rm CHECK
 			uint32_t new_nanopos, actual_nanospeed;
 
-			if (stepper[m].nanopos != stepper[m].target_nanopos)  { // i.e. when stepper is running
+			//TODO if (STEPPER_IS_MOVING(m))  { // i.e. when stepper is moving
+			if (stepper[m].nanopos != stepper[m].target_nanopos)  { // i.e. when stepper is moving
 				actual_nanospeed = min(stepper[m].max_nanospeed,
 						usqrt(udiff(stepper[m].nanopos, stepper[m].target_nanopos))*100/stepper[m].inertia_coef + 1);
 				actual_nanospeed = min(actual_nanospeed,
@@ -180,29 +187,39 @@ void stepper_update() {
 
 				// occurs once move finishes successfully:
 				if (new_nanopos == stepper[m].target_nanopos) {
-					//stepper_finished_report_message[2] = m; TODO REPORT
-					//stepper_finished_report_message[3] = 0;
-					//serial_write(stepper_finished_report_message,
-							//sizeof(stepper_finished_report_message)/sizeof(int) );
-				}
-
-				// occurs once stepper triggers end-stop switch TODO REPORT
-				/*
-				if ((!stepper[m].endstop_override) && (!gpio_get(stepper[m].lowstop_pin))) {
 					stepper[m].max_nanospeed = 0;
 					stepper[m].target_nanopos = new_nanopos;  // immediate stop
-					stepper_finished_report_message[2] = m;
-					stepper_finished_report_message[3] = 1;
-					//serial_write(stepper_finished_report_message,
-							//sizeof(stepper_finished_report_message)/sizeof(int) );
-					if (stepper[m].disable_pin) gpio_put(stepper[m].disable_pin, 1);
-				}
-				*/
+					if (stepper[m].disable_pin >= 0) gpio_put(stepper[m].disable_pin, 1);
 
-				if (stepper[m].disable_pin) gpio_put(stepper[m].disable_pin, 0);
-			} else { // i.e. when stepper is not running
+					stepper_move_report.stepper_number = m;
+					//stepper_move_report.endswitch_detected =    ;
+					//stepper_move_report.endswitch_expected =    ;
+					//stepper_move_report.steppers_init_bitmask =    ; // TODO
+					//stepper_move_report.steppers_moving_bitmask =    ; // TODO
+					//stepper_move_report.steppers_endswitch_bitmask =    ; // TODO
+					tx_header_and_data(&stepper_move_report, sizeof(stepper_move_report), 0, 0, 0);
+				}
+
+
+				// occurs once stepper triggers end-stop switch TODO REPORT
+				if (STEPPER_ON_ENDSWITCH(m)) {
+					stepper[m].max_nanospeed = 0;
+					stepper[m].target_nanopos = new_nanopos;  // immediate stop
+					if (stepper[m].disable_pin >= 0) gpio_put(stepper[m].disable_pin, 1);
+
+					stepper_move_report.stepper_number = m;
+					stepper_move_report.endswitch_detected = 1;
+					//stepper_move_report.endswitch_expected =    ;
+					//stepper_move_report.steppers_init_bitmask =    ; // TODO
+					//stepper_move_report.steppers_moving_bitmask =    ; // TODO
+					//stepper_move_report.steppers_endswitch_bitmask =    ; // TODO
+					tx_header_and_data(&stepper_move_report, sizeof(stepper_move_report), 0, 0, 0);
+				}
+
+				if (stepper[m].disable_pin >= 0) gpio_put(stepper[m].disable_pin, 0);
+			} else { // i.e. when stepper is not moving
 			  new_nanopos = stepper[m].nanopos;
-			  if (stepper[m].disable_pin) gpio_put(stepper[m].disable_pin, 1);
+			  if (stepper[m].disable_pin >= 0) gpio_put(stepper[m].disable_pin, 1);
 			}
 
 			//for (uint8_t j=0; j< abs((new_nanopos/NANOSTEP_PER_MICROSTEP) -

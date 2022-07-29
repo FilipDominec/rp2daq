@@ -55,11 +55,13 @@ class Rp2daq(threading.Thread):
 
         self._register_commands()
 
+        # TODO could not connect to rp2 already busy transmitting stuff (should reset by default?)
         self.port = self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
 
-        # Asynchronous communication using threads
+        ## Asynchronous communication using threads
         self.sleep_tune = 0.001
-        threading.Thread.__init__(self)
+        # TODO Does this have to inherit from Thread? It brings a bunch of unused methods...
+        threading.Thread.__init__(self) 
         self.data_receive_thread = threading.Thread(target=self._serial_receiver, daemon=True)
         self.reporter_thread = threading.Thread(target=self._reporter, daemon=True)
 
@@ -69,9 +71,6 @@ class Rp2daq(threading.Thread):
         self.reporter_thread.start()
         self.run_event.set()
 
-
-
-
     def _register_commands(self):
         # TODO 0: search C code for version, check it matches that one returned by Raspberry Pi at runtime
         # #define FIRMWARE_VERSION {"rp2daq_220720_"}
@@ -80,6 +79,7 @@ class Rp2daq(threading.Thread):
         names_codes = c_code_parser.generate_command_binary_interface()
         for cmd_name, cmd_code in names_codes.items():
             exec(cmd_code)
+            # TODO write, parse & add docstring
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
         # Search C code for report structs & generate automatically:
@@ -234,8 +234,6 @@ class Rp2daq(threading.Thread):
             raise RuntimeError(msg)
 
 
-def handler(**kwargs):
-    print("HANDLER", kwargs)
 
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
@@ -252,9 +250,28 @@ if __name__ == "__main__":
     #rp.pwm_configure_pair(2, clkdiv=255, wrap_value=1000)
     #rp.pwm_set_value(2, 300)
 
-    #print(rp.pin_on_change(0))
-#
-    rp.pin_on_change(0, _callback=handler)
-    rp.pin_on_change(1, _callback=handler)
-    time.sleep(10)
 
+
+    st = 0
+    print("STEPPER INIT", )
+    print(rp.stepper_init(st, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=25, inertia=32))
+
+    print("STEPPER STATUS", )
+    print(rp.stepper_status(st))
+
+    #print("STEPPER MOVE - sync", )
+    #print(time.time(), rp.stepper_move(st, to=2**31+200000, speed=51))
+    #print(time.time())
+
+    #print("STEPPER MOVE - async", )
+    pos = [10, 0, 5, 0]
+    def stepper_cb(**kwargs):
+        try:
+            rp.stepper_move(st, to=2**31+pos.pop()*100000, speed=512, _callback=stepper_cb)
+        except IndexError:
+            rp.quit()
+        print("CB", time.time(), kwargs) 
+    rp.stepper_move(st, to=2**31+200000, speed=51, _callback=stepper_cb)
+
+    time.sleep(100)
+    #print(time.time())

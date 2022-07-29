@@ -16,7 +16,7 @@
 #include "include/pin_out.c"
 #include "include/adc_internal.c"
 #include "include/pwm.c"
-//#include "include/stepper.c"
+#include "include/stepper.c"
 //#include "include/"
 
 // === I/O MESSAGING INFRASTRUCTURE ===
@@ -39,6 +39,10 @@ message_descriptor message_table[] = // #new_features: add your command to this 
                 {&internal_adc,		&internal_adc_report},
                 {&pwm_configure_pair, &pwm_configure_pair_report},
                 {&pwm_set_value,	&pwm_set_value_report},
+
+                {&stepper_init,		&stepper_init_report},
+                {&stepper_status,	&stepper_status_report},
+                {&stepper_move,		&stepper_move_report},
 			 // {command handler,	report struct instance}
         };  
 
@@ -76,7 +80,7 @@ void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr,
 		uint16_t datasize, uint8_t make_copy_of_data) {
 	while (txbuf_lock); txbuf_lock=1;
 	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], headerptr, headersize);
-	if (make_copy_of_data) { // short data appended after the header (256B limit)
+	if (make_copy_of_data) { // if data appended after the header sum up to TXBUF_LEN
 		txbuf_struct_len[txbuf_tofill] = headersize + datasize;
 		txbuf_data_ptr[txbuf_tofill] = 0x0000;
 		txbuf_data_len[txbuf_tofill] = 0;
@@ -93,9 +97,20 @@ void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr,
 
 
 // === CORE0 AND CORE1 BUSY ROUTINES ===
+// TODO
+volatile uint8_t timer10khz_triggered = 0;
+bool timer10khz_update_routine(struct repeating_timer *t) {
+	timer10khz_triggered = 1;
+	return true;
+}
+
 
 void core1_main() { // busy loop on second CPU core takes care of real-time tasks
     while (true) {
+		if (timer10khz_triggered) {
+			timer10khz_triggered = 0;
+			stepper_update();
+		}
     }
 }
 
@@ -115,16 +130,18 @@ int main() {
 
     multicore_launch_core1(core1_main); 
 
-    // auto-assign reports to corresponding commands, note 1st byte of any report_struct has to be its code
+    // auto-assign report codes, note 1st byte of any report_struct has to be its code
     for (uint8_t report_code = 0; report_code < ARRAY_LEN(message_table); report_code++) {
 		*((uint8_t*)(message_table[report_code].report_struct)) = report_code; 
     }
 
-    //gpio_set_function(25, GPIO_FUNC_PWM); XXX
-    //pwm_set_gpio_level(25, 1000); 
-
 
 	// Setup routines for subsystems - ran once to initialize hardware & constants
+	
+	struct repeating_timer timer;
+	long usPeriod = -100;  // negative period means "start to start" timing
+	add_repeating_timer_us(usPeriod, timer10khz_update_routine, NULL, &timer);
+
 	iADC_DMA_setup();
 
 	BLINK_LED_US(5000);
@@ -143,6 +160,7 @@ int main() {
 			fwrite(&txbuf[TXBUF_LEN*txbuf_tosend], txbuf_struct_len[txbuf_tosend], 1, stdout);
 			if (txbuf_data_len[txbuf_tosend]) {
 				fwrite(txbuf_data_ptr[txbuf_tosend], txbuf_data_len[txbuf_tosend], 1, stdout);
+				// todo: detect rejected reports, adapt into error messaging
 			}
 			fflush(stdout);
 			txbuf_tosend = (txbuf_tosend + 1) % TXBUF_COUNT;

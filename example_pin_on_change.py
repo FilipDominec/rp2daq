@@ -18,7 +18,7 @@ def handler(**kwargs):
     print("HANDLER", count, kwargs)
 
 ## ... start asynchronous reporting on each pin change
-rp.pin_on_change(0, _callback=handler, on_rising_edge=1, on_falling_edge=0)
+rp.pin_on_change(19, on_rising_edge=1, on_falling_edge=1, _callback=handler)
 
 ## Wait one second to collect some reports
 time.sleep(1)
