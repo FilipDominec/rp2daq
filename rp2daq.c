@@ -139,7 +139,7 @@ int main() {
 	// Setup routines for subsystems - ran once to initialize hardware & constants
 	
 	struct repeating_timer timer;
-	long usPeriod = -100;  // negative period means "start to start" timing
+	long usPeriod = -100;  // negative value means "start to start" timing
 	add_repeating_timer_us(usPeriod, timer10khz_update_routine, NULL, &timer);
 
 	iADC_DMA_setup();

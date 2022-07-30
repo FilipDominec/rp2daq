@@ -20,7 +20,7 @@ channel_data = [ADC_data[ofs::len(channels)] for ofs,name in enumerate(channels)
 
 
 
-class StupidPlot(tkinter.Frame):
+class StupidPlot(tkinter.Frame): 
     def __init__(self):
         super().__init__()
         self.pack(fill=tkinter.BOTH, expand=1)
@@ -28,7 +28,7 @@ class StupidPlot(tkinter.Frame):
         self.canvas.pack(fill=tkinter.BOTH, expand=1)
         self.drawnlines = []
 
-    def plot(self, channel_data):
+    def plot(self, channel_data): # That's it. 3 lines of code to plot data as coloured lines.
         for values, color in zip(channel_data, ("red2", "yellow2", "green2", "blue2", "violet")):
             self.drawnlines.append(self.canvas.create_line(*enumerate(values), fill=color))
         #Label4 = canvas.create_text(30, 46, text='aoeu', fill="green") #del(Label4)
