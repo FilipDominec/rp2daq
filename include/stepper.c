@@ -120,12 +120,13 @@ void stepper_status() {
 struct __attribute__((packed)) {
     uint8_t report_code;
     uint8_t stepper_number;
+    uint32_t nanopos;
     uint8_t endswitch_ignored;
     uint8_t endswitch_detected;
     uint8_t endswitch_expected;
-    uint16_t steppers_init_bitmask;		// TODO
-    uint16_t steppers_moving_bitmask;	// TODO
-    uint16_t steppers_endswitch_bitmask; // TODO
+    uint16_t steppers_init_bitmask;		
+    uint16_t steppers_moving_bitmask;	
+    uint16_t steppers_endswitch_bitmask;
 } stepper_move_report;  // (transmitted when a stepper actually finishes its move)
 
 void stepper_move() {
@@ -164,6 +165,7 @@ void stepper_move() {
 void mk_tx_stepper_report(uint8_t n)
 {
 	stepper_move_report.stepper_number = n;
+	stepper_move_report.nanopos = stepper[n].nanopos;
 	stepper_move_report.endswitch_ignored = stepper[n].endswitch_ignore;
 	stepper_move_report.endswitch_detected = stepper[n].previous_endswitch;
 	stepper_move_report.endswitch_expected = stepper[n].endswitch_expected;
