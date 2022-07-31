@@ -116,11 +116,15 @@ One difference is that it looks a bit more complicated. But more important is th
 
 Calling commands asynchronously allows one to simultaneously orchestrate multiple functions like long ADC acquisition and stepping motor movement. Raspberry Pi may be busy for a while, but your program remains responsive all the time.
 
+### Caveats of advanced asynchronous commands use
+
 Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
+
+Both synchronous and asynchronous commands can be called from within a callback. But calling asynchro command, and calling a synchronous command of the same type *before the callback is executed*, will result in this callback being "forgotten" and never called afterwards.
 
 ### Receiving a lot of data
 
-Another useful application of the asynchronous command allows one to acquire exactly one million ADC samples. Such a large array could not fit into Pico's RAM, let alone into single report message (there is 8k sample buffer). Following code thus can monitor slow processes, like temperature changes or battery discharge.
+Maybe the greatest strength of the asynchronous is that they allow one to consecutively acquire unlimited amount of data. Following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (there is 8k sample buffer). Following code thus can monitor slow processes, like temperature changes or battery discharge.
 
 ```Python
 import rp2daq

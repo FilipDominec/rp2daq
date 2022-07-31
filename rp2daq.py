@@ -56,12 +56,14 @@ class Rp2daq(threading.Thread):
         self.sleep_tune = 0.001
         # TODO Does this have to inherit from Thread? It brings a bunch of unused methods...
         threading.Thread.__init__(self) 
-        self.data_receive_thread = threading.Thread(target=self._serial_receiver, daemon=True)
+        self.data_receiving_thread = threading.Thread(target=self._data_receiver, daemon=True)
+        self.report_processing_thread = threading.Thread(target=self._report_processor, daemon=True)
         self.reporter_thread = threading.Thread(target=self._reporter, daemon=True)
 
         self.rx_bytes = deque()
         self.run_event = threading.Event()
-        self.data_receive_thread.start()
+        self.data_receiving_thread.start()
+        self.report_processing_thread.start()
         self.reporter_thread.start()
         self.run_event.set()
 
@@ -88,32 +90,42 @@ class Rp2daq(threading.Thread):
     def quit(self):
         self.run_event.clear()
 
-    def _serial_receiver(self):
+
+    def _data_receiver(self):
+        self.run_event.wait()
+
+        while self.run_event.is_set():
+                if w := self.port.inWaiting():
+                    c = self.port.read(w)
+                    #print("  rx", len(c))
+                    #print("    ", list( c[:10]), "...", list( c[-10:]))
+                    self.rx_bytes.extend(c)
+                else:
+                    time.sleep(self.sleep_tune)
+
+    def _report_processor(self):
         """
         Thread to continuously check for incoming data.
         When a byte comes in, place it onto the deque.
         """
+        def rx_at_least_bytes(length):
+            while len(self.rx_bytes) < length:
+                #c = self.port.read(w)
+                #self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
+                time.sleep(self.sleep_tune)
+            return [self.rx_bytes.popleft() for _ in range(length)]
+
         self.run_event.wait()
 
         while self.run_event.is_set():
             try:
-                if w := self.port.inWaiting():
-                    c = self.port.read(w)
-                    self.rx_bytes.extend(c)
-                    #print('.rx', c)
-
-
-
+                if len(self.rx_bytes):
+                    #print("----------------------RXB", len(self.rx_bytes))
                     # report_header_bytes will be populated with the received data for the report
                     report_type = self.rx_bytes.popleft()
                     packet_length = self.report_header_lenghts[report_type] - 1
 
-                    while len(self.rx_bytes) < packet_length:
-                        c = self.port.read(w)
-                        self.rx_bytes.extend(c)
-                        time.sleep(self.sleep_tune)
-
-                    report_header_bytes = [self.rx_bytes.popleft() for _ in range(packet_length)]
+                    report_header_bytes = rx_at_least_bytes(packet_length)
 
                     #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
 
@@ -124,12 +136,9 @@ class Rp2daq(threading.Thread):
                     data_bytes = []
                     if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
                         payload_length = -((-dc*dbw)//8)  # integer division is like floor(); this makes it ceil()
+                        #print("  PL", payload_length)
 
-                        while len(self.rx_bytes) < payload_length:
-                            c = self.port.read(w)
-                            self.rx_bytes.extend(c)
-                            time.sleep(self.sleep_tune)
-                        data_bytes = [self.rx_bytes.popleft() for _ in range(payload_length)]
+                        data_bytes = rx_at_least_bytes(payload_length)
 
                         if dbw == 8:
                             cb_kwargs["data"] = data_bytes
@@ -143,6 +152,8 @@ class Rp2daq(threading.Thread):
 
                         elif dbw == 16:      # using little endian byte order everywhere
                             cb_kwargs["data"] = [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
+                        if max(cb_kwargs["data"]) > 150: 
+                            print(data_bytes)
                     
 
                     cb = self.report_callbacks.get(report_type, 'surprise')
@@ -158,13 +169,7 @@ class Rp2daq(threading.Thread):
                         self.sync_report_cb_queues[report_type].put(cb_kwargs) # unblock default callback (& send it data)
                     elif cb == 'surprise':
                         print("Warning: Got callback that was not asked for\n\tDebug info: {cb_kwargs}")
-                    continue
 
-
-
-
-                else:
-                    time.sleep(self.sleep_tune)
             except OSError:
                 logging.error("Device disconnected")
                 self.quit()

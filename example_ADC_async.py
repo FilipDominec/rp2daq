@@ -23,8 +23,15 @@ rp = rp2daq.Rp2daq()
 
 ## User settings
 channel_names = {0:"pin 26", 1:"pin 27", 2:"pin 28", 3:"ref V", 4:"int thermo"}
-channels = [0, 3, 4]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
-kSPS_per_ch = 10 * len(channels)    # note there is only one multiplexed ADC
+#channels = [0, 3, 4]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
+#kSPS_per_ch = 50 * len(channels)    # note there is only one multiplexed ADC
+channels = [0,1]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
+kSPS_per_ch = 100 * len(channels)    # note there is only one multiplexed ADC
+
+# TODO: FIXME with total sample rate approx > 100k kSPS, order of bytes appear as temporarily swapped
+#           persists with 1 channel
+#           not sure if existed before
+
 
 ## Run-time objects and variables
 all_ADC_done = threading.Event() # a thread-safe semaphore
