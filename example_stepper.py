@@ -16,10 +16,10 @@ def stepper_cb(**kwargs):
             coords_to_go[:] = []   # for safety, we flush further movements, so this script ends
 
     ## ii. Check if whole stepper group is done
-    #print('-- here we are to poll status --')
-    #print(rp.stepper_status(0)) # cannot do this - stalls here! needs another thread
+    print('-- here we are to poll status --')
+    print(rp.stepper_status(0)) # cannot do this - stalls here! needs another thread
 
-    ## iii. Feed whole stepper group with new 
+    ## iii. Feed whole stepper group with new coordinates to go
     try:
         new_coords = coords_to_go.pop()
         for st in (0,):
@@ -35,12 +35,12 @@ def stepper_cb(**kwargs):
 
 ## 1.  Define tuples of coordinates the steppers will go to
 ##     (note we [mis]use mutable data types to act as global variables)
-coords_to_go = [(2,2), ] # (4,2), (1,1), ] 
+coords_to_go = [(2,2), (4,2), (1,1), ] 
 
 
 ## 2.  Initialize steppers, remember the numeric position they are assigned. Your pin assignments may vary.
 zero_pos = {}
-zero_pos[0] = rp.stepper_init(0, dir_pin=12, step_pin=13, endswitch_pin=19, inertia=50)["initial_nanopos"]
+zero_pos[0] = rp.stepper_init(0, dir_pin=12, step_pin=13, endswitch_pin=19, inertia=90)["initial_nanopos"]
 print('\n'*3); time.sleep(.05)
 #zero_pos[1] = rp.stepper_init(1, dir_pin=10, step_pin=11, endswitch_pin=18, inertia=90)["initial_nanopos"]
 #print('\n'*3); time.sleep(.05)
@@ -53,6 +53,7 @@ for st in (0,):
     rp.stepper_move(st, to=0, speed=128*2, _callback=stepper_cb) # moving towards 0 = seeking end switch
     print('\n'*3); time.sleep(.05)
 
+print(dir(rp))
 
 ## 4.  Wait here until the last movement finishes 
 while coords_to_go != ["last job done"]: 

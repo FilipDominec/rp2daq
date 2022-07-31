@@ -14,12 +14,6 @@ More information and examples on https://github.com/FilipDominec/rp2daq or in RE
 
 MIN_FW_VER = 210400
 
-NANOPOS_AT_ENDSTOP = 2**31 # half the range of uint32
-NANOSTEP_PER_MICROSTEP = 256 # stepper resolution finer than microstep allows smooth speed control 
-MINIMUM_POS = -2**22 ## FIXME should be +2**22 ? 
-
-CMD_IDENTIFY = 0  # blink LED, return "rp2daq" + datecode (6B) + unique 24B identifier
-
 from collections import deque
 import logging
 import os
@@ -83,7 +77,8 @@ class Rp2daq(threading.Thread):
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
         # Search C code for report structs & generate automatically:
-        self.report_cb_queue = {}
+        self.sync_report_cb_queues = {}
+        self.async_report_cb_queue = queue.Queue()
         self.report_header_lenghts, self.report_header_formats, self.report_header_varnames = \
                 c_code_parser.generate_report_binary_interface()
 
@@ -105,7 +100,69 @@ class Rp2daq(threading.Thread):
                 if w := self.port.inWaiting():
                     c = self.port.read(w)
                     self.rx_bytes.extend(c)
-                    print('.rx', c)
+                    #print('.rx', c)
+
+
+
+                    # report_header_bytes will be populated with the received data for the report
+                    report_type = self.rx_bytes.popleft()
+                    packet_length = self.report_header_lenghts[report_type] - 1
+
+                    while len(self.rx_bytes) < packet_length:
+                        c = self.port.read(w)
+                        self.rx_bytes.extend(c)
+                        time.sleep(self.sleep_tune)
+
+                    report_header_bytes = [self.rx_bytes.popleft() for _ in range(packet_length)]
+
+                    #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
+
+                    report_args = struct.unpack(self.report_header_formats[report_type], 
+                            bytes([report_type]+report_header_bytes))
+                    cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
+
+                    data_bytes = []
+                    if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
+                        payload_length = -((-dc*dbw)//8)  # integer division is like floor(); this makes it ceil()
+
+                        while len(self.rx_bytes) < payload_length:
+                            c = self.port.read(w)
+                            self.rx_bytes.extend(c)
+                            time.sleep(self.sleep_tune)
+                        data_bytes = [self.rx_bytes.popleft() for _ in range(payload_length)]
+
+                        if dbw == 8:
+                            cb_kwargs["data"] = data_bytes
+                        elif dbw == 12:      # decompress 3B  into pairs of 12b values & flatten
+                            odd = [a + ((b&0xF0)<<4)  for a,b
+                                    in zip(data_bytes[::3], data_bytes[1::3])]
+                            even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
+                                    in zip(                   data_bytes[1:-1:3], data_bytes[2::3])]
+                            cb_kwargs["data"] = [x for l in zip(odd,even) for x in l]
+                            if len(odd)>len(even): cb_kwargs["data"].append(odd[-1])
+
+                        elif dbw == 16:      # using little endian byte order everywhere
+                            cb_kwargs["data"] = [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
+                    
+
+                    cb = self.report_callbacks.get(report_type, 'surprise')
+                    if cb and cb != 'surprise':
+                        #logging.debug("CALLING CB {cb_kwargs}")
+                        #print(f"CALLING CB {cb} {cb_kwargs}")
+                        ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
+                        ## TODO: check if sync cmd works correctly after async cmd (of the same type)
+                        #cb(**cb_kwargs)
+                        self.async_report_cb_queue.put((cb, cb_kwargs))
+                    elif cb is None:
+                        #print(f"UNBLOCKING CB {report_type=} {cb_kwargs}")
+                        self.sync_report_cb_queues[report_type].put(cb_kwargs) # unblock default callback (& send it data)
+                    elif cb == 'surprise':
+                        print("Warning: Got callback that was not asked for\n\tDebug info: {cb_kwargs}")
+                    continue
+
+
+
+
                 else:
                     time.sleep(self.sleep_tune)
             except OSError:
@@ -121,58 +178,8 @@ class Rp2daq(threading.Thread):
         self.run_event.wait()
 
         while self.run_event.is_set():
-            if len(self.rx_bytes):
-
-                # report_header_bytes will be populated with the received data for the report
-                report_type = self.rx_bytes.popleft()
-                packet_length = self.report_header_lenghts[report_type] - 1
-
-                print(':::', packet_length)
-                while len(self.rx_bytes) < packet_length:
-                    time.sleep(self.sleep_tune)
-
-                report_header_bytes = [self.rx_bytes.popleft() for _ in range(packet_length)]
-                print(':rx', report_header_bytes)
-
-                #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
-                print(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
-
-                report_args = struct.unpack(self.report_header_formats[report_type], 
-                        bytes([report_type]+report_header_bytes))
-                cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
-
-                data_bytes = []
-                if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
-                    payload_length = -((-dc*dbw)//8)  # integer division is like floor(); this makes it ceil()
-
-                    while len(self.rx_bytes) < payload_length:
-                        time.sleep(self.sleep_tune)
-                    data_bytes = [self.rx_bytes.popleft() for _ in range(payload_length)]
-
-                    if dbw == 8:
-                        cb_kwargs["data"] = data_bytes
-                    elif dbw == 12:      # decompress 3B  into pairs of 12b values & flatten
-                        odd = [a + ((b&0xF0)<<4)  for a,b
-                                in zip(data_bytes[::3], data_bytes[1::3])]
-                        even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
-                                in zip(                   data_bytes[1:-1:3], data_bytes[2::3])]
-                        cb_kwargs["data"] = [x for l in zip(odd,even) for x in l]
-                        if len(odd)>len(even): cb_kwargs["data"].append(odd[-1])
-
-                    elif dbw == 16:      # using little endian byte order everywhere
-                        cb_kwargs["data"] = [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
-                
-
-                if cb := self.report_callbacks[report_type]:
-                    #logging.debug("CALLING CB {cb_kwargs}")
-                    print(f"CALLING CB {cb} {cb_kwargs}")
-                    cb(**cb_kwargs)
-                else:
-                    print(f"UNBLOCKING CB {report_type=} {cb_kwargs}")
-                    self.report_cb_queue[report_type].put(cb_kwargs) # unblock default callback (& send it data)
-                continue
-            else:
-                time.sleep(self.sleep_tune)
+            (cb, cb_kwargs) = self.async_report_cb_queue.get()
+            cb(**cb_kwargs)
 
     def default_blocking_callback(self, command_code): # 
         """
@@ -181,11 +188,9 @@ class Rp2daq(threading.Thread):
         practice only if quick response from device is expected, or your script uses 
         multithreading. Otherwise your program flow would be stalled for a while here.
         """
-        if not self.report_cb_queue.get(command_code):
-            self.report_cb_queue[command_code] = queue.Queue()
-        print(' - DBC will wait here for response')
-        kwargs = self.report_cb_queue[command_code].get() # waits until default callback unblocked
-        print('SYNC CMD RETURNS:', kwargs)
+        if not self.sync_report_cb_queues.get(command_code):
+            self.sync_report_cb_queues[command_code] = queue.Queue()
+        kwargs = self.sync_report_cb_queues[command_code].get() # waits until default callback unblocked
         return kwargs
 
     def _find_device(self, required_device_id, required_firmware_version):

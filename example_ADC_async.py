@@ -49,9 +49,9 @@ rp.internal_adc(channel_mask=sum(2**ch for ch in channels),
 
 ## ... OK, here we *want* to wait until all data are received (but do not have to)
 while not all_ADC_done.is_set():
-    rp.pin_out(22,1)
+    rp.pin_set(22,1)
     time.sleep(.05)
-    rp.pin_out(22,0)
+    rp.pin_set(22,0)
     time.sleep(.05)
 #all_ADC_done.wait()
 
