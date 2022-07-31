@@ -105,6 +105,7 @@ class Rp2daq(threading.Thread):
                 if w := self.port.inWaiting():
                     c = self.port.read(w)
                     self.rx_bytes.extend(c)
+                    print('.rx', c)
                 else:
                     time.sleep(self.sleep_tune)
             except OSError:
@@ -121,15 +122,20 @@ class Rp2daq(threading.Thread):
 
         while self.run_event.is_set():
             if len(self.rx_bytes):
+
                 # report_header_bytes will be populated with the received data for the report
                 report_type = self.rx_bytes.popleft()
                 packet_length = self.report_header_lenghts[report_type] - 1
 
+                print(':::', packet_length)
                 while len(self.rx_bytes) < packet_length:
                     time.sleep(self.sleep_tune)
+
                 report_header_bytes = [self.rx_bytes.popleft() for _ in range(packet_length)]
+                print(':rx', report_header_bytes)
 
                 #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
+                print(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
 
                 report_args = struct.unpack(self.report_header_formats[report_type], 
                         bytes([report_type]+report_header_bytes))
@@ -137,8 +143,7 @@ class Rp2daq(threading.Thread):
 
                 data_bytes = []
                 if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
-                    payload_length = -((-dc*dbw)//8)    # implicit floor() can be inverted to ceil()
-                    #logging.debug(f"------------ {dc=} {dbw=} WOULD RECEIVE {payload_length} EXTRA RAW BYTES")
+                    payload_length = -((-dc*dbw)//8)  # integer division is like floor(); this makes it ceil()
 
                     while len(self.rx_bytes) < payload_length:
                         time.sleep(self.sleep_tune)
@@ -160,9 +165,11 @@ class Rp2daq(threading.Thread):
 
                 if cb := self.report_callbacks[report_type]:
                     #logging.debug("CALLING CB {cb_kwargs}")
+                    print(f"CALLING CB {cb} {cb_kwargs}")
                     cb(**cb_kwargs)
                 else:
-                    self.report_cb_queue[report_type].put(cb_kwargs) # unblock default callback (by data)
+                    print(f"UNBLOCKING CB {report_type=} {cb_kwargs}")
+                    self.report_cb_queue[report_type].put(cb_kwargs) # unblock default callback (& send it data)
                 continue
             else:
                 time.sleep(self.sleep_tune)
@@ -176,8 +183,9 @@ class Rp2daq(threading.Thread):
         """
         if not self.report_cb_queue.get(command_code):
             self.report_cb_queue[command_code] = queue.Queue()
-        kwargs = self.report_cb_queue[command_code].get() # waits until report arrives
-        #print('SYNC CMD RETURNS:', kwargs)
+        print(' - DBC will wait here for response')
+        kwargs = self.report_cb_queue[command_code].get() # waits until default callback unblocked
+        print('SYNC CMD RETURNS:', kwargs)
         return kwargs
 
     def _find_device(self, required_device_id, required_firmware_version):

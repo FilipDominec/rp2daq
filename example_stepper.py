@@ -6,54 +6,57 @@ import time
 import rp2daq
 rp = rp2daq.Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
 
-print(rp.stepper_status(0))
-print("Stepper 0 initialized:", )
-
-#pos1 = [1,]
-#print("STEPPER MOVE - async", )
-
 def stepper_cb(**kwargs):
-    print("...") 
-    #time.sleep(1)
-    if kwargs['endswitch_detected']:
+    ## i. End switches are useful for position calibration (and to prevent dangerous crashes later)
+    if kwargs['endswitch_triggered']:
         if kwargs['endswitch_expected']:
-            zero_pos[st] = kwargs["nanopos"]  # recalibrate position against endstop
+            zero_pos[kwargs["stepper_number"]] = kwargs["nanopos"]  # recalibrate position against endstop
         else:
-            print(" WARNING! UNEXPECTED ENDSWITCH EVENT!", time.time(), kwargs, pos0) 
-            pos0[:] = []   # for safety, we stop commanding any further movements
-            return
+            print("Error: Unexpected endswitch trigger on motor #{kwargs['stepper_number']}!") 
+            coords_to_go[:] = []   # for safety, we flush further movements, so this script ends
 
+    ## ii. Check if whole stepper group is done
+    #print('-- here we are to poll status --')
+    #print(rp.stepper_status(0)) # cannot do this - stalls here! needs another thread
+
+    ## iii. Feed whole stepper group with new 
     try:
-        if kwargs["stepper_number"] == 0:
-            rp.stepper_move(0, to=zero_pos[0]+pos0.pop()*400000, speed=128*8, _callback=stepper_cb)
-        else:
-            rp.stepper_move(1, to=zero_pos[1]+pos1.pop()*400000, speed=128*3, _callback=stepper_cb)
-
-        print("M.", time.time(), kwargs, pos0) 
-    except IndexError:
-        print("D.", time.time(), kwargs) 
-        rp.quit()
+        new_coords = coords_to_go.pop()
+        for st in (0,):
+            rp.stepper_move(st, 
+                    to=zero_pos[st]+new_coords[st] *400000, 
+                    speed=128*1, 
+                    _callback=stepper_cb)
+            print('\n'*3); time.sleep(.05)
+    except IndexError: # i.e. if the last move finished
+        coords_to_go[:] = ["last job done"]
     #print("CB", time.time(), kwargs) 
 
+
+## 1.  Define tuples of coordinates the steppers will go to
+##     (note we [mis]use mutable data types to act as global variables)
+coords_to_go = [(2,2), ] # (4,2), (1,1), ] 
+
+
+## 2.  Initialize steppers, remember the numeric position they are assigned. Your pin assignments may vary.
 zero_pos = {}
-pos0 = [2,4,1]
+zero_pos[0] = rp.stepper_init(0, dir_pin=12, step_pin=13, endswitch_pin=19, inertia=50)["initial_nanopos"]
+print('\n'*3); time.sleep(.05)
+#zero_pos[1] = rp.stepper_init(1, dir_pin=10, step_pin=11, endswitch_pin=18, inertia=90)["initial_nanopos"]
+#print('\n'*3); time.sleep(.05)
+#zero_pos[2] = rp.stepper_init(2, dir_pin=14, step_pin=15, endswitch_pin=17, inertia=30)["initial_nanopos"]
+#zero_pos[3] = rp.stepper_init(3, dir_pin=21, step_pin=20, endswitch_pin=16, inertia=30)["initial_nanopos"]
 
-#print(rp.stepper_status(0))
 
+## 3.  Launch the first move for each stepper here (further moves will be launched within the callback)
 for st in (0,):
-    zero_pos[st] = rp.stepper_init(0, dir_pin=12, step_pin=13, endswitch_pin=19, disable_pin=25, inertia=60)["initial_nanopos"]
-    rp.stepper_move(st, to=2**31-2000000, speed=128*2, _callback=stepper_cb)
+    rp.stepper_move(st, to=0, speed=128*2, _callback=stepper_cb) # moving towards 0 = seeking end switch
+    print('\n'*3); time.sleep(.05)
 
 
-while pos0: pass
-time.sleep(.5)
-#print(time.time())
+## 4.  Wait here until the last movement finishes 
+while coords_to_go != ["last job done"]: 
+    pass
 
 
-
-#print("Stepper 1 initialized:")
-#print(rp.stepper_init(1, dir_pin=10, step_pin=11, endswitch_pin=18, inertia=200))
-#print(rp.stepper_status(1))
-#print(rp.stepper_init(2, dir_pin=14, step_pin=15, endswitch_pin=17, inertia=30))
-#print(rp.stepper_init(3, dir_pin=21, step_pin=20, endswitch_pin=16, inertia=30))
 

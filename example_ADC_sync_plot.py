@@ -14,7 +14,7 @@ rp = rp2daq.Rp2daq()
 
 ADC_data = rp.internal_adc(
         channel_mask=sum(2**ch for ch in channels),
-        blocksize=width*len(channels),  # one ADC sample per 10 ms, per channel
+        blocksize=width*len(channels),  # one ADC sample per ?????, per channel
         clkdiv=48000//kSPS_per_ch)['data']
 channel_data = [ADC_data[ofs::len(channels)] for ofs,name in enumerate(channels)]
 
