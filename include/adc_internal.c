@@ -111,8 +111,9 @@ void iADC_DMA_IRQ_handler() {
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
 	// TODO transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2)
     
-    compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
-    internal_adc_report._data_bitwidth = 12;
+    //compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
+    //internal_adc_report._data_bitwidth = 12;
+    internal_adc_report._data_bitwidth = 16; // XXX
     
 	tx_header_and_data(&internal_adc_report, 
             sizeof(internal_adc_report), 

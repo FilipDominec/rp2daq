@@ -9,7 +9,7 @@ rp = rp2daq.Rp2daq()
 pin = 8
 rp.pwm_configure_pair(pin=pin, wrap_value=65535, clkdiv=20, clkdiv_int_frac=0)
 rp.pwm_set_value(pin=pin, value=10000) # minimum position
-time.sleep(1)
+#time.sleep(1)
 rp.pwm_set_value(pin=pin, value=27500) # maximum position
 
 

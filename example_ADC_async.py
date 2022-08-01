@@ -25,18 +25,24 @@ rp = rp2daq.Rp2daq()
 channel_names = {0:"pin 26", 1:"pin 27", 2:"pin 28", 3:"ref V", 4:"int thermo"}
 #channels = [0, 3, 4]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
 #kSPS_per_ch = 50 * len(channels)    # note there is only one multiplexed ADC
-channels = [0,1]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
-kSPS_per_ch = 100 * len(channels)    # note there is only one multiplexed ADC
+channels = [0]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
+kSPS_per_ch = 10 * len(channels)    # note there is only one multiplexed ADC
+
 
 # TODO: FIXME with total sample rate approx > 100k kSPS, order of bytes appear as temporarily swapped
 #           persists with 1 channel
 #           not sure if existed before
+#           must check if wforms look nice
+###80, 0, 76, 0, 80, 0, 76, 76, 5, 0, 76, 5, 32, 76, 5, 0, 76, 5, 16
+rp.pwm_configure_pair(pin=0, wrap_value=65535, clkdiv=250, clkdiv_int_frac=0)
+rp.pwm_set_value(pin=0, value=30000) # minimum position
 
 
 ## Run-time objects and variables
 all_ADC_done = threading.Event() # a thread-safe semaphore
 all_data = []
 t0 = time.time()
+
 
 ## Initialize the ADC into asynchronous operation...
 def append_ADC_data(**kwargs): #   called from other thread whenever data come from RP2
@@ -49,20 +55,21 @@ def append_ADC_data(**kwargs): #   called from other thread whenever data come f
         all_ADC_done.set()   # releases wait() in the main tread
 
 rp.internal_adc(channel_mask=sum(2**ch for ch in channels), 
-        blocksize=1000*len(channels), 
-        blocks_to_send=20, 
+        blocksize=4000*len(channels), 
+        blocks_to_send=2, 
         clkdiv=48000//kSPS_per_ch, 
         _callback=append_ADC_data)
 
 ## ... OK, here we *want* to wait until all data are received (but do not have to)
 while not all_ADC_done.is_set():
-    rp.pin_set(22,1)
-    time.sleep(.05)
-    rp.pin_set(22,0)
-    time.sleep(.05)
+    pass
+    #rp.pin_set(28,1)
+    #time.sleep(.05)
+    #rp.pin_set(28,0)
+    #time.sleep(.05)
 #all_ADC_done.wait()
 
-rp.quit() # relase the device (or the app will wait indefinitely)
+#rp.quit() # relase the device (or the app will wait indefinitely)
 
 print(f"{len(all_data)} samples in {time.time()-t0}")
 print(f"i.e. {len(all_data)/(time.time()-t0):.2f} samples per second on average" )
