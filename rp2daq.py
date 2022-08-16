@@ -49,7 +49,6 @@ class Rp2daq(threading.Thread):
 
         self._register_commands()
 
-        # TODO could not connect to rp2 already busy transmitting stuff (should reset by default?)
         time.sleep(.05)
         self.port = self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
 
@@ -121,7 +120,6 @@ class Rp2daq(threading.Thread):
         while self.run_event.is_set():
             try:
                 if len(self.rx_bytes):
-                    #print("----------------------RXB", len(self.rx_bytes))
                     # report_header_bytes will be populated with the received data for the report
                     report_type = self.rx_bytes.popleft()
                     packet_length = self.report_header_lenghts[report_type] - 1
@@ -153,8 +151,8 @@ class Rp2daq(threading.Thread):
 
                         elif dbw == 16:      # using little endian byte order everywhere
                             cb_kwargs["data"] = [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
-                        if max(cb_kwargs["data"]) > 150: 
-                            print(data_bytes)
+
+                        #if max(cb_kwargs["data"]) > 2250: print(data_bytes) # XXX
                     
 
                     cb = self.report_callbacks.get(report_type, 'surprise')
@@ -170,6 +168,8 @@ class Rp2daq(threading.Thread):
                         self.sync_report_cb_queues[report_type].put(cb_kwargs) # unblock default callback (& send it data)
                     elif cb == 'surprise':
                         print("Warning: Got callback that was not asked for\n\tDebug info: {cb_kwargs}")
+                else:
+                    time.sleep(self.sleep_tune)
 
             except OSError:
                 logging.error("Device disconnected")
@@ -213,12 +213,14 @@ class Rp2daq(threading.Thread):
             #logging.info(f"checking port {port_name.name}")
 
             try:
-                try_port.flush()
+                #for x in range(10):
+                print(try_port.inWaiting() )
+                    #try_port.flush()
+                    #time.sleep(.05) # 50ms round-trip time is enough
 
-                # the probing "identify" command is hard-coded here, as the receiver thread are not 
-                # ready yet
-                try_port.write(struct.pack(r'<BB', 1, 0)) 
-                time.sleep(.05) # 50ms round-trip time is enough
+                # the "identify" command is hard-coded here, as the receiving threads are not ready yet
+                try_port.write(struct.pack(r'<BBB', 1, 0, 1)) 
+                time.sleep(.15) # 50ms round-trip time is enough
                 bytesToRead = try_port.inWaiting() 
                 assert bytesToRead == 1+2+1+30
                 id_data = try_port.read(bytesToRead)[4:] 
