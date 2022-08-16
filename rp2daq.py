@@ -155,19 +155,20 @@ class Rp2daq(threading.Thread):
                         #if max(cb_kwargs["data"]) > 2250: print(data_bytes) # XXX
                     
 
-                    cb = self.report_callbacks.get(report_type, 'surprise')
-                    if cb and cb != 'surprise':
+                    cb = self.report_callbacks.get(report_type, False) # false for unexpected reports
+                    if cb:
                         #logging.debug("CALLING CB {cb_kwargs}")
                         #print(f"CALLING CB {cb} {cb_kwargs}")
                         ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
                         ## TODO: check if sync cmd works correctly after async cmd (of the same type)
                         #cb(**cb_kwargs)
                         self.async_report_cb_queue.put((cb, cb_kwargs))
-                    elif cb is None:
+                    elif cb is None: # expected report from blocking command
                         #print(f"UNBLOCKING CB {report_type=} {cb_kwargs}")
                         self.sync_report_cb_queues[report_type].put(cb_kwargs) # unblock default callback (& send it data)
-                    elif cb == 'surprise':
-                        print("Warning: Got callback that was not asked for\n\tDebug info: {cb_kwargs}")
+                    elif cb is False: # unexpected report, from command that was not yet called in this script instance
+                        #print(f"Warning: Got callback that was not asked for\n\tDebug info: {cb_kwargs}")
+                        pass 
                 else:
                     time.sleep(self.sleep_tune)
 
