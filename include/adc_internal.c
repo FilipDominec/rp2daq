@@ -88,6 +88,9 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
         buf[i*3] = a;
         buf[i*3+1] = b;
         buf[i*3+2] = c;
+        buf[i*3] = i/256; // XXX
+        buf[i*3+1] = i%256; // XXX
+        buf[i*3+2] = 0; // XXX
     }
 }
 
@@ -111,9 +114,9 @@ void iADC_DMA_IRQ_handler() {
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
 	// TODO transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2)
     
-    //compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
-    //internal_adc_report._data_bitwidth = 12;
-    internal_adc_report._data_bitwidth = 16; // XXX
+    compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
+    internal_adc_report._data_bitwidth = 12;
+    //internal_adc_report._data_bitwidth = 16; // failsafe option taking 133% USB bw
     
 	tx_header_and_data(&internal_adc_report, 
             sizeof(internal_adc_report), 

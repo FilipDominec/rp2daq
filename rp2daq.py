@@ -204,19 +204,21 @@ class Rp2daq(threading.Thread):
         specified, for its particular unique vendor name.
         """
 
-        PID, VID = 10, 11914 # TODO use this info to filter out ports 
+        VID, PID = 0x2e8a, 0x000a #  TODO use this info to filter out ports 
         port_list = list_ports.comports()
 
         for port_name in port_list:
 
-            try_port = serial.Serial(port=port_name.device, timeout=0.1)
-            #logging.info(f"checking port {port_name.name}")
+            try_port = serial.Serial(port=port_name.device, timeout=0.01)
 
             try:
-                #for x in range(10):
+                # TODO if one RP2 is up & running independently, connecting this script to another device
+                #       disturbs the former device's operation; get unique serial number w/o messaging?
+                #       for a in dir(try_port): print(f'\t{a:20} = {getattr(try_port,a)}')
+                #       but 'dmesg' prints out also this: "usb 1-2: SerialNumber: E66058388348892D"
                 print(try_port.inWaiting() )
-                    #try_port.flush()
-                    #time.sleep(.05) # 50ms round-trip time is enough
+                #try_port.flush()
+                #time.sleep(.05) # 50ms round-trip time is enough
 
                 # the "identify" command is hard-coded here, as the receiving threads are not ready yet
                 try_port.write(struct.pack(r'<BBB', 1, 0, 1)) 
@@ -233,7 +235,7 @@ class Rp2daq(threading.Thread):
 
             version_signature = id_data[7:13]
             if not version_signature.isdigit() or int(version_signature) < required_firmware_version:
-                logging.critical(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
+                logging.warning(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
                         f"older than this script's {MIN_FW_VER}.\nPlease upgrade firmware " +\
                         "or override this error using 'required_firmware_version=0'.")
                 continue
@@ -242,7 +244,7 @@ class Rp2daq(threading.Thread):
                 required_device_id = required_device_id.replace(":", "")
             found_device_id = id_data[14:]
             if required_device_id and found_device_id != required_device_id:
-                logging.critical(f"found an rp2daq device, but its ID {found_device_id} does not match " + 
+                logging.info(f"found an rp2daq device, but its ID {found_device_id} does not match " + 
                         f"required {required_device_id}")
                 continue
 

@@ -49,8 +49,11 @@ print('\n'*3); time.sleep(.05)
 
 
 ## 3.  Launch the first move for each stepper here (further moves will be launched within the callback)
+##      Note the position units: typically 200 steps per revolution, 16x microstepping x 256 "nanosteps" =
+##      one revolution in 819200 nanosteps
+##      Speed of rotation is given in nanosteps per 100 us cycle; i.e. 82 is 1 revolution / s.
 for st in (0,):
-    rp.stepper_move(st, to=0, speed=128*2, _callback=stepper_cb) # moving towards 0 = seeking end switch
+    rp.stepper_move(st, to=zero_pos[0]-10000000, speed=128*2, _callback=stepper_cb) # moving towards 0 = seeking end switch
     print('\n'*3); time.sleep(.05)
 
 print(dir(rp))

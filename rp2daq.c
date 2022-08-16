@@ -118,13 +118,13 @@ int main() {
 	// Global initialization
     bi_decl(bi_program_description("RP2 as universal platform for data acquisition and experiment automation"));
     bi_decl(bi_program_url("https://github.com/FilipDominec/rp2daq"));
-    bi_decl(bi_1pin_with_name(LED_PIN, "Diagnostic LED, other pins assigned run-time"));
+    bi_decl(bi_1pin_with_name(PICO_DEFAULT_LED_PIN, "Diagnostic LED, other pins assigned run-time"));
 
     set_sys_clock_khz(250000, false); // reasonable overclock with safe margin
     stdio_set_translate_crlf(&stdio_usb, false); // crucial for correct binary data transmission
     stdio_init_all();
 
-	//gpio_init(LED_PIN); gpio_set_dir(LED_PIN, GPIO_OUT);
+	gpio_init(PICO_DEFAULT_LED_PIN); gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 	gpio_init(DEBUG_PIN); gpio_set_dir(DEBUG_PIN, GPIO_OUT); // DEBUG
 	gpio_init(DEBUG2_PIN); gpio_set_dir(DEBUG2_PIN, GPIO_OUT); // DEBUG
 

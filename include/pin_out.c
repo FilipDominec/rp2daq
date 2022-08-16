@@ -70,9 +70,12 @@ void pin_on_change() {
 		uint8_t on_falling_edge;		// min=0 max=1 default=1
 	} * args = (void*)(command_buffer+1);
 	
-	uint8_t edge_mask;
+	uint8_t edge_mask = 0;
+
 	if (args->on_rising_edge) edge_mask |= GPIO_IRQ_EDGE_RISE;
 	if (args->on_falling_edge) edge_mask |= GPIO_IRQ_EDGE_FALL;
+    
+    // FIXME: edge_mask=0 does not stop acq?
 	gpio_set_irq_enabled_with_callback(args->pin, edge_mask, true, &pin_on_change_IRQ);
 }
 
