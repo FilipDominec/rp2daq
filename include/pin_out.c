@@ -32,7 +32,7 @@ void pin_set() {
 }
 
 
-// TODO multiple pin setting with gpio_get_all(), gpio_xor_mask() etc.
+// TODO multiple pin setting at once: with gpio_get_all(), gpio_xor_mask() etc.
 
 
 
