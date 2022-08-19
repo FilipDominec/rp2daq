@@ -20,13 +20,19 @@ void pin_set() {
 		} else {
 			gpio_pull_down(args->pin);
 		}
+        // TODO test also gpio_disable_pulls() - RP2 is has, in fact, five-state pins
+        // setting both pulls enables a "bus keep" function, i.e. a weak pull to whatever is current high/low state of GPIO
 	} else {
 		gpio_put(args->pin, args->value);
 		gpio_set_dir(args->pin, GPIO_OUT);
 	}
-
+    // TODO for outputs: gpio_set_slew_rate(GPIO_SLEW_RATE_SLOW) or GPIO_SLEW_RATE_FAST
+    // TODO     and:     gpio_set_drive_strength()
 	tx_header_and_data(&pin_set_report, sizeof(pin_set_report), 0, 0, 0);
 }
+
+
+// TODO multiple pin setting with gpio_get_all(), gpio_xor_mask() etc.
 
 
 
@@ -76,6 +82,7 @@ void pin_on_change() {
 	if (args->on_falling_edge) edge_mask |= GPIO_IRQ_EDGE_FALL;
     
     // FIXME: edge_mask=0 does not stop acq?
+    //          try gpio_remove_raw_irq_handler()
 	gpio_set_irq_enabled_with_callback(args->pin, edge_mask, true, &pin_on_change_IRQ);
 }
 
