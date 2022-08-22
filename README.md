@@ -31,17 +31,16 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
  * USB micro cable ($3),
  * a computer with [Python (3.8+)](https://realpython.com/installing-python/) and ```python-pyserial``` package installed.
 	* On Windows, [get anaconda](https://docs.anaconda.com/anaconda/install/windows/) if unsure.
-	* On Linux, Python3 should already be there
+	* On Linux, Python3 should already be there, and ```python-serial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
     * On Mac, it should be there though [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
 
 ### Upload the firmware (only once)
 
-1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. 
-    * (If preferred, you can also use ```git clone https://github.com/FilipDominec/rp2daq.git```)
-1. Holding the white "BOOTSEL" button on Raspberry Pi Pico, connect it to your computer with the USB cable. Release the ```BOOTSEL``` switch.
-    * In few seconds it should register as a new flash drive, containing INDEX.HTM and INFO_UF2.TXT. 
+1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. (If preferred, you can also use ```git clone https://github.com/FilipDominec/rp2daq.git```)
+1. Holding the white "BOOTSEL" button on Raspberry Pi Pico, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
+    * *In few seconds it should register as a new flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
 1. Copy the ```build/rp2daq.uf2``` file to RP2. 
-    * *The flashdrive should disconnect in a second.* 
+    * *The fake flashdrive should disconnect in a second.* 
     * *The green diode on RP2 then blinks twice, indicating the firmware is running and awaiting commands.*
 
 ### Run hello_world.py
@@ -102,8 +101,8 @@ Consider the following example, which does almost the same as the previous one:
 import rp2daq
 rp = rp2daq.Rp2daq()
 
-def my_callback(**result):
-	print(result)
+def my_callback(**kwargs):
+	print(kwargs)
 
 rp.internal_adc(_callback=my_callback)
 
@@ -120,11 +119,13 @@ Calling commands asynchronously allows one to simultaneously orchestrate multipl
 
 Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
 
-Both synchronous and asynchronous commands can be called from within a callback. But calling asynchro command, and calling a synchronous command of the same type *before the callback is executed*, will result in this callback being "forgotten" and never called afterwards.
+Both synchronous and asynchronous commands can be issued from within a callback. 
+
+Calling one asynchronous and one synchronous command *of the same type* and in close succession (i.e. before the first command finishes and corresponding callback is dispatched), will result in this callback never being called, as it would be overriden by the synchronous command.
 
 ### Receiving a lot of data
 
-Maybe the greatest strength of the asynchronous is that they allow one to consecutively acquire unlimited amount of data. Following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (there is 8k sample buffer). Following code thus can monitor slow processes, like temperature changes or battery discharge.
+Maybe the greatest advantage of the asynchronous ADC calls is that they allow one to consecutively acquire unlimited amount of data. Following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (there is 8k sample buffer). Following code thus can monitor slow processes, like temperature changes or battery discharge.
 
 ```Python
 import rp2daq
