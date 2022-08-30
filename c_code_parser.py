@@ -177,7 +177,7 @@ def gather_C_code():
     return C_code
 
 if __name__ == "__main__":
-    pyref_file = "./PYTHON_REFERENCE.md"
+    pyref_file = "./docs/PYTHON_REFERENCE.md"
     print("This module was run as a command. It will parse C code and re-generate "+pyref_file)
     
     command_functions, markdown_docs = generate_command_binary_interface()

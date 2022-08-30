@@ -19,7 +19,8 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 	* [ ] high-speed digital acquisition (e.g. 100 MSPS logic analyzer, or oscilloscope using AD9288)
  * Documentation:
     * [x] [No programming: setting up hardware and first tests](#no-programming-setting-up-hardware-and-first-tests)
-    * [ ] Python programming: basic concepts and examples
+    * [x] [Python programming: basic concepts and examples](#python-programming-basic-concepts)
+    * [x] [Python command reference](docs/PYTHON_REFERENCE.md)
     * [ ] [C programming: extending rp2daq's capabilities](docs/DEVELOPERS.md)
     * [x] [PAQ - Presumably asked questions](#paq-presumably-asked-questions)
 
