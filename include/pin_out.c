@@ -1,29 +1,32 @@
 
 struct __attribute__((packed)) {
-    uint8_t report_code;
+    uint8_t report_code; // identifies command & report type
 } pin_set_report;
 
 void pin_set() {
-    /* Changes the state of a pin; it can output low or high, have low-current pull-up or pull-down, 
-     * or be entirely of high-impedance (like if disconnected).
-     *
+    /* Changes the output state of the specified *pin*. The optional arguments, if not left default, determine the pin's
+     * multi-state logic behaviour. Namely, if *high_z* = 1 and no "pulls" are set, the pin behaves as if 
+     * disconnected (the impedance is over 1 megaohm). 
+     * 
+     * This still can be changed by setting *pull_up* or *pull_down*.
+     * 
+     * __This command results in single near-immediate report.__
      */
 	struct  __attribute__((packed)) {
-		uint8_t pin;		// min=0 max=25
-		uint8_t value;		// min=0 max=1
-		uint8_t high_z; 	// min=0 max=1 default=0
-		uint8_t pull_up; 	// min=0 max=1 default=0
+		uint8_t pin;		// min=0 max=25 The number of the pin to be configured
+		uint8_t value;		// min=0 max=1  Output value (i.e. 0 or 3.3 V) for high_z = 0
+		uint8_t high_z; 	// min=0 max=1 default=0 High-impedance (i.e. not sinking nor sourcing current)
+		uint8_t pull_up; 	// min=0 max=1 default=0 If high_z = 1, connects to 3.3V through built-in resistor  
+		uint8_t pull_down; 	// min=0 max=1 default=0 If high_z = 1, connects to 0V through built-in resistor  
 	} * args = (void*)(command_buffer+1);
 	gpio_init(args->pin); 
 
 	if (args->high_z) 
 	{	
 		gpio_set_dir(args->pin, GPIO_IN);
-		if (args->pull_up) {
-			gpio_pull_up(args->pin);
-		} else {
-			gpio_pull_down(args->pin);
-		}
+		if (args->pull_up) { gpio_pull_up(args->pin); };
+		if (args->pull_up) { gpio_pull_down(args->pin); };
+
         // TODO test also gpio_disable_pulls() - RP2 is has, in fact, five-state pins
         // setting both pulls enables a "bus keep" function, i.e. a weak pull to whatever is current high/low state of GPIO
 	} else {
@@ -47,6 +50,10 @@ struct __attribute__((packed)) {
 } pin_get_report;
 
 void pin_get() {
+    /* Checks the digital state of a pin. Most useful if the pin is configured as high-impedance input.
+     * 
+     * __This command results in single near-immediate report.__
+     */
 	struct  __attribute__((packed)) {
 		uint8_t pin;		// min=0 max=25
 	} * args = (void*)(command_buffer+1);
@@ -74,10 +81,16 @@ void pin_on_change_IRQ(uint pin, uint32_t events) {
 }
 
 void pin_on_change() {
+    /* Sets up a pin to issue a report every time the pin changes its state. This is sensitive to both external and internal events.
+     * 
+     * __Fixme__: in current firmware, edge events cannot be turned off! 
+     * 
+     * __This command potentially results in multiple delayed reports. Note that input signal over 10kHz may result in some events being not reported.__
+     */
 	struct  __attribute__((packed)) {
-		uint8_t pin;		// min=0 max=25
-		uint8_t on_rising_edge;		// min=0 max=1 default=1
-		uint8_t on_falling_edge;		// min=0 max=1 default=1
+		uint8_t pin;		// min=0 max=25 Pin specification
+		uint8_t on_rising_edge;  // min=0 max=1 default=1 Reports on pin going from logical 0 to 1
+		uint8_t on_falling_edge; // min=0 max=1 default=1 Reports on pin going from logical 1 to 0
 	} * args = (void*)(command_buffer+1);
 	
 	uint8_t edge_mask = 0;

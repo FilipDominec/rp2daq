@@ -72,10 +72,9 @@ class Rp2daq(threading.Thread):
         # #define FIRMWARE_VERSION {"rp2daq_220720_"}
         # self.expected_firmware_v = 
 
-        names_codes = c_code_parser.generate_command_binary_interface()
+        names_codes, markdown_docs  = c_code_parser.generate_command_binary_interface()
         for cmd_name, cmd_code in names_codes.items():
             exec(cmd_code)
-            # TODO write, parse & add docstring
             setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
 
         # Search C code for report structs & generate automatically:

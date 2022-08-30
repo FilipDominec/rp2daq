@@ -8,8 +8,12 @@ struct __attribute__((packed)) {
 } identify_report;
 
 void identify() {   
+    /* Mostly for internal use: confirms the RP2DAQ device is up and has matching firmware version
+     * 
+     * __This command results in single near-immediate report.__
+     */ 
 	struct  __attribute__((packed)) { 
-        uint8_t flush_buffer;    // min=0 max=1 default=1
+        uint8_t flush_buffer;    // min=0 max=1 default=1 Avoid possible pending messages from previous session
 	} * args = (void*)(command_buffer+1);
 
     // This ditches all pending messages, which can make a python script in computer wait

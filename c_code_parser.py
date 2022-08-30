@@ -51,28 +51,18 @@ def generate_command_binary_interface():
     message specification in the C code. For convenience, these functions have properly named 
     parameters, possibly with default values, and with checks for their minimum/maximum 
     allowed values. """
+    # Fixme: error-prone assumption that args are always the 1st block
 
     C_code = gather_C_code()
     command_codes = generate_command_codes(C_code)
 
     func_dict = {}
+    markdown_docs = ""
     for command_name in command_codes.keys():
-        #print(command_name, f"void {command_name}\\(\\)" in C_code)
         command_code = command_codes[command_name]
         q = re.search(f"void\\s+{command_name}\\s*\\(\\)", C_code)
-        #print(C_code[q.span()[1]:q.span()[1]+1000])
         func_body = get_next_code_block(C_code[q.span()[1]:]) # code enclosed by closest brace block
-        # Fixme: error-prone assumption that args are always the 1st block
         args_struct = get_next_code_block(func_body) 
-
-        try:
-            c_docstring = get_next_code_block(func_body, lbrace="/*", rbrace="*/") 
-            exec_docstring = re.sub(r"\n(\s+\*)?", "\n\t", c_docstring)
-            print(exec_docstring) # rm leading asterisks
-            #exec_docstring = print(re.sub(r"\n(\s+\*)?", "\n\t", c_docstring)) # rm leading asterisks
-            print('DOC_STRUCT'); print(exec_docstring)
-        except IndexError: 
-            exec_docstring = ""
 
         struct_signature, cmd_length = "", 0
         arg_names, arg_defaults = [], []
@@ -82,14 +72,29 @@ def generate_command_binary_interface():
         exec_struct = f"" 
         exec_stargs = f""
 
-        for line in re.finditer(r"(u?)int(8|16|32)_t\s+([\w,]*)([; \t\w=\-\/]*)",  args_struct):
+        try:
+            raw_docstring = get_next_code_block(func_body, lbrace="/*", rbrace="*/").strip()
+            raw_docstring = re.sub(r"\n(\s*\*)? ?", "\n", raw_docstring)  # rm leading asterisks, keep indent
+        except IndexError: 
+            raw_docstring = ""
+        exec_docstring = f"{raw_docstring}\n\n"
+
+        #print(exec_docstring)
+
+
+        param_docstring = ""
+        for line in re.finditer(r"(u?)int(8|16|32)_t\s+([\w,]*)(.*)",  args_struct):
             unsigned, bits, arg_name_multi, line_comments = line.groups()
             bit_width_code = {8:'b', 16:'h', 32:'i'}[int(bits)]
 
-            comment_dict = {}
-            for comment in re.split("\\s+", line_comments):
-                if u := re.match("(\\w*)=(-?\\d*)", comment):
-                    comment_dict[u.groups()[0]] = u.groups()[1]
+            arg_attribs = {}
+            arg_comment = ""
+            for commentoid in re.split("\\s+", line_comments):
+                if u := re.match("(\\w*)=(-?\\d*)", commentoid):
+                    arg_attribs[u.groups()[0]] = u.groups()[1]
+                elif not commentoid in ("", "//", ";"):
+                    arg_comment += " " + commentoid
+                comment = arg_comment.strip()
 
             for arg_name in arg_name_multi.split(","):
                 cmd_length += int(bits)//8
@@ -97,21 +102,33 @@ def generate_command_binary_interface():
                 exec_stargs += f"\n\t\t\t{arg_name},"
                 arg_names.append(arg_name)
 
-                if (d := comment_dict.get("default")):
+                if (d := arg_attribs.get("default")):
                     exec_header += f"{arg_name}={d}, "
                 else: 
-                    exec_header += f"{arg_name},"
-                if m := comment_dict.get("min") is not None:
-                    exec_prepro += f"\tassert {arg_name} >= {comment_dict['min']}, "+\
-                            f"'Minimum value for {arg_name} is {comment_dict['min']}'\n"
-                if m := comment_dict.get("max") is not None:
-                    exec_prepro += f"\tassert {arg_name} <= {comment_dict['max']},"+\
-                            f"'Maximum value for {arg_name} is {comment_dict['max']}'\n"
+                    exec_header += f"{arg_name}, "
+                if m := arg_attribs.get("min") is not None:
+                    exec_prepro += f"\tassert {arg_name} >= {arg_attribs['min']}, "+\
+                            f"'Minimum value for {arg_name} is {arg_attribs['min']}'\n"
+                if m := arg_attribs.get("max") is not None:
+                    exec_prepro += f"\tassert {arg_name} <= {arg_attribs['max']},"+\
+                            f"'Maximum value for {arg_name} is {arg_attribs['max']}'\n"
+
+                param_docstring += f"  * {arg_name} {':' if comment else ''} {comment} \n" #  TODO print range  (min=0 max= 2³²-1)
+
+        param_docstring += f"  * _callback : a function to later handle the report; if set, makes this command asynchronous \n\n"
+
+        #exec_docstring += "Returns:\n\n" # TODO analyze report structure (and comments therein)
+
+        # Append extracted docstring to the overall API reference
+        markdown_docs += f"\n\n## {command_name}\n\n{raw_docstring}\n\n"
+        markdown_docs += f"__Call signature:__\n\n`{command_name}({exec_header} _callback=None)`\n\n"
+        markdown_docs += f"__Parameters__:\n\n{param_docstring}\n"
+        #markdown_docs += f"{raw_docstring}\n\n#### Arguments:"
 
         # once 16-bit msglen enabled: cmd_length will go +3, and 1st struct Byte must change to Half-int 
         exec_msghdr = f"', {cmd_length+2}, {command_code}, "
         code = f"def {command_name}(self,{exec_header} _callback=None):\n" +\
-                f'\t"""{exec_docstring}"""\n' +\
+                f'\t"""{raw_docstring}Parameters:\n{param_docstring}"""\n' +\
                 exec_prepro +\
                 f"\tif {command_code} not in self.sync_report_cb_queues.keys():\n" +\
                 f"\t\tself.sync_report_cb_queues[{command_code}] = queue.Queue()\n" +\
@@ -121,8 +138,9 @@ def generate_command_binary_interface():
                 f"\t\treturn self.default_blocking_callback({command_code})"
 
 
+
         func_dict[command_name] = code  # returns Python code
-    return func_dict
+    return func_dict, markdown_docs
 
 def generate_report_binary_interface():
     C_code = gather_C_code()
@@ -159,9 +177,17 @@ def gather_C_code():
     return C_code
 
 if __name__ == "__main__":
-    print("This module was run as a command. It will print out the generated command interface.")
+    pyref_file = "./PYTHON_REFERENCE.md"
+    print("This module was run as a command. It will parse C code and re-generate "+pyref_file)
     
-    command_functions = generate_command_binary_interface()
+    command_functions, markdown_docs = generate_command_binary_interface()
+
+    with open(pyref_file, "w") as of:
+        of.write("# RP2DAQ: Python API reference\n\nThis file was auto-generated by c_code_parser.py, " + 
+            "using comments found in all ```include/*.c``` source files.\n\n Contents:\n\n")
+        for cmdname in command_functions.keys():
+            of.write(f"   1. [{cmdname}](#{cmdname})\n") # .replace('_','-')
+        of.write(markdown_docs)
     #for func_name, func_code in command_functions.items():
         #print(func_code)
 
