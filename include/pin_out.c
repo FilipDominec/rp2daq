@@ -4,6 +4,10 @@ struct __attribute__((packed)) {
 } pin_set_report;
 
 void pin_set() {
+    /* Changes the state of a pin; it can output low or high, have low-current pull-up or pull-down, 
+     * or be entirely of high-impedance (like if disconnected).
+     *
+     */
 	struct  __attribute__((packed)) {
 		uint8_t pin;		// min=0 max=25
 		uint8_t value;		// min=0 max=1

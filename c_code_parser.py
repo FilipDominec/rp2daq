@@ -65,6 +65,15 @@ def generate_command_binary_interface():
         # Fixme: error-prone assumption that args are always the 1st block
         args_struct = get_next_code_block(func_body) 
 
+        try:
+            c_docstring = get_next_code_block(func_body, lbrace="/*", rbrace="*/") 
+            exec_docstring = re.sub(r"\n(\s+\*)?", "\n\t", c_docstring)
+            print(exec_docstring) # rm leading asterisks
+            #exec_docstring = print(re.sub(r"\n(\s+\*)?", "\n\t", c_docstring)) # rm leading asterisks
+            print('DOC_STRUCT'); print(exec_docstring)
+        except IndexError: 
+            exec_docstring = ""
+
         struct_signature, cmd_length = "", 0
         arg_names, arg_defaults = [], []
 
@@ -102,6 +111,7 @@ def generate_command_binary_interface():
         # once 16-bit msglen enabled: cmd_length will go +3, and 1st struct Byte must change to Half-int 
         exec_msghdr = f"', {cmd_length+2}, {command_code}, "
         code = f"def {command_name}(self,{exec_header} _callback=None):\n" +\
+                f'\t"""{exec_docstring}"""\n' +\
                 exec_prepro +\
                 f"\tif {command_code} not in self.sync_report_cb_queues.keys():\n" +\
                 f"\t\tself.sync_report_cb_queues[{command_code}] = queue.Queue()\n" +\
@@ -117,7 +127,7 @@ def generate_command_binary_interface():
 def generate_report_binary_interface():
     C_code = gather_C_code()
     command_codes = generate_command_codes(C_code)
-    report_lengths, report_header_signatures, arg_namess = {}, {}, {}
+    report_lengths, report_header_signatures, arg_names_for_reports = {}, {}, {}
     for report_name, report_number in command_codes.items():
         q = re.search(f"}}\\s*{report_name}_report", C_code)
         #print(report_number, report_name,q)
@@ -138,9 +148,9 @@ def generate_report_binary_interface():
         report_lengths[report_number] = report_length
         assert report_length > 0, "every report has to contain at least 1 byte, troubles ahead"
         report_header_signatures[report_number] = report_header_signature
-        arg_namess[report_number] = arg_names
+        arg_names_for_reports[report_number] = arg_names
 
-    return report_lengths, report_header_signatures, arg_namess
+    return report_lengths, report_header_signatures, arg_names_for_reports
 
 def gather_C_code():
     C_code = open('rp2daq.c').read()
@@ -152,14 +162,13 @@ if __name__ == "__main__":
     print("This module was run as a command. It will print out the generated command interface.")
     
     command_functions = generate_command_binary_interface()
-    for func_name, func_code in command_functions.items():
-        print(func_code)
+    #for func_name, func_code in command_functions.items():
+        #print(func_code)
 
-    report_lengths, report_header_signatures, arg_namess = generate_report_binary_interface()
-
-    print(f"{report_lengths=}")
-    print(f"{report_header_signatures=}")
-    print(f"{arg_namess=}")
+    report_lengths, report_header_signatures, arg_names_for_reports = generate_report_binary_interface()
+    #print(f"{report_lengths=}")
+    #print(f"{report_header_signatures=}")
+    #print(f"{arg_names_for_reports=}")
 
 
 
