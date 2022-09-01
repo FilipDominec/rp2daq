@@ -28,14 +28,14 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 ### Get hardware & upload firmware
 
-1. Get material: a Raspberry Pi Pico ($5) with a cable ($3), and a computer with [Python (3.8+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
+1. Get material: a Raspberry Pi Pico (RP2) with a USB cable, and a computer with [Python (3.8+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
 	* On Windows, [get anaconda](https://docs.anaconda.com/anaconda/install/windows/) if unsure.
 	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
     * On Mac, it should be there though [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
 1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. (Or you can also ```git clone``` this repo.)
-1. Holding the white "BOOTSEL" button on Raspberry Pi Pico, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
-    * *In few seconds the device should register as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
-1. Copy the ```build/rp2daq.uf2``` file to RP2. 
+1. Holding the white "BOOTSEL" button on your RP2, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
+    * *In few seconds the RP2 should appear as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
+1. Copy the ```build/rp2daq.uf2``` file directly to RP2. 
     * *The fake flashdrive should disconnect in a second.* 
     * *The green diode on RP2 then flashes twice, indicating the firmware is running and awaiting commands.*
 
