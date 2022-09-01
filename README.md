@@ -89,7 +89,7 @@ Most RP2DAQ's commands accept optional, so called *named* parameters. If they ar
 
 Note that in ```ipython3``` environment, the list of commands is suggested by ipython when one hits TAB after writing ```rp.```:
 
-![ipython console printout for rp.internal_adc?](docs/ipython_command_list.png)
+![ipython console printout for rp.internal_adc?](docs/ipython_command_hint.png)
 
 The docstring for any command is printed out when one adds ```?``` and hits enter:
 
