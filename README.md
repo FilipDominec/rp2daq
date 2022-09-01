@@ -83,17 +83,20 @@ print(result)
 
 The last line prints a standard pythonic dictionary, with several (more or less useful) key:value pairs. Among these, the ADC readouts are simply named ```data```.
 
-### Finding out optional parameters
 
-Most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
+### Note on exploring other commands
 
-Note that in ```ipython3``` environment, the list of commands is suggested by ipython when one hits TAB after writing ```rp.```:
+The ```ipython3``` interface has numerous user-friendly features. For instance, the list of commands is suggested by ipython when one hits TAB after writing ```rp.```:
 
 ![ipython console printout for rp.internal_adc?](docs/ipython_command_hint.png)
 
 The docstring for any command is printed out when one adds ```?``` and hits enter:
 
 ![ipython console printout for rp.internal_adc?](docs/ipython_command_info.png)
+
+Note that most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
+
+Alternately, the same information is extracted in the [Python API reference](docs/PYTHON_REFERENCE.md).
 
 
 ### Asynchronous commands
@@ -114,7 +117,7 @@ import time
 time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
 ```
 
-One difference is that it looks a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the device responds data packet arrives back, the ```_callback``` function is called (in a separate thread) to process it. 
+One obvious difference is that it is a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the device responds data packet arrives back, the ```_callback``` function is called (in a separate thread) to process it. 
 
 Calling commands asynchronously allows one to simultaneously orchestrate multiple functions like long ADC acquisition and stepping motor movement. Raspberry Pi may be busy for a while, but your program remains responsive all the time.
 
