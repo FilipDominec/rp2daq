@@ -112,9 +112,9 @@ import time
 time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
 ```
 
-One obvious difference is that it is a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the device responds data packet arrives back, the ```_callback``` function is called (in a separate thread) to process it. 
+One obvious difference is that it is a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
 
-Calling commands asynchronously allows one to simultaneously orchestrate multiple functions like long ADC acquisition and stepping motor movement. Raspberry Pi may be busy for a while, but your program remains responsive all the time.
+Calling commands asynchronously allows one to simultaneously orchestrate multiple functions. This is especially useful for long ADC acquisition and stepping motor movement. Raspberry Pi may take some seconds or minutes to finish the command, but your program remains responsive. Meanwhile, it can even interact with the device, *almost as* if there was no prior command.
 
 ### Caveats of advanced asynchronous commands use
 
