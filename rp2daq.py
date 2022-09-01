@@ -41,11 +41,28 @@ def init_error_msgbox():  # error handling with a graphical message box
     sys.excepthook = myerr
 
 
-class Rp2daq(threading.Thread):
+
+class Rp2daq():
     def __init__(self, required_device_id=None, verbose=False):
 
         logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, 
                 format='%(asctime)s (%(threadName)-9s) %(message)s',) # filename='rp2.log',
+
+        # Most of the technicalities are delegated to the following class. The Rp2daq's namespace 
+        # will be dynamically populated with useful commands
+        self._i = Rp2daq_internals(externals=self, required_device_id=required_device_id, verbose=verbose)
+
+
+    def quit(self):
+        """Clean termination of tx/rx threads""" # TODO: add device reset option
+        self._i.run_event.clear()
+
+
+
+class Rp2daq_internals(threading.Thread):
+    def __init__(self, externals, required_device_id=None, verbose=False):
+
+        self._e = externals
 
         self._register_commands()
 
@@ -54,7 +71,7 @@ class Rp2daq(threading.Thread):
 
         ## Asynchronous communication using threads
         self.sleep_tune = 0.001
-        # TODO Does this have to inherit from Thread? It brings a bunch of unused methods...
+
         threading.Thread.__init__(self) 
         self.data_receiving_thread = threading.Thread(target=self._data_receiver, daemon=True)
         self.report_processing_thread = threading.Thread(target=self._report_processor, daemon=True)
@@ -67,6 +84,7 @@ class Rp2daq(threading.Thread):
         self.callback_dispatching_thread.start()
         self.run_event.set()
 
+
     def _register_commands(self):
         # TODO 0: search C code for version, check it matches that one returned by Raspberry Pi at runtime
         # #define FIRMWARE_VERSION {"rp2daq_220720_"}
@@ -75,7 +93,7 @@ class Rp2daq(threading.Thread):
         names_codes, markdown_docs  = c_code_parser.generate_command_binary_interface()
         for cmd_name, cmd_code in names_codes.items():
             exec(cmd_code)
-            setattr(self, cmd_name, types.MethodType(locals()[cmd_name], self))
+            setattr(self._e, cmd_name, types.MethodType(locals()[cmd_name], self))
 
         # Search C code for report structs & generate automatically:
         self.sync_report_cb_queues = {}
@@ -85,9 +103,6 @@ class Rp2daq(threading.Thread):
 
         # Register callbacks (to dispatch reports as they arrive)
         self.report_callbacks = {} 
-
-    def quit(self):
-        self.run_event.clear()
 
 
     def _data_receiver(self):
@@ -173,7 +188,7 @@ class Rp2daq(threading.Thread):
 
             except OSError:
                 logging.error("Device disconnected")
-                self.quit()
+                self._e.quit()
 
     def _callback_dispatcher(self):
         """
@@ -216,7 +231,6 @@ class Rp2daq(threading.Thread):
                 #       disturbs the former device's operation; get unique serial number w/o messaging?
                 #       for a in dir(try_port): print(f'\t{a:20} = {getattr(try_port,a)}')
                 #       but 'dmesg' prints out also this: "usb 1-2: SerialNumber: E66058388348892D"
-                print(try_port.inWaiting() )
                 #try_port.flush()
                 #time.sleep(.05) # 50ms round-trip time is enough
 

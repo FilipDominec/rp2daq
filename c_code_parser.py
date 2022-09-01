@@ -77,7 +77,7 @@ def generate_command_binary_interface():
             raw_docstring = re.sub(r"\n(\s*\*)? ?", "\n", raw_docstring)  # rm leading asterisks, keep indent
         except IndexError: 
             raw_docstring = ""
-        exec_docstring = f"{raw_docstring}\n\n"
+        exec_docstring = f"{raw_docstring.replace('__','')}\n\n"
 
         #print(exec_docstring)
 
@@ -128,7 +128,7 @@ def generate_command_binary_interface():
         # TODO once 16-bit msglen enabled: cmd_length will go +3, and 1st struct Byte must change to Half-int 
         exec_msghdr = f"', {cmd_length+2}, {command_code}, "
         code = f"def {command_name}(self,{exec_header} _callback=None):\n" +\
-                f'\t"""{raw_docstring}Parameters:\n{param_docstring}"""\n' +\
+                f'\t"""{raw_docstring}\n\nParameters:\n{param_docstring}"""\n' +\
                 exec_prepro +\
                 f"\tif {command_code} not in self.sync_report_cb_queues.keys():\n" +\
                 f"\t\tself.sync_report_cb_queues[{command_code}] = queue.Queue()\n" +\

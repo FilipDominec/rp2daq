@@ -23,7 +23,8 @@ struct {
 void internal_adc() {
     /* Initiates analog-to-digital conversion (ADC), using by the RP2040 built-in feature.
      * 
-     * __This command can result in one, several or infinitely many report(s). They can be near infinite, or delayed, depending on block size and timing. __
+     * __This command can result in one, several or infinitely many report(s). They can be 
+     * almost immediate or delayed, depending on block size and timing. __
      */ 
 	struct __attribute__((packed)) {
 		uint8_t channel_mask;		// default=1		min=0		max=31 Bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor

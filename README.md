@@ -87,11 +87,13 @@ The last line prints a standard pythonic dictionary, with several (more or less 
 
 Most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
 
-A complete list of parameters for a command can be obtained e.g. in ipython environment by replacing ```()``` with a ```?``` and hitting enter:
+Note that in ```ipython3``` environment, the list of commands is suggested by ipython when one hits TAB after writing ```rp.```:
 
-![ipython console printout for rp.internal_adc?](docs/ipython01.png)
+![ipython console printout for rp.internal_adc?](docs/ipython_command_list.png)
 
-Note that list of commands is suggested by ipython when one hits tab after writing ```rp.```
+The docstring for any command is printed out when one adds ```?``` and hits enter:
+
+![ipython console printout for rp.internal_adc?](docs/ipython_command_info.png)
 
 
 ### Asynchronous commands
