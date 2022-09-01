@@ -26,23 +26,18 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 # No programming: setting up hardware and first tests
 
-### Get material
+### Get hardware & upload firmware
 
- * Raspberry Pi Pico ($5),
- * USB micro cable ($3),
- * a computer with [Python (3.8+)](https://realpython.com/installing-python/) and ```python-pyserial``` package installed.
+1. Get material: a Raspberry Pi Pico ($5) with a cable ($3), and a computer with [Python (3.8+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
 	* On Windows, [get anaconda](https://docs.anaconda.com/anaconda/install/windows/) if unsure.
-	* On Linux, Python3 should already be there, and ```python-serial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
+	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
     * On Mac, it should be there though [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
-
-### Upload the firmware (only once)
-
-1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. (If preferred, you can also use ```git clone https://github.com/FilipDominec/rp2daq.git```)
+1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. (Or you can also ```git clone``` this repo.)
 1. Holding the white "BOOTSEL" button on Raspberry Pi Pico, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
-    * *In few seconds it should register as a new flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
+    * *In few seconds the device should register as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
 1. Copy the ```build/rp2daq.uf2``` file to RP2. 
     * *The fake flashdrive should disconnect in a second.* 
-    * *The green diode on RP2 then blinks twice, indicating the firmware is running and awaiting commands.*
+    * *The green diode on RP2 then flashes twice, indicating the firmware is running and awaiting commands.*
 
 ### Run hello_world.py
 
@@ -50,9 +45,9 @@ Launch the ```hello_world.py``` script in the main project folder.
 
 ![Two possible outcomes of the script](docs/hello_world_screens.png)
 
-* If an rp2daq device is available, a window like the one depicted on left should appear; you can interactively control the onboard LED with the buttons.  
-* If an error message appears (like depicted right), the device does not respond correctly. Check it blinks twice when USB is re-connected, or make sure you uploaded fresh firmware. 
-* If no window appears, there is some trouble with your Python installation.
+* If a window like the one depicted left appears, rp2daq device is ready to be used! You can interactively control the onboard LED with the buttons.  
+* If an error message appears (like depicted right) the device does not respond correctly. Check it your RP2 blinks twice when USB is re-connected, and make sure you uploaded fresh firmware. 
+* If no window appears, there is some error with your Python3 or ```python-pyserial``` installation. 
 
 
 # Python programming: basic concepts
