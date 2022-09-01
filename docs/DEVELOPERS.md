@@ -2,13 +2,13 @@
 
 ## Don't write C code, unless you are sure you want to
 
-In most expected use cases, pre-compiled RP2DAQ firmware only needs to be downloaded and flashed once, as described in the [main README document](README.md). All its functions will then be activated at runtime by the Python script in your computer.
+In most expected use cases, pre-compiled rp2daq firmware only needs to be downloaded and flashed once, as described in the [main README document](README.md). All its functions will then be activated at runtime by the Python script in your computer.
 
 But in more specific applications, where entirely new functionality with tight timing, or some new communication protocol is required, you may want to fork this project and modify the C firmware to your needs. All necessary information should be summed up in this document and in the corresponding C code.
 
 We will appreciate your contributions if you decide to share them back. You can first discuss your needs and plans on the [issues page](https://github.com/FilipDominec/rp2daq/issues).
 
-RP2DAQ can also serve as a convenient "boilerplate" for your own projects. We try to keep the code base readable and reasonably short.
+Rp2daq's messaging interface can also serve as a convenient "boilerplate" for your own projects. We try to keep the code base readable and reasonably short.
 
 
 
@@ -16,16 +16,16 @@ RP2DAQ can also serve as a convenient "boilerplate" for your own projects. We tr
 
 The firmware is written in C language and uses [Raspberry Pi Pico SDK](https://raspberrypi.github.io/pico-sdk-doxygen/) (which was chosen instead of the Arduino ecosystem, but some libraries from the latter [can be ported](https://www.hackster.io/fhdm-dev/use-arduino-libraries-with-the-rasperry-pi-pico-c-c-sdk-eff55c)). 
 
-If you can already compile and upload [the official blinking LED example](https://www.raspberrypi.com/news/how-to-blink-an-led-with-raspberry-pi-pico-in-c/), doing the same with RP2DAQ should be straightforward. The following procedure is therefore mostly for convenience. 
+If you can already compile and upload [the official blinking LED example](https://www.raspberrypi.com/news/how-to-blink-an-led-with-raspberry-pi-pico-in-c/), doing the same with rp2daq should be straightforward. The following procedure is therefore mostly for convenience. 
 
 Note that this procedure, with obvious minor changes, can be perused for uploading any other C-language project as well.
 
-Linux is the primary development OS for *rp2daq*; development of firmware on other OS is not covered here yet.
+Linux is the primary development OS for rp2daq; development of firmware on other OS is not covered here yet.
 
 
 #### Setup development dependencies (once)
 
-Please note once again that compilation is *not* necessary to use RP2DAQ from Python. 
+Please note once again that compilation is *not* necessary to use rp2daq from Python. 
 Only if you made some changes in the rp2daq firmware's, follow these steps. 
 
 The `pico_setup.sh` script will help you to download and compile the *Standard Development Kit* (SDK) with dependencies, requiring only your password and few minutes:
@@ -40,10 +40,10 @@ The `pico_setup.sh` script will help you to download and compile the *Standard D
 
 #### Fresh compilation (once)
 
-Now go to the folder where you downloaded *rp2daq*, e.g.:
+Now go to the folder where you downloaded rp2daq, e.g.:
 
 ```bash
-    cd ~/rp2daq/
+    cd ~/rp2daq/   # according to your choice
 ```
 
 Fresh compilation (or re-compilation if Cmake options changed):
@@ -84,7 +84,8 @@ Disconnect it & reconnect it the last time. From this point on, the upload proce
 
 #### Parallelism
 
-RP2DAQ aims to squeeze maximum power from the RP2040 chip, without putting programming burden on the user. To this end,
+Rp2daq aims to squeeze maximum power from the RP2040 chip, without putting programming burden on the user. To this end,
+
     * the board is by default **overclocked from 133 MHz to 250 MHz**,
     * **hardware is used in parallel**: 1st CPU core mostly for communication and immediate command handling, 2nd core for real-time control; other hardware features like ADC+DMA and PWM operate independent the CPU cores),
     * **the firmware handles real-time tasks in non-blocking manner**, thanks to which commands of different types can be run concurrently without interfering with each other, 
@@ -95,9 +96,9 @@ Each instance of Rp2daq class in Python connects to a single board. In demanding
 
 #### Code structure and concepts
 
-RP2DAQ had to define its own Python interface, which is supposed to be as friendly and terse as possible. It should enable one to design useful experiments with literally a dozen of Python code lines.
+Rp2daq had to define its own Python interface, which is supposed to be as friendly and terse as possible. It should enable one to design useful experiments with literally a dozen of Python code lines.
 
-Simultaneously, the firmware is built atop on the [Pi Pico C SDK](https://github.com/raspberrypi/pico-sdk) and it does not obscure this fact. Instead it adheres to its logic where possible. The aim is not to build a new wrapper for the SDK, but simply make its most useful features quickly accessible to the python script in the computer. The [pico-SDK reference](https://raspberrypi.github.io/pico-sdk-doxygen/) and [RP2040 datasheet](https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf) are still good resources for advanced use of RP2DAQ.
+Simultaneously, the firmware is built atop on the [Pi Pico C SDK](https://github.com/raspberrypi/pico-sdk) and it does not obscure this fact. Instead it adheres to its logic where possible. The aim is not to build a new wrapper for the SDK, but simply make its most useful features quickly accessible to the python script in the computer. The [pico-SDK reference](https://raspberrypi.github.io/pico-sdk-doxygen/) and [RP2040 datasheet](https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf) are still good resources for advanced use of rp2daq.
 
 
 #### Communication and messaging
@@ -106,13 +107,14 @@ Rp2daq implements its own binary communication protocol for efficient data trans
 
 Calling one command from computer will result in least one report being received, either immediately (e.g. device ID would be reported within a millisecond) or delayed (e.g. if motor movement is to be finished first). Some commands may result in several or even unlimited number of reports (e.g. continuous ADC measurement), but in no case a command passes without *any* report coming in future. The reason for this rule is this: When any command is called in Python without callback explicitly specified, the command is *synchronous*, that is, the script waits until the first report of the corresponding type is received. Not receiving a report would thus lead to the script halting indefinitely.
 
-The ```rp2daq.py``` is a thin wrapper to the commands and reports, and since it is dynamically generated at runtime, its code contains no information about them. Commands and reports are fully defined once in the C code, namely in the ```include/``` directory, and listed in the ```message_table``` (in ```rp2daq.c```). 
+The ```rp2daq.py``` is a wrapper to the commands and reports, and since it is dynamically generated at runtime, the Python code contains no information about them. Commands and reports are fully defined once in the C code, namely in the ```include/``` directory, and listed in the ```message_table``` (in ```rp2daq.c```). 
+
 The exact format for a command is defined in the ```args``` structure within a command handler, the format of corresponding report is a struct simply named as ```..._report```. During compilation, the message formats are hard-coded in the firmware. In contrast, on the computer side, the Python communication interface will be dynamically *auto-generated* at each startup by Python parsing the C firmware code. While this solution may appear unusual, it is very practical, completely avoiding redundant definitions between C and Python. Not only this saves programmer's time, but it also elegantly prevents possible hard-to-debug errors from protocol mismatch. 
 
 In the device, all reports are *scheduled* into a cyclic buffer of buffers. This approach is thread-safe even if a report is to be issued from *core1* while 1st *core0* is busy transmitting. It also does not block execution of time-critical code. 
 
 
-#### Code structure for commands & reports
+#### Coding requirement for commands & reports
 
 For actual implementation, please look into any of the ```include/*.c``` files. To add your own functionality, we suggest to copy some existing code.
 
@@ -120,20 +122,24 @@ There is no limitation for additional functions or comments, nor there is any li
 
 Since the C code has to be parsed by the `c_code_parser.py` to generate a matching Python interface at runtime, it has to follow following rules.
 
-	1. Report struct `XYZ_report`:
-		1.1. MUST be allocated at startup (i.e. it is not a mere *typedef*)
-		1.1. SHOULD be consistently named
-		1.1. MUST follow rp2daq's bit-packed convention (using ```__attribute__((packed))```)
-		1.1. MUST have ```uint8_t report_code``` as its first field (leave it to be auto-filled at runtime)
-		1.1. CAN contain two fields ```uint16_t _data_count``` and ```uint8_t _data_bitwidth``` at its very end, to transmit bulk 8/12/16bit payload
-	1. Command handler function `XYZ()`:
-		1.1. MUST be of type `void` and accepts no arguments
-		1.1. SHOULD contain a multi-line comment block of "slash-asterisk" type, basically its docstring 
-		1.1. MUST first allocate a packed struct, describing the command format
-		1.1. CAN call ```tx_header_and_data(&XYZ_report, sizeof(XYZ_report), ...)```
-			1.1. it is not called, the report MUST be transmitted later from other function
+ 1. Report struct `XYZ_report`:
+ 	1.1. MUST be allocated at startup (i.e. it is not a mere *typedef*)
+ 	1.1. SHOULD be consistently named
+ 	1.1. MUST follow rp2daq's bit-packed convention (using ```__attribute__((packed))```)
+ 	1.1. MUST have ```uint8_t report_code``` as its first field (leave it to be auto-filled at runtime)
+ 	1.1. CAN contain two fields ```uint16_t _data_count``` and ```uint8_t _data_bitwidth``` at its very end, to transmit bulk 8/12/16bit payload
+ 1. Command handler function `XYZ()`:
+ 	1.1. MUST be of type `void` and accepts no arguments
+ 	1.1. SHOULD contain a multi-line comment block of "slash-asterisk" type, basically its docstring 
+ 	1.1. MUST first allocate a packed struct, describing the command format
+ 	1.1. CAN call ```tx_header_and_data(&XYZ_report, sizeof(XYZ_report), ...)```
+ 		1.1. it is not called, the report MUST be transmitted later from other function
+ 
+#### Example of a simple command & report
 
+The following code may be put into separate file like `include/XYZ.c`; in such a case, include this file also in `rp2daq.c`.
 
+In any case, you would also need to add a new line into `message_table` in `rp2daq.c` (the format of which follows the existing entries therein).
 
 ```C
 struct __attribute__((packed)) {    
@@ -146,26 +152,24 @@ struct __attribute__((packed)) {
 void XYZ() {   
     /* One-line hint what the command does 
      * 
-     * Optionally, a longer description of the command, practical tips are welcome. This comment 
-     * gets converted into a docstring at runtime. Also it is used to generate 
+     * Optionally, a longer description of the command. Practical tips are welcome. This comment 
+     * block gets converted into a docstring at runtime. Also it is used to generate 
      * docs/PYTHON_REFERENCE.md. You can use markdown. Please wrap at 100 characters.
      * 
      * __Between double underscores here, tell the users what report is to be expected. It can 
      * be immediate/delayed, single/multiple/infinite...__
      */ 
 	struct  __attribute__((packed)) { 
-        uint8_t flush_buffer;    // min=0 max=1 default=1 A comment for the argument, to be parsed into docstring 
+        uint8_t input_value;    // min=0 max=1 default=1 A comment for the argument, to be parsed into docstring 
 	} * args = (void*)(command_buffer+1);
 
     // Here comes your command code. It can transmit a corresponding report here, or the report
     // can be delayed and transmitted by a different function later. But note every command 
     // eventually has to send at least one report (or Python scripts would hang indefinitely).
 
-	uint8_t text[14+16+1] = FIRMWARE_VERSION;
-	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
-	XYZ_report._data_count = sizeof(text)-1;
-	XYZ_report._data_bitwidth = 8;
-	tx_header_and_data(&XYZ_report, sizeof(XYZ_report), &text, sizeof(text)-1, 1);
+    XYZ_report.returned_value = args->input_value * 42;
+
+	tx_header_and_data(&XYZ_report, sizeof(XYZ_report), 0, 0, 0);
 }
 ``` 
 
