@@ -86,10 +86,10 @@ Disconnect it & reconnect it the last time. From this point on, the upload proce
 
 Rp2daq aims to squeeze maximum power from the RP2040 chip, without putting programming burden on the user. To this end,
 
-    * the board is by default **overclocked from 133 MHz to 250 MHz**,
-    * **hardware is used in parallel**: 1st CPU core mostly for communication and immediate command handling, 2nd core for real-time control; other hardware features like ADC+DMA and PWM operate independent the CPU cores),
-    * **the firmware handles real-time tasks in non-blocking manner**, thanks to which commands of different types can be run concurrently without interfering with each other, 
-    * and **also the Python API allows for optional asynchronous programming**, i.e. multiple commands can be issued in one moment, and the corresponding reports are handled in computer later when they arrive. However, such high-performance behaviour is somewhat harder to learn, so it is kept optional. The default behaviour for all commands is to block Python code until the corresponding report is received. 
+ * the board is by default **overclocked from 133 MHz to 250 MHz**,
+ * **hardware is used in parallel**: 1st CPU core mostly for communication and immediate command handling, 2nd core for real-time control; other hardware features like ADC+DMA and PWM operate independent the CPU cores),
+ * **the firmware handles real-time tasks in non-blocking manner**, thanks to which commands of different types can be run concurrently without interfering with each other, 
+ * and **also the Python API allows for optional asynchronous programming**, i.e. multiple commands can be issued in one moment, and the corresponding reports are handled in computer later when they arrive. However, such high-performance behaviour is somewhat harder to learn, so it is kept optional. The default behaviour for all commands is to block Python code until the corresponding report is received. 
 
 Each instance of Rp2daq class in Python connects to a single board. In demanding applications, one use several boards simultaneously; this simply requires to initialize more Rp2daq instances. Initialization routine has the optional ```required_device_tag=``` parameter to tell devices apart.
 
@@ -123,17 +123,17 @@ There is no limitation for additional functions or comments, nor there is any li
 Since the C code has to be parsed by the `c_code_parser.py` to generate a matching Python interface at runtime, it has to follow following rules.
 
  1. Report struct `XYZ_report`:
- 	1.1. MUST be allocated at startup (i.e. it is not a mere *typedef*)
- 	1.1. SHOULD be consistently named
- 	1.1. MUST follow rp2daq's bit-packed convention (using ```__attribute__((packed))```)
- 	1.1. MUST have ```uint8_t report_code``` as its first field (leave it to be auto-filled at runtime)
- 	1.1. CAN contain two fields ```uint16_t _data_count``` and ```uint8_t _data_bitwidth``` at its very end, to transmit bulk 8/12/16bit payload
+   1. MUST be allocated at startup (i.e. it is not a mere *typedef*)
+   1. SHOULD be consistently named
+   1. MUST follow rp2daq's bit-packed convention (using ```__attribute__((packed))```)
+   1. MUST have ```uint8_t report_code``` as its first field (leave it to be auto-filled at runtime)
+   1. CAN contain two fields ```uint16_t _data_count``` and ```uint8_t _data_bitwidth``` at its very end, to transmit bulk 8/12/16bit payload
  1. Command handler function `XYZ()`:
- 	1.1. MUST be of type `void` and accepts no arguments
- 	1.1. SHOULD contain a multi-line comment block of "slash-asterisk" type, basically its docstring 
- 	1.1. MUST first allocate a packed struct, describing the command format
- 	1.1. CAN call ```tx_header_and_data(&XYZ_report, sizeof(XYZ_report), ...)```
- 		1.1. it is not called, the report MUST be transmitted later from other function
+   1. MUST be of type `void` and accepts no arguments
+   1. SHOULD contain a multi-line comment block of "slash-asterisk" type, basically its docstring 
+   1. MUST first allocate a packed struct, describing the command format
+   1. CAN call ```tx_header_and_data(&XYZ_report, sizeof(XYZ_report), ...)```
+    1. if this is not called, the report MUST be transmitted later from other function
  
 #### Example of a simple command & report
 
