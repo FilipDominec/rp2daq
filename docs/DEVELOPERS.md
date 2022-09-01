@@ -123,17 +123,17 @@ There is no limitation for additional functions or comments, nor there is any li
 Since the C code has to be parsed by the `c_code_parser.py` to generate a matching Python interface at runtime, it has to follow following rules.
 
  1. Report struct `XYZ_report`:
-   1. MUST be allocated at startup (i.e. it is not a mere *typedef*)
-   1. SHOULD be consistently named
-   1. MUST follow rp2daq's bit-packed convention (using ```__attribute__((packed))```)
-   1. MUST have ```uint8_t report_code``` as its first field (leave it to be auto-filled at runtime)
-   1. CAN contain two fields ```uint16_t _data_count``` and ```uint8_t _data_bitwidth``` at its very end, to transmit bulk 8/12/16bit payload
+    1. MUST be allocated at startup (i.e. it is not a mere *typedef*)
+    1. SHOULD be consistently named
+    1. MUST follow rp2daq's bit-packed convention (using ```__attribute__((packed))```)
+    1. MUST have ```uint8_t report_code``` as its first field (leave it to be auto-filled at runtime)
+    1. CAN contain two fields ```uint16_t _data_count``` and ```uint8_t _data_bitwidth``` at its very end, to transmit bulk 8/12/16bit payload
  1. Command handler function `XYZ()`:
-   1. MUST be of type `void` and accepts no arguments
-   1. SHOULD contain a multi-line comment block of "slash-asterisk" type, basically its docstring 
-   1. MUST first allocate a packed struct, describing the command format
-   1. CAN call ```tx_header_and_data(&XYZ_report, sizeof(XYZ_report), ...)```
-    1. if this is not called, the report MUST be transmitted later from other function
+    1. MUST be of type `void` and accepts no arguments
+    1. SHOULD contain a multi-line comment block of "slash-asterisk" type, basically its docstring 
+    1. MUST first allocate a packed struct, describing the command format
+    1. CAN call ```tx_header_and_data(&XYZ_report, sizeof(XYZ_report), ...)```
+       1. if this is not called, the report MUST be transmitted later from other function
  
 #### Example of a simple command & report
 
