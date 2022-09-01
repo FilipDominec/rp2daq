@@ -12,44 +12,71 @@ RP2DAQ can also serve as a convenient "boilerplate" for your own projects. We tr
 
 
 
-## Re-compiling the firmware
+## Re-compiling the firmware on Debian/Ubuntu Linux
 
 The firmware is written in C language and uses [Raspberry Pi Pico SDK](https://raspberrypi.github.io/pico-sdk-doxygen/) (which was chosen instead of the Arduino ecosystem, but some libraries from the latter [can be ported](https://www.hackster.io/fhdm-dev/use-arduino-libraries-with-the-rasperry-pi-pico-c-c-sdk-eff55c)). 
 
 If you can already compile and upload [the official blinking LED example](https://www.raspberrypi.com/news/how-to-blink-an-led-with-raspberry-pi-pico-in-c/), doing the same with RP2DAQ should be straightforward. The following procedure is therefore mostly for convenience. 
 
-I use Linux for primary development; development of firmware on other OS is not covered here yet.
+Note that this procedure, with obvious minor changes, can be perused for uploading any other C-language project as well.
 
-#### Development dependencies (on Linux)
+Linux is the primary development OS for *rp2daq*; development of firmware on other OS is not covered here yet.
 
-The official approach (TODO test afresh):
 
+#### Setup development dependencies (once)
+
+Please note once again that compilation is *not* necessary to use RP2DAQ from Python. 
+Only if you made some changes in the rp2daq firmware's, follow these steps. 
+
+The `pico_setup.sh` script will help you to download and compile the *Standard Development Kit* (SDK) with dependencies, requiring only your password and few minutes:
+
+```bash
+    cd
     wget -O pico_setup.sh https://rptl.io/pico-setup-script
-    chmod +x pico_setup.sh
-    ./pico_setup.sh
+    export SKIP_VSCODE=1
+    bash ./pico_setup.sh           # takes some 3 minutes
+```
 
-#### Compilation procedure (Linux version)
 
-First compilation (or re-compilation if Cmake options changed):
+#### Fresh compilation (once)
 
+Now go to the folder where you downloaded *rp2daq*, e.g.:
+
+```bash
+    cd ~/rp2daq/
+```
+
+Fresh compilation (or re-compilation if Cmake options changed):
+
+```bash
     rm -r build/ 
-    cmake -B build -S . 
+    cmake -B build -S .         # takes a minute
     pushd build 
     make
     popd
+```
 
 A new ```build/rp2daq.uf2``` file should appear. It can be uploaded by drag&drop as described in [README.md], or a following trick can be used that saves a bit of clicking.
 
-#### Flash upload without manual bootsel/reset (on Linux)
 
-As a first step, [one can switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) udev rules so that *picotool* works without root privileges:
+#### Setting UDEV rules for user-space access (once)
 
+Normally, the ```BOOTSEL``` button [has to be mechanically pressed](https://gist.github.com/Hermann-SW/ca07f46b7f9456de41f0956d81de01a7), and the device has to be restarted for a fresh upload. There is a trick to avoid it. 
+
+As a first step, [it is preferable to switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) udev rules so that `picotool` works without root privileges:
+
+```bash
     echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="0003", MODE="0666"' | sudo tee /etc/udev/rules.d/99-pico.rules
+```
 
 
-The procedure with [pressing the *bootsel* button](https://gist.github.com/Hermann-SW/ca07f46b7f9456de41f0956d81de01a7) and resetting RP2 can be entirely handled by software:
+#### Re-compilation & quick upload (routine)
 
-    pushd build ; stty -F /dev/ttyACM0 1200; make rp2daq && ~/bin/picotool load *.uf2 && ~/bin/picotool reboot; popd
+Disconnect it & reconnect it the last time. From this point on, the upload procedure takes few seconds and can be entirely handled by software:
+
+```bash
+    pushd build ; stty -F /dev/ttyACM0 1200; sleep 0.5; make rp2daq && ~/pico/picotool/build/picotool load *.uf2 && ~/pico/picotool/build/picotool reboot; popd
+```
 
 
 
@@ -57,11 +84,11 @@ The procedure with [pressing the *bootsel* button](https://gist.github.com/Herma
 
 #### Parallelism
 
-RP2DAQ aims to squeeze maximum power from raspberry pi, without putting programming burden on the user. To this end, it employs 
+RP2DAQ aims to squeeze maximum power from the RP2040 chip, without putting programming burden on the user. To this end,
     * the board is by default **overclocked from 133 MHz to 250 MHz**,
-    * **parallel use of hardware**: 1st CPU core mostly for communication and immediate command handling, 2nd core for real-time control; other hardware features like ADC+DMA and PWM operate independent the CPU cores),
-    * **parallelism in the firmware**, thanks to which commands of different types can be run concurrently without interfering with each other, 
-    * **optional asynchronous programming**, i.e. multiple commands can be issued in one moment, and the corresponding reports are handled in computer later when they arrive. However, such high-performance behaviour is somewhat harder to learn, so it is kept optional. The default behaviour for all commands is to block Python code until the corresponding report is received. 
+    * **hardware is used in parallel**: 1st CPU core mostly for communication and immediate command handling, 2nd core for real-time control; other hardware features like ADC+DMA and PWM operate independent the CPU cores),
+    * **the firmware handles real-time tasks in non-blocking manner**, thanks to which commands of different types can be run concurrently without interfering with each other, 
+    * and **also the Python API allows for optional asynchronous programming**, i.e. multiple commands can be issued in one moment, and the corresponding reports are handled in computer later when they arrive. However, such high-performance behaviour is somewhat harder to learn, so it is kept optional. The default behaviour for all commands is to block Python code until the corresponding report is received. 
 
 Each instance of Rp2daq class in Python connects to a single board. In demanding applications, one use several boards simultaneously; this simply requires to initialize more Rp2daq instances. Initialization routine has the optional ```required_device_tag=``` parameter to tell devices apart.
 
@@ -152,6 +179,7 @@ void XYZ() {
     * https://www.raspberrypi.com/documentation/microcontrollers/rp2040.html
     * https://raspberrypi.github.io/pico-sdk-doxygen/index.html
     * https://github.com/raspberrypi/pico-examples
-* Other useful articles online
+* Other useful articles online (to be processed)
     * https://gregchadwick.co.uk/blog/playing-with-the-pico-pt2/
+    * https://github.com/jamon/pi-pico-pio-quadrature-encoder rewrite with IRQ to keep PIO free
 

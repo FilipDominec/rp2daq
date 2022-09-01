@@ -115,7 +115,7 @@ def generate_command_binary_interface():
 
                 param_docstring += f"  * {arg_name} {':' if comment else ''} {comment} \n" #  TODO print range  (min=0 max= 2³²-1)
 
-        param_docstring += f"  * _callback : a function to later handle the report; if set, makes this command asynchronous \n\n"
+        param_docstring += f"  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) \n\n"
 
         #exec_docstring += "Returns:\n\n" # TODO analyze report structure (and comments therein)
 
@@ -125,7 +125,7 @@ def generate_command_binary_interface():
         markdown_docs += f"__Parameters__:\n\n{param_docstring}\n"
         #markdown_docs += f"{raw_docstring}\n\n#### Arguments:"
 
-        # once 16-bit msglen enabled: cmd_length will go +3, and 1st struct Byte must change to Half-int 
+        # TODO once 16-bit msglen enabled: cmd_length will go +3, and 1st struct Byte must change to Half-int 
         exec_msghdr = f"', {cmd_length+2}, {command_code}, "
         code = f"def {command_name}(self,{exec_header} _callback=None):\n" +\
                 f'\t"""{raw_docstring}Parameters:\n{param_docstring}"""\n' +\
@@ -195,17 +195,3 @@ if __name__ == "__main__":
     #print(f"{report_lengths=}")
     #print(f"{report_header_signatures=}")
     #print(f"{arg_names_for_reports=}")
-
-
-
-
-
-
-"""
-    #exec(code); func_dict[command_name] = locals().get(command_name) # returns function objects
-
-    # TODO also autogenerate code that registers an (optionally) provided callback function 
-    # TODO by default it should set a "blocking" flag, and reference to a default "unblocking" CB
-    # e.g. use named param like "self.internal_adc(..., cb=self._blocking_CB)"
-
-"""
