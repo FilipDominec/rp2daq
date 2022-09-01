@@ -4,6 +4,9 @@
 
 #define FIRMWARE_VERSION {"rp2daq_220720_"}
 
+#define DATA_BY_REF 0
+#define DATA_BY_COPY 1
+
 #define DEBUG_PIN 4
 #define DEBUG2_PIN 5
 #define BLINK_LED_US(duration) gpio_put(PICO_DEFAULT_LED_PIN, 1); busy_wait_us_32(duration); gpio_put(PICO_DEFAULT_LED_PIN, 0); 

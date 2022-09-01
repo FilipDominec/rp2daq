@@ -76,11 +76,14 @@ void get_next_command() {
 }
 
 
+// TODO: resolve redundancy between XYZ_report._data_count XYZ_report._data_bitwidth
+//     and void* dataptr, uint16_t datasize,
 void tx_header_and_data(void* headerptr, uint16_t headersize, void* dataptr, 
 		uint16_t datasize, uint8_t make_copy_of_data) {
 	while (txbuf_lock); txbuf_lock=1;
 	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], headerptr, headersize);
 	if (make_copy_of_data) { // if data appended after the header sum up to TXBUF_LEN
+		// TODO check that (headersize + datasize) <= TXBUF_LEN, report error otherwise
 		txbuf_struct_len[txbuf_tofill] = headersize + datasize;
 		txbuf_data_ptr[txbuf_tofill] = 0x0000;
 		txbuf_data_len[txbuf_tofill] = 0;

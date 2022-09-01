@@ -84,6 +84,65 @@ The exact format for a command is defined in the ```args``` structure within a c
 
 In the device, all reports are *scheduled* into a cyclic buffer of buffers. This approach is thread-safe even if a report is to be issued from *core1* while 1st *core0* is busy transmitting. It also does not block execution of time-critical code. 
 
+
+#### Code structure for commands & reports
+
+For actual implementation, please look into any of the ```include/*.c``` files. To add your own functionality, we suggest to copy some existing code.
+
+There is no limitation for additional functions or comments, nor there is any limit for defining multiple commands within one C file. 
+
+Since the C code has to be parsed by the `c_code_parser.py` to generate a matching Python interface at runtime, it has to follow following rules.
+
+	1. Report struct `XYZ_report`:
+		1.1. MUST be allocated at startup (i.e. it is not a mere *typedef*)
+		1.1. SHOULD be consistently named
+		1.1. MUST follow rp2daq's bit-packed convention (using ```__attribute__((packed))```)
+		1.1. MUST have ```uint8_t report_code``` as its first field (leave it to be auto-filled at runtime)
+		1.1. CAN contain two fields ```uint16_t _data_count``` and ```uint8_t _data_bitwidth``` at its very end, to transmit bulk 8/12/16bit payload
+	1. Command handler function `XYZ()`:
+		1.1. MUST be of type `void` and accepts no arguments
+		1.1. SHOULD contain a multi-line comment block of "slash-asterisk" type, basically its docstring 
+		1.1. MUST first allocate a packed struct, describing the command format
+		1.1. CAN call ```tx_header_and_data(&XYZ_report, sizeof(XYZ_report), ...)```
+			1.1. it is not called, the report MUST be transmitted later from other function
+
+
+
+```C
+struct __attribute__((packed)) {    
+    uint8_t report_code;
+    uint32_t returned_value;
+    uint16_t _data_count;
+    uint8_t _data_bitwidth;
+} XYZ_report;
+
+void XYZ() {   
+    /* One-line hint what the command does 
+     * 
+     * Optionally, a longer description of the command, practical tips are welcome. This comment 
+     * gets converted into a docstring at runtime. Also it is used to generate 
+     * docs/PYTHON_REFERENCE.md. You can use markdown. Please wrap at 100 characters.
+     * 
+     * __Between double underscores here, tell the users what report is to be expected. It can 
+     * be immediate/delayed, single/multiple/infinite...__
+     */ 
+	struct  __attribute__((packed)) { 
+        uint8_t flush_buffer;    // min=0 max=1 default=1 A comment for the argument, to be parsed into docstring 
+	} * args = (void*)(command_buffer+1);
+
+    // Here comes your command code. It can transmit a corresponding report here, or the report
+    // can be delayed and transmitted by a different function later. But note every command 
+    // eventually has to send at least one report (or Python scripts would hang indefinitely).
+
+	uint8_t text[14+16+1] = FIRMWARE_VERSION;
+	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
+	XYZ_report._data_count = sizeof(text)-1;
+	XYZ_report._data_bitwidth = 8;
+	tx_header_and_data(&XYZ_report, sizeof(XYZ_report), &text, sizeof(text)-1, 1);
+}
+``` 
+
+
 ## Resources used
 
 * Concepts and parts of code
