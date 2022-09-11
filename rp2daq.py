@@ -43,7 +43,7 @@ def init_error_msgbox():  # error handling with a graphical message box
 
 
 class Rp2daq():
-    def __init__(self, required_device_id=None, verbose=False):
+    def __init__(self, required_device_id="", verbose=False):
 
         logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, 
                 format='%(asctime)s (%(threadName)-9s) %(message)s',) # filename='rp2.log',
@@ -60,14 +60,14 @@ class Rp2daq():
 
 
 class Rp2daq_internals(threading.Thread):
-    def __init__(self, externals, required_device_id=None, verbose=False):
+    def __init__(self, externals, required_device_id="", verbose=False):
 
         self._e = externals
 
         self._register_commands()
 
         time.sleep(.05)
-        self.port = self._find_device(required_device_id=None, required_firmware_version=MIN_FW_VER)
+        self.port = self._find_device(required_device_id, required_firmware_version=MIN_FW_VER)
 
         ## Asynchronous communication using threads
         self.sleep_tune = 0.001
@@ -213,24 +213,23 @@ class Rp2daq_internals(threading.Thread):
         kwargs = self.sync_report_cb_queues[command_code].get() # waits until default callback unblocked
         return kwargs
 
-    def _find_device(self, required_device_id, required_firmware_version):
+    def _find_device(self, required_device_id, required_firmware_version=0):
         """
         Seeks for a compatible rp2daq device on USB, checking for its firmware version and, if 
         specified, for its particular unique vendor name.
         """
 
-        VID, PID = 0x2e8a, 0x000a #  TODO use this info to filter out ports 
+        VID, PID = 0x2e8a, 0x000a 
         port_list = list_ports.comports()
 
         for port_name in port_list:
-
+            # filter out ports, without disturbing previously connected devices 
+            if not port_name.hwid.startswith("USB VID:PID=2E8A:000A SER="+required_device_id.upper()):
+                continue
+            print(f"{port_name.hwid=}")
             try_port = serial.Serial(port=port_name.device, timeout=0.01)
 
             try:
-                # TODO if one RP2 is up & running independently, connecting this script to another device
-                #       disturbs the former device's operation; get unique serial number w/o messaging?
-                #       for a in dir(try_port): print(f'\t{a:20} = {getattr(try_port,a)}')
-                #       but 'dmesg' prints out also this: "usb 1-2: SerialNumber: E66058388348892D"
                 #try_port.flush()
                 #time.sleep(.05) # 50ms round-trip time is enough
 
@@ -274,7 +273,7 @@ class Rp2daq_internals(threading.Thread):
 if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
     print("\tSee the 'examples' directory for further uses.")
-    rp = Rp2daq()       # tip: you can use required_device_id='42:42:42:42:42:42:42:42'
+    rp = Rp2daq()       # tip you can use e.g. required_device_id='01020304050607'
     t0 = time.time()
 
     #rp.pin_set(11, 1, high_z=1, pull_up=1)
