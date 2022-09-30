@@ -14,6 +14,7 @@ More information and examples on https://github.com/FilipDominec/rp2daq or in RE
 
 MIN_FW_VER = 210400
 
+import atexit
 from collections import deque
 import logging
 import os
@@ -52,10 +53,15 @@ class Rp2daq():
         # will be dynamically populated with useful commands
         self._i = Rp2daq_internals(externals=self, required_device_id=required_device_id, verbose=verbose)
 
+        atexit.register(self.quit)
+
 
     def quit(self):
-        """Clean termination of tx/rx threads""" # TODO: add device reset option
+        """Clean termination of tx/rx threads, and explicit releasing of serial ports (for win32) """ 
+        # TODO: add device reset option
         self._i.run_event.clear()
+        print ("QUITTING")
+        self._i.port.close()
 
 
 

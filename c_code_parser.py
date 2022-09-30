@@ -150,6 +150,7 @@ def generate_report_binary_interface():
         q = re.search(f"}}\\s*{report_name}_report", C_code)
         #print(report_number, report_name,q)
         report_struct_code = get_prev_code_block(C_code[:q.span()[0]+1]) # code enclosed by closest brace block
+        # FIXME THIS IS JUST USELESS ERROR:  AttributeError: 'NoneType' object has no attribute 'span'
         #print(f"{report_name=} {report_struct_code=}") 
 
         report_header_signature, report_length = "<", 0
