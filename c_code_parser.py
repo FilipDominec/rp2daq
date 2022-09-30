@@ -90,7 +90,8 @@ def generate_command_binary_interface():
             arg_attribs = {}
             arg_comment = ""
             for commentoid in re.split("\\s+", line_comments):
-                if u := re.match("(\\w*)=(-?\\d*)", commentoid):
+                u = re.match("(\\w*)=(-?\\d*)", commentoid)
+                if u:
                     arg_attribs[u.groups()[0]] = u.groups()[1]
                 elif not commentoid in ("", "//", ";"):
                     arg_comment += " " + commentoid
@@ -102,14 +103,19 @@ def generate_command_binary_interface():
                 exec_stargs += f"\n\t\t\t{arg_name},"
                 arg_names.append(arg_name)
 
-                if (d := arg_attribs.get("default")):
+                d = arg_attribs.get("default")
+                if d:
                     exec_header += f"{arg_name}={d}, "
                 else: 
                     exec_header += f"{arg_name}, "
-                if m := arg_attribs.get("min") is not None:
+
+                m = arg_attribs.get("min")
+                if m is not None:
                     exec_prepro += f"\tassert {arg_name} >= {arg_attribs['min']}, "+\
                             f"'Minimum value for {arg_name} is {arg_attribs['min']}'\n"
-                if m := arg_attribs.get("max") is not None:
+
+                m = arg_attribs.get("max")
+                if m is not None:
                     exec_prepro += f"\tassert {arg_name} <= {arg_attribs['max']},"+\
                             f"'Maximum value for {arg_name} is {arg_attribs['max']}'\n"
 

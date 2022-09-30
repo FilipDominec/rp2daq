@@ -60,7 +60,6 @@ class Rp2daq():
         """Clean termination of tx/rx threads, and explicit releasing of serial ports (for win32) """ 
         # TODO: add device reset option
         self._i.run_event.clear()
-        print ("QUITTING")
         self._i.port.close()
 
 
@@ -115,10 +114,9 @@ class Rp2daq_internals(threading.Thread):
         self.run_event.wait()
 
         while self.run_event.is_set():
-                if w := self.port.inWaiting():
-                    c = self.port.read(w)
-                    #print("  rx", len(c))
-                    #print("    ", list( c[:10]), "...", list( c[-10:]))
+                inwaiting = self.port.inWaiting()
+                if inwaiting:
+                    c = self.port.read(inwaiting)
                     self.rx_bytes.extend(c)
                 else:
                     time.sleep(self.sleep_tune)
@@ -153,7 +151,8 @@ class Rp2daq_internals(threading.Thread):
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
 
                     data_bytes = []
-                    if (dc := cb_kwargs.get("_data_count",0)) and (dbw := cb_kwargs.get("_data_bitwidth",0)):
+                    dc, dbw = cb_kwargs.get("_data_count",0), cb_kwargs.get("_data_bitwidth",0)
+                    if dc and dbw:
                         payload_length = -((-dc*dbw)//8)  # integer division is like floor(); this makes it ceil()
                         #print("  PL", payload_length)
 
