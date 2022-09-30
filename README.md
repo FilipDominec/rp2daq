@@ -59,7 +59,8 @@ To check everything is ready,  launch your python3 interpreter (i.e. ```python3`
 ```Python
 import rp2daq          # import the module (must be available in your PYTHONPATH)
 rp = rp2daq.Rp2daq()   # connect to first Pi Pico where RP2DAQ is uploaded
-rp.pin_out(25, 1)      # sets pin no. 25 to logical 1
+rp.pin_set(25, 1)      # sets pin no. 25 to logical 1
+rp.quit()
 ```
 
 The pin number 25 is connected to the green onboard LED - it should turn on.
