@@ -166,9 +166,11 @@ In contrast, RP2DAQ assumes the microcontroller is constantly connected to compu
 
 **Q: Is the use of RP2DAQ limited to Raspberry Pi Pico board?**
 
-A: Very likely it can be directly uploaded on other boards featuring the RP2040 microcontroller, e.g. RP2040-zero, but this has not been tested yet. 
+A: Very likely it can be directly uploaded to all boards featuring the RP2040 microcontroller. *RP2040-zero* was tested to work fine. 
 
-Development of this project was started on the ESP32-WROOM module, but it suffered from its randomly failing (and consistently slow) USB communication, as well as somewhat lacking documentation.
+Obviously the available pin number, as well as their assignment, may differ. E.g., the colourful LED on the *RP2040-zero* is in fact a WS2812B chip, and its data bus is connected to pin 16.
+
+The Arduino family of boards is not supported. Neither the ESP/Espressif boards are. (Development of this project was started on the ESP32-WROOM module, but it suffered from its randomly failing (and consistently slow) USB communication, as well as somewhat lacking documentation.)
 
 
 **Q: Can RP2DAQ be controlled from other language than Python 3.8+?**
