@@ -2,14 +2,13 @@
 
 Raspberry Pi Pico is a small, but quite powerful microcontroller board. When connected to a computer over USB, it can serve as an interface to hardware - which may be as simple as a digital thermometer, or as complicated as scientific experiments tend to be. 
 
-This project presents both precompiled firmware and a user-friendly Python module to control it. The firmware takes care of all technicalities at the microcontroller side including parallel task handling and reliable communication, and is optimized to harness Raspberry Pi's maximum performance. All actions of RP2DAQ are triggered by the Python script in the computer. This saves the user from programming in C and from error-prone hardware debugging. Even without any programming, one can try out few supplied *Example programs*. 
-
 ![rp2daq overview](docs/overview_rp2.svg)
 
+This project presents both precompiled firmware and a user-friendly Python module to control it. The firmware takes care of all technicalities at the microcontroller side including parallel task handling and reliable communication, and is optimized to harness Raspberry Pi's maximum performance. All actions of RP2DAQ are triggered by the Python script in the computer. This saves the user from programming in C and from error-prone hardware debugging. Even without any programming, one can try out few supplied *Example programs*. 
 
 If needed, entirely new capabilities can be added into the [open source](LICENSE) firmware. More is covered in the [developer documentation for the C firmware](docs/DEVELOPERS.md). Contributing new code back is welcome. 
 
-***Project status: basic work done, real-world testing underway***
+*Development status: basic features implemented, real-world testing underway*
 
  * Features implemented and planned: 
     * [x] analog input (continuous 12-bit measurement with built-in ADC, at 500k samples per second)
@@ -31,7 +30,7 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 ### Uploading rp2daq firmware
 
-1. Get material: a Raspberry Pi Pico (RP2) with a USB cable, and a computer with [Python (3.8+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
+1. Get material: a Raspberry Pi Pico (RP2) with a USB cable, and a computer with [Python (3.6+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
 	* On Windows, [get anaconda](https://docs.anaconda.com/anaconda/install/windows/) if unsure.
 	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
     * On Mac, it should be there though [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
@@ -55,34 +54,34 @@ Launch the ```hello_world.py``` script in the main project folder.
 
 # Python programming: basic concepts
 
-### Controlling LED (with 4 lines of python code)
+### Controlling LED (on 3 lines of Python code)
 
-To check everything is ready,  launch your python3 interpreter (i.e. ```python3```, or better ```ipython3```) and paste following three lines:
+To check everything is ready, navigate to the unpacked project directory and launch the Python command console. 
+
+```ipython3``` is demonstrated here, but ```spyder```, ```idle``` or bare ```python3``` will work too).
 
 ```Python
 import rp2daq          # import the module (must be available in your PYTHONPATH)
-rp = rp2daq.Rp2daq()   # connect to first Pi Pico where RP2DAQ is uploaded
+rp = rp2daq.Rp2daq()   # connect to the Pi Pico
 rp.pin_set(25, 1)      # sets pin no. 25 to logical 1
 ```
 
-The pin number 25 is connected to the green onboard LED - it should turn on.
+The pin number 25 is connected to the green onboard LED - it should turn on when you paste these three lines. Turning the LED off is a trivial exercise for the reader.
 
-### Receiving data
+### Receiving analog data
 
-Similarly, you can get ADC readout. With default configuration, it will measure 1000 voltage values on the pin 26:
+Similarly, you can get ADC readout, with value ```0``` corresponding to cca 0 V, and ```4095``` to cca 3.2 V. With default configuration, it will measure 1000 voltage values on the pin 26:
 
 ```Python
 import rp2daq
 rp = rp2daq.Rp2daq()
-
-result = rp.internal_adc()
-print(result)
+print( rp.internal_adc() )
 ```
 
 The last line prints a standard pythonic dictionary, with several (more or less useful) key:value pairs. Among these, the ADC readouts are simply named ```data```.
 
 
-### Note on exploring other commands
+### Exploring rp2daq commands in friendly Python console
 
 The ```ipython3``` interface has numerous user-friendly features. For instance, the list of commands is suggested by ipython when one hits TAB after writing ```rp.```:
 
@@ -99,7 +98,7 @@ Alternately, the same information is extracted in the [Python API reference](doc
 
 ### Asynchronous commands
 
-Consider the following example, which does almost the same as the previous one:
+Consider the following ADC readout code, which does almost the same as the previous example:
 
 ```Python
 import rp2daq
@@ -108,28 +107,28 @@ rp = rp2daq.Rp2daq()
 def my_callback(**kwargs):
 	print(kwargs)
 
-rp.internal_adc(_callback=my_callback)
+rp.internal_adc(_callback=my_callback)     # non-blocking!
 
 print("code does not wait for ADC data here")
 import time
 time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
 ```
 
-One obvious difference is that it is a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
+Obviously, it is a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
 
-Calling commands asynchronously allows one to simultaneously orchestrate multiple functions. This is especially useful for long ADC acquisition and stepping motor movement. Raspberry Pi may take some seconds or minutes to finish the command, but your program remains responsive. Meanwhile, it can even interact with the device, *almost as* if there was no prior command.
+Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. This is especially useful for long ADC acquisition and stepping motor movement: the device may take some seconds or even minutes to finish the command, but your program remains responsive. Meanwhile, it can also send other commands to the device.
 
 ## Caveats of advanced asynchronous commands use
 
 Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
 
-Both synchronous and asynchronous commands can be issued from within a callback. 
+Both synchronous and asynchronous commands can be issued even from within a callback. 
 
-Calling one asynchronous and one synchronous command *of the same type* and in close succession (i.e. before the first command finishes and corresponding callback is dispatched), will result in this callback never being called, as it would be overriden by the synchronous command.
+It is not recommended to mix *asynchronous* and *synchronous* commands *of the same type* and in close succession: Before the first command finishes and corresponding callback is dispatched, the second command would erase the associated callback, and the return message from the first command would not be handled.
 
-## Receiving a lot of data
+## Asynchronous command with multiple callbacks
 
-Maybe the greatest advantage of the asynchronous ADC calls is that they allow one to consecutively acquire unlimited amount of data. Following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (there is 8k sample buffer). Following code thus can monitor slow processes, like temperature changes or battery discharge.
+Maybe the greatest advantage of the asynchronous ADC calls is that they allow one to consecutively acquire unlimited amount of data. Following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (limited by 8k buffer). Following code thus can monitor long processes, like temperature changes or battery discharge.
 
 ```Python
 import rp2daq
