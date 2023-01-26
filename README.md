@@ -4,6 +4,9 @@ Raspberry Pi Pico is a small, but quite powerful microcontroller board. When con
 
 This project presents both precompiled firmware and a user-friendly Python module to control it. The firmware takes care of all technicalities at the microcontroller side including parallel task handling and reliable communication, and is optimized to harness Raspberry Pi's maximum performance. All actions of RP2DAQ are triggered by the Python script in the computer. This saves the user from programming in C and from error-prone hardware debugging. Even without any programming, one can try out few supplied *Example programs*. 
 
+![rp2daq overview](docs/overview_rp2.svg)
+
+
 If needed, entirely new capabilities can be added into the [open source](LICENSE) firmware. More is covered in the [developer documentation for the C firmware](docs/DEVELOPERS.md). Contributing new code back is welcome. 
 
 ***Project status: basic work done, real-world testing underway***
