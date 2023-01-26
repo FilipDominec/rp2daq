@@ -24,9 +24,9 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
     * [ ] [C programming: extending rp2daq's capabilities](docs/DEVELOPERS.md)
     * [x] [PAQ - Presumably asked questions](#paq-presumably-asked-questions)
 
-# No programming: setting up hardware and first tests
+# No programming: first steps
 
-### Get hardware & upload firmware
+### Uploading rp2daq firmware
 
 1. Get material: a Raspberry Pi Pico (RP2) with a USB cable, and a computer with [Python (3.8+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
 	* On Windows, [get anaconda](https://docs.anaconda.com/anaconda/install/windows/) if unsure.
@@ -52,7 +52,7 @@ Launch the ```hello_world.py``` script in the main project folder.
 
 # Python programming: basic concepts
 
-### Let's start with an example
+### Controlling LED (with 4 lines of python code)
 
 To check everything is ready,  launch your python3 interpreter (i.e. ```python3```, or better ```ipython3```) and paste following three lines:
 
@@ -116,7 +116,7 @@ One obvious difference is that it is a bit more complicated. But more important 
 
 Calling commands asynchronously allows one to simultaneously orchestrate multiple functions. This is especially useful for long ADC acquisition and stepping motor movement. Raspberry Pi may take some seconds or minutes to finish the command, but your program remains responsive. Meanwhile, it can even interact with the device, *almost as* if there was no prior command.
 
-### Caveats of advanced asynchronous commands use
+## Caveats of advanced asynchronous commands use
 
 Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
 
@@ -124,7 +124,7 @@ Both synchronous and asynchronous commands can be issued from within a callback.
 
 Calling one asynchronous and one synchronous command *of the same type* and in close succession (i.e. before the first command finishes and corresponding callback is dispatched), will result in this callback never being called, as it would be overriden by the synchronous command.
 
-### Receiving a lot of data
+## Receiving a lot of data
 
 Maybe the greatest advantage of the asynchronous ADC calls is that they allow one to consecutively acquire unlimited amount of data. Following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (there is 8k sample buffer). Following code thus can monitor slow processes, like temperature changes or battery discharge.
 
@@ -158,52 +158,73 @@ More elaborate uses of ADC, as well as other features, can be found in the [exam
 # PAQ: Presumably Asked Questions
 
 <details>
-  <summary><ins>**Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?**</ins></summary>
+  <summary><ins>Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?</ins></summary>
   
   A: They are two fundamentally different paths that may lead to similar results. [MicroPython](https://github.com/micropython/micropython) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
 
   In contrast, RP2DAQ assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
+</details>
+
+
+<details>
+  <summary><ins>Q: Is the use of RP2DAQ limited to Raspberry Pi Pico board?</ins></summary>
+
+	A: Very likely it can be directly uploaded to all boards featuring the RP2040 microcontroller. *RP2040-zero* was tested to work fine. 
+
+	Obviously the available pin number, as well as their assignment, may differ. E.g., the colourful LED on the *RP2040-zero* is in fact a WS2812B chip, and its data bus is connected to pin 16.
+
+	The Arduino family of boards is not supported. Neither the ESP/Espressif boards are. (Development of this project was started on the ESP32-WROOM module, but it suffered from its randomly failing (and consistently slow) USB communication, as well as somewhat lacking documentation.)
+</details>
+
+
+<details>
+  <summary><ins>Q: Can RP2DAQ be controlled from other language than Python 3.8+?</ins></summary>
+
+	A: Perhaps, but - the firmware and computer communicate over a binary interface that would have to be ported to this language. One of the advantages of RP2DAQ is that the interface on the computer side is autogenerated; the corresponding C-code parser would have to be rewritten. Hard-coding the messages in another language would be a quicker option, but it would be bound to a single firmware version. Python is fine.
+
 
 </details>
 
 
-**Q: Is the use of RP2DAQ limited to Raspberry Pi Pico board?**
-
-A: Very likely it can be directly uploaded to all boards featuring the RP2040 microcontroller. *RP2040-zero* was tested to work fine. 
-
-Obviously the available pin number, as well as their assignment, may differ. E.g., the colourful LED on the *RP2040-zero* is in fact a WS2812B chip, and its data bus is connected to pin 16.
-
-The Arduino family of boards is not supported. Neither the ESP/Espressif boards are. (Development of this project was started on the ESP32-WROOM module, but it suffered from its randomly failing (and consistently slow) USB communication, as well as somewhat lacking documentation.)
-
-
-**Q: Can RP2DAQ be controlled from other language than Python 3.8+?**
-
-A: Perhaps, but - the firmware and computer communicate over a binary interface that would have to be ported to this language. One of the advantages of RP2DAQ is that the interface on the computer side is autogenerated; the corresponding C-code parser would have to be rewritten. Hard-coding the messages in another language would be a quicker option, but it would be bound to a single firmware version. Python is fine.
-
-
-**Q: Are there projects with similar scope?**
+<details>
+  <summary><ins>Q: Are there projects with similar scope?</ins></summary>
 
 A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. RP2DAQ aims for higher performance and broader range of capabilities. However, parts of RP2DAQ code and concepts were inspired by Telemetrix.
 
 
-**Q: Does RP2DAQ implement all functions available by the Raspberry Pico SDK?**
+</details>
+
+
+<details>
+  <summary><ins>Q: Does RP2DAQ implement all functions available by the Raspberry Pico SDK?</ins></summary>
 
 A: By far not - and it is not even its scope. RP2DAQ's features make a higher layer above (a subset) of the SDK functions. But it is intended to cover most RP2040's features in the future.
 
 
-**Q: Does RP2DAQ help communicating with scientific instruments, e.g. connected over GPIB/VISA?**
+</details>
+
+
+<details>
+  <summary><ins>Q: Does RP2DAQ help communicating with scientific instruments, e.g. connected over GPIB/VISA?</ins></summary>
 
 A: Interfacing to instruments is outside of RP2DAQ's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, capabilities of RP2 could substitute some commercial instruments in less demanding use cases. 
 
 
-**Q: Why are no displays or user interaction devices supported?**
+</details>
+
+
+<details>
+  <summary><ins>Q: Why are no displays or user interaction devices supported?</ins></summary>
 
 A: The Python script has a much better display and user interaction interface - that is, your computer. RP2DAQ only takes care for the hardware interaction that computer cannot do. 
+</details>
 
 
-**Q: Can RP2DAQ control unipolar stepper motors using ULN2003?**
+<details>
+  <summary><ins>Q: Can RP2DAQ control unipolar stepper motors using ULN2003?</ins></summary>
 
 A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A4988 modules, with better accuracy and efficiency than provided by ULN2003. 
+</details>
 
 
 # Legal
