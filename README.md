@@ -54,11 +54,9 @@ Launch the ```hello_world.py``` script in the main project folder.
 
 # Python programming: basic concepts
 
-### Controlling LED (on 3 lines of Python code)
+### Controlling LED with 3 lines of Python code
 
-To check everything is ready, navigate to the unpacked project directory and launch the Python command console. 
-
-```ipython3``` is demonstrated here, but ```spyder```, ```idle``` or bare ```python3``` will work too).
+To check everything is ready, navigate to the unpacked project directory and launch the Python command console.  [Ipython3](https://ipython.org/) is shown here, but [spyder](https://www.spyder-ide.org/), [idle](https://docs.python.org/3/library/idle.html) or bare ```python3``` console will work too.
 
 ```Python
 import rp2daq          # import the module (must be available in your PYTHONPATH)
@@ -66,11 +64,11 @@ rp = rp2daq.Rp2daq()   # connect to the Pi Pico
 rp.pin_set(25, 1)      # sets pin no. 25 to logical 1
 ```
 
-The pin number 25 is connected to the green onboard LED - it should turn on when you paste these three lines. Turning the LED off is a trivial exercise for the reader.
+The pin number 25 is connected to the green onboard LED on Raspberry Pi Pico - it should turn on when you paste these three lines. Turning the LED off is a trivial exercise for the reader.
 
 ### Receiving analog data
 
-Similarly, you can get ADC readout, with value ```0``` corresponding to cca 0 V, and ```4095``` to cca 3.2 V. With default configuration, it will measure 1000 voltage values on the pin 26:
+Similarly, you can get a readout from the built-in analog/digital converter (ADC). With default configuration, it will measure 1000 voltage values on the pin 26:
 
 ```Python
 import rp2daq
@@ -78,12 +76,14 @@ rp = rp2daq.Rp2daq()
 print( rp.internal_adc() )
 ```
 
-The last line prints a standard pythonic dictionary, with several (more or less useful) key:value pairs. Among these, the ADC readouts are simply named ```data```.
+The ```internal_adc()``` command returns a standard pythonic dictionary, with several (more or less useful) *key:value* pairs. Among these, the ADC readouts are simply named ```data```; value ```0``` corresponds to cca 0 V, and ```4095``` to cca 3.2 V.
+
+Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.internal_adc(channel_mask=16)``` will switch the ADC to get raw readouts from the built-in thermometer.
 
 
-### Exploring rp2daq commands in friendly Python console
+### Tip: Use TAB completion
 
-The ```ipython3``` interface has numerous user-friendly features. For instance, the list of commands is suggested by ipython when one hits TAB after writing ```rp.```:
+The ```ipython3``` interface has numerous user-friendly features. For instance, a list of commands is suggested by ipython when one hits TAB after writing ```rp.```:
 
 ![ipython console printout for rp.internal_adc?](docs/ipython_command_hint.png)
 
@@ -118,7 +118,7 @@ Obviously, it is a bit more complicated. But more important is that here the ```
 
 Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. This is especially useful for long ADC acquisition and stepping motor movement: the device may take some seconds or even minutes to finish the command, but your program remains responsive. Meanwhile, it can also send other commands to the device.
 
-## Caveats of advanced asynchronous commands use
+### Caveats of advanced asynchronous commands use
 
 Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
 
@@ -126,9 +126,9 @@ Both synchronous and asynchronous commands can be issued even from within a call
 
 It is not recommended to mix *asynchronous* and *synchronous* commands *of the same type* and in close succession: Before the first command finishes and corresponding callback is dispatched, the second command would erase the associated callback, and the return message from the first command would not be handled.
 
-## Asynchronous command with multiple callbacks
+### Asynchronous command with multiple callbacks
 
-Maybe the greatest advantage of the asynchronous ADC calls is that they allow one to consecutively acquire unlimited amount of data. Following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (limited by 8k buffer). Following code thus can monitor long processes, like temperature changes or battery discharge.
+Maybe the greatest strength of the asynchronous ADC lies in their ability to transmit unlimited amount of data. The following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (limited by 8k buffer). Following code thus can monitor long processes, like temperature changes or battery discharge.
 
 ```Python
 import rp2daq
