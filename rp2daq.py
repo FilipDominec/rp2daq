@@ -231,11 +231,11 @@ class Rp2daq_internals(threading.Thread):
             # filter out ports, without disturbing previously connected devices 
             if not port_name.hwid.startswith("USB VID:PID=2E8A:000A SER="+required_device_id.upper()):
                 continue
-            print(f"{port_name.hwid=}")
+            #print(f"{port_name.hwid=}")
             try_port = serial.Serial(port=port_name.device, timeout=0.01)
 
             try:
-                #try_port.flush()
+                #try_port.reset_input_buffer(); try_port.flush()
                 #time.sleep(.05) # 50ms round-trip time is enough
 
                 # the "identify" command is hard-coded here, as the receiving threads are not ready yet
