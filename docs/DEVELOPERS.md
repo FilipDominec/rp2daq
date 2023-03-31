@@ -4,7 +4,7 @@
 
 In most expected use cases, pre-compiled rp2daq firmware only needs to be downloaded and flashed once, as described in the [main README document](README.md). All its functions will then be activated at runtime by the Python script in your computer.
 
-But in more specific applications, where entirely new functionality with tight timing, or some new communication protocol is required, you may want to fork this project and modify the C firmware to your needs. All necessary information should be summed up in this document and in the corresponding C code.
+But in more specific applications, where entirely new functionality with tight timing (e.g. from the [official SDK examples](https://datasheets.raspberrypi.com/pico/raspberry-pi-pico-c-sdk.pdf)), or some new communication protocol is required, you may want to fork this project and modify the C firmware to your needs. All necessary information should be summed up in this document and in the corresponding C code.
 
 We will appreciate your contributions if you decide to share them back. You can first discuss your needs and plans on the [issues page](https://github.com/FilipDominec/rp2daq/issues).
 
