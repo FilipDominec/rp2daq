@@ -953,9 +953,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.70710678"
-     inkscape:cx="1278.4491"
-     inkscape:cy="485.07525"
+     inkscape:zoom="2"
+     inkscape:cx="1179"
+     inkscape:cy="500"
      inkscape:document-units="mm"
      inkscape:current-layer="layer2"
      showgrid="false"
@@ -2460,18 +2460,6 @@
            style="fill:#b3b3b3;stroke:none;stroke-width:0.912666"
            id="tspan857"
            x="-118.49023" /></text>
-      <text
-         xml:space="preserve"
-         style="font-size:12.2929px;line-height:1ex;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;display:inline;visibility:visible;fill:#000000;fill-rule:evenodd;stroke:#000000;stroke-width:0.921963px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-         x="-369.54483"
-         y="119.76264"
-         id="text7406"
-         transform="scale(1.0586032,0.94464101)"><tspan
-           id="tspan9189"
-           sodipodi:role="line"
-           x="-369.54483"
-           y="119.76264"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.86257px;line-height:1ex;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.921963px">RP2040</tspan></text>
       <path
          style="display:inline;visibility:visible;fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.64677644;stroke-linejoin:round"
          inkscape:connector-curvature="0"
@@ -4001,5 +3989,22 @@
          x="-293.65619"
          y="45.78952"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.3457px;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;fill:#000000;stroke:none;stroke-width:1.12312px">GND</tspan></text>
+    <text
+       transform="scale(1.0417669,0.95990763)"
+       id="text12594"
+       y="119.30225"
+       x="-375.47928"
+       style="font-size:12.3496px;line-height:29%;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;display:inline;visibility:visible;fill:#000000;fill-rule:evenodd;stroke:#000000;stroke-width:0.926223px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:4.88509px;line-height:29%;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;text-align:center;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.926223px"
+         y="119.30225"
+         x="-375.47928"
+         sodipodi:role="line"
+         id="tspan12592">RP</tspan><tspan
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:4.88509px;line-height:29%;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;text-align:center;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.926223px"
+         y="123.85966"
+         x="-375.47928"
+         sodipodi:role="line"
+         id="tspan12598">2040</tspan></text>
   </g>
 </svg>
