@@ -162,7 +162,7 @@ More elaborate uses of ADC, as well as other features, can be found in the [exam
 <details>
   <summary><ins>Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?</ins></summary>
   
-  A: They are two fundamentally different paths that may lead to similar results. [MicroPython](https://github.com/micropython/micropython) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
+  A: They are two fundamentally different paths that may lead to similar results. [MicroPython](https://github.com/micropython/micropython)[![GitHub stars](https://img.shields.io/github/stars/micropython/micropython.svg?style=social&label=)](https://github.com/exoclime/helios/stargazers/) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
 
   In contrast, RP2DAQ assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
 </details>
