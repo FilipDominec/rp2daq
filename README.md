@@ -93,7 +93,7 @@ The docstring for any command is printed out when one adds ```?``` and hits ente
 
 Note that most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
 
-Alternately, the same information is extracted in the [Python API reference](docs/PYTHON_REFERENCE.md).
+Alternately, you can find the same information extracted in the [Python API reference](docs/PYTHON_REFERENCE.md).
 
 
 ### Asynchronous commands
@@ -114,13 +114,13 @@ import time
 time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
 ```
 
-Obviously, it is a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
+Obviously, it is a bit more complicated. But more important is that here the ```rp.internal_adc``` is provided with a *callback*, which makes it asynchronous: it does no more block further program flow, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
 
-Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. This is especially useful for long ADC acquisition and stepping motor movement: the device may take some seconds or even minutes to finish the command, but your program remains responsive. Meanwhile, it can also send other commands to the device.
+Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. Also it is necessary for long commands like ADC acquisition and stepping motor movement, if the program must remain responsive. 
 
 ### Caveats of advanced asynchronous commands use
 
-Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
+Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This behaviour should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
 
 Both synchronous and asynchronous commands can be issued even from within a callback. 
 

@@ -12,11 +12,6 @@ import tkinter
 
 rp = rp2daq.Rp2daq()
 
-ADC_data = rp.internal_adc(
-        channel_mask=sum(2**ch for ch in channels),
-        blocksize=width*len(channels),  # one ADC sample per ?????, per channel
-        clkdiv=48000//kSPS_per_ch)['data']
-channel_data = [ADC_data[ofs::len(channels)] for ofs,name in enumerate(channels)]
 
 
 
@@ -37,6 +32,12 @@ root = tkinter.Tk()
 root.geometry(f"{width}x{height}+0+200")
 
 stupidplot = StupidPlot()
-stupidplot.plot(channel_data)
+for x in range(1000):
+    ADC_data = rp.internal_adc(
+            channel_mask=sum(2**ch for ch in channels),
+            blocksize=width*len(channels),  # one ADC sample per ?????, per channel
+            clkdiv=48000//kSPS_per_ch)['data']
+    channel_data = [ADC_data[ofs::len(channels)] for ofs,name in enumerate(channels)]
+    stupidplot.plot(channel_data)
 
 root.mainloop()
