@@ -5,7 +5,7 @@ struct __attribute__((packed)) {
 void pwm_configure_pair() {
     /* Sets frequency for a pair of pins ("slice")
      * 
-     * To control usual small servos, set `wrap=65536, clkdiv=20` to get 190 Hz
+     * To control usual small servos, set `wrap_value=65535, clkdiv=20` to get 190 Hz
      * cycle. Value of 10000 (0.8ms pulse) then turns servo near its minimum value,
      * and value of 30000 (2.4ms pulse) turns it near maximum value. YMMV.
      * (see https://en.wikipedia.org/wiki/Servo_control)
