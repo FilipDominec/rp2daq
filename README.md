@@ -93,7 +93,7 @@ The docstring for any command is printed out when one adds ```?``` and hits ente
 
 Note that most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
 
-Alternately, the same information is extracted in the [Python API reference](docs/PYTHON_REFERENCE.md).
+Alternately, you can find the same information extracted in the [Python API reference](docs/PYTHON_REFERENCE.md).
 
 
 ### Asynchronous commands
@@ -114,13 +114,13 @@ import time
 time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
 ```
 
-Obviously, it is a bit more complicated. But more important is that here the ```rp.internal_adc``` command does not block your program, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
+Obviously, it is a bit more complicated. But more important is that here the ```rp.internal_adc``` is provided with a *callback*, which makes it asynchronous: it does no more block further program flow, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
 
-Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. This is especially useful for long ADC acquisition and stepping motor movement: the device may take some seconds or even minutes to finish the command, but your program remains responsive. Meanwhile, it can also send other commands to the device.
+Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. Also it is necessary for long commands like ADC acquisition and stepping motor movement, if the program must remain responsive. 
 
 ### Caveats of advanced asynchronous commands use
 
-Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
+Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This behaviour should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
 
 Both synchronous and asynchronous commands can be issued even from within a callback. 
 
@@ -162,7 +162,7 @@ More elaborate uses of ADC, as well as other features, can be found in the [exam
 <details>
   <summary><ins>Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?</ins></summary>
   
-  A: They are two fundamentally different paths that may lead to similar results. [MicroPython](https://github.com/micropython/micropython) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
+  A: They are two fundamentally different paths that may lead to similar results. [MicroPython](https://github.com/micropython/micropython)[![GitHub stars](https://img.shields.io/github/stars/micropython/micropython.svg?style=social&label=)](https://github.com/exoclime/helios/stargazers/) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
 
   In contrast, RP2DAQ assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
 </details>
