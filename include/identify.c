@@ -26,5 +26,5 @@ void identify() {
 	pico_get_unique_board_id_string(text+14, 2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1);
 	identify_report._data_count = sizeof(text)-1;
 	identify_report._data_bitwidth = 8;
-	tx_header_and_data(&identify_report, sizeof(identify_report), &text, sizeof(text)-1, 1);
+	prepare_report(&identify_report, sizeof(identify_report), &text, sizeof(text)-1, 1);
 }

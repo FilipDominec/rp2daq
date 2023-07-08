@@ -72,7 +72,7 @@ void stepper_init() {
 	}
 
 	stepper_init_report.initial_nanopos = stepper[m].nanopos;
-	tx_header_and_data(&stepper_init_report, sizeof(stepper_init_report), 0,0,0);
+	prepare_report(&stepper_init_report, sizeof(stepper_init_report), 0,0,0);
 }
 
 
@@ -112,7 +112,7 @@ void stepper_status() {
 	}
 
 	//uint64_t ts = (uint64_t)to_us_since_boot(get_absolute_time()); TODO
-	tx_header_and_data(&stepper_status_report, sizeof(stepper_status_report), 0, 0, 0);
+	prepare_report(&stepper_status_report, sizeof(stepper_status_report), 0, 0, 0);
 }
 
 
@@ -187,7 +187,7 @@ void mk_tx_stepper_report(uint8_t n)
 
         //uint64_t ts = (uint64_t)to_us_since_boot(get_absolute_time()); TODO
 	}
-	tx_header_and_data(&stepper_move_report, sizeof(stepper_move_report), 0, 0, 0);
+	prepare_report(&stepper_move_report, sizeof(stepper_move_report), 0, 0, 0);
 }
 
 

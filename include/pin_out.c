@@ -35,7 +35,7 @@ void pin_set() {
 	}
     // TODO for outputs: gpio_set_slew_rate(GPIO_SLEW_RATE_SLOW) or GPIO_SLEW_RATE_FAST
     // TODO     and:     gpio_set_drive_strength()
-	tx_header_and_data(&pin_set_report, sizeof(pin_set_report), 0, 0, 0);
+	prepare_report(&pin_set_report, sizeof(pin_set_report), 0, 0, 0);
 }
 
 
@@ -59,7 +59,7 @@ void pin_get() {
 	} * args = (void*)(command_buffer+1);
 	pin_get_report.pin = args->pin;
 	pin_get_report.value = gpio_get(args->pin);
-	tx_header_and_data(&pin_get_report, sizeof(pin_get_report), 0, 0, 0);
+	prepare_report(&pin_get_report, sizeof(pin_get_report), 0, 0, 0);
 }
 
 
@@ -77,7 +77,7 @@ void pin_on_change_IRQ(uint pin, uint32_t events) {
 	//BLINK_LED_US(100000);
 	// TODO this really should be debounced; test with resistors
 
-	tx_header_and_data(&pin_on_change_report, sizeof(pin_on_change_report), 0, 0, 0);
+	prepare_report(&pin_on_change_report, sizeof(pin_on_change_report), 0, 0, 0);
 }
 
 void pin_on_change() {

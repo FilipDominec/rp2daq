@@ -1,4 +1,5 @@
 
+void iADC_DMA_setup();
 void iADC_DMA_start();
 void iADC_DMA_IRQ_handler();
 #define DEBUG_PIN 4
@@ -10,6 +11,7 @@ struct __attribute__((packed)) {
     uint8_t _data_bitwidth;
     uint8_t channel_mask;
     uint16_t blocks_to_send;
+    uint8_t transmit_delayed_by_usb;
 } internal_adc_report;
 
 struct { 
@@ -46,15 +48,47 @@ void internal_adc() {
 
 
 
+// *** auxiliary functions *** //
 
-//volatile uint8_t ADC_MASK=(2+4+8+16); // 
 uint16_t iADC_buffer0[1024*16];
 uint16_t iADC_buffer1[1024*16];
 volatile uint8_t iADC_buffer_choice = 0;
+volatile uint8_t iADC_buffer_write_lock[2]; // TODO TEST
 
 dma_channel_config iADC_DMA_cfg;
 int iADC_DMA_chan;
 
+
+void iADC_DMA_setup() { 
+	for (uint8_t ch=0; ch<4; ch++) {
+        if (internal_adc_config.channel_mask & (1<<ch)) 
+            adc_gpio_init(26+ch); 
+    }
+    adc_init();
+    adc_set_temp_sensor_enabled(true);
+
+    adc_fifo_setup(
+        true,    // Write each completed conversion to the sample FIFO
+        true,    // Enable DMA data request (DREQ)
+        1,       // DREQ (and IRQ) asserted when at least 1 sample present
+        false,   // disable ERR bit
+        false    // don't trunc samples to 8-bit
+    );
+	
+    // Set up the DMA to start transferring data as soon as it appears in FIFO
+    iADC_DMA_chan = dma_claim_unused_channel(true);
+    iADC_DMA_cfg = dma_channel_get_default_config(iADC_DMA_chan);
+    channel_config_set_transfer_data_size(&iADC_DMA_cfg, DMA_SIZE_16);
+    channel_config_set_read_increment(&iADC_DMA_cfg, false); // from ADC
+    channel_config_set_write_increment(&iADC_DMA_cfg, true); // into buffer
+    channel_config_set_dreq(&iADC_DMA_cfg, DREQ_ADC);
+
+    // Raise interrupt when DMA finishes a block
+    dma_channel_set_irq0_enabled(iADC_DMA_chan, true);
+    irq_set_exclusive_handler(DMA_IRQ_0, iADC_DMA_IRQ_handler);
+    irq_set_enabled(DMA_IRQ_0, true);
+	adc_run(true);
+}
 
 void iADC_DMA_start() {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
@@ -98,38 +132,29 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
 }
 
 void iADC_DMA_IRQ_handler() {
-    // TODO check if 2nd DMA ch could swap buffers **entirely** without irq avoiding 1% dead-time;
-	// DMA chain trigger should do this (chap. 2.5.6.2)
-    // Now we achieve 494 ksps, but true 500 ksps would be possible with that 
+    // Re-start ADC acquisition if appropriate
     gpio_put(DEBUG_PIN, 1);
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
     iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 	adc_run(false);
-    if (internal_adc_config.infinite || --internal_adc_config.blocks_to_send)
-    { 
-	    iADC_DMA_start();					  // start new acquisition
-    }
+    if (internal_adc_config.infinite || --internal_adc_config.blocks_to_send) iADC_DMA_start();					  
 
     uint8_t* finished_adc_buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1);
 
     internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report.channel_mask = internal_adc_config.channel_mask;
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
-	// TODO transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2)
+    internal_adc_report.transmit_delayed_by_usb = 0;
+	// (small todo: transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2) )
     
-    //for (uint16_t i; i<(data_count+1)/2; i+=1) {  // DEBUG data
-        //buf[i*3] = i/256; // XXX
-        //buf[i*3+1] = i%256; // XXX
-        //buf[i*3+2] = 0; // XXX
-    //}
-    compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
-    internal_adc_report._data_bitwidth = 12;
-    //internal_adc_report._data_bitwidth = 16; // failsafe option taking 133% USB bw
+    //compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
+    //internal_adc_report._data_bitwidth = 12;
+    internal_adc_report._data_bitwidth = 16; // XXX legacy/simplified option, does not save USB bw
     
-	tx_header_and_data(&internal_adc_report, 
+	prepare_report(&internal_adc_report, 
             sizeof(internal_adc_report), 
 			finished_adc_buf, 
-            (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8,
+            (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8, //rounding up
 			0);
 
 
@@ -139,42 +164,31 @@ void iADC_DMA_IRQ_handler() {
 
 
     // when tx schedule before DMA_start:
-    // timing check for 12bitwidth @500 ksps nom.: core0 ~16160us transmitting, 584us outside loop (i.e. near full load)
     // (note: compiled with the TUD_OPT_HIGH_SPEED trick)
+    //
+    // timing check for 12bitwidth @500 ksps nom.: core0 ~16160us transmitting, 584us outside loop (i.e. near full load)
     // 524280 out of expected 524280 kB received, 100% success, real 477345 ksps
-
-    //internal_adc_report._data_bitwidth = 16; 
+    //
     // timing check for 16bitwidth @500 ksps nom.: core0 ~16000us transmitting, 0.9us outside loop (overload, data loss:)
     // 523960 out of expected 524280 kB received, 327 out of 65535 chunks lost (~0.06% loss)
     
 
-void iADC_DMA_setup() { 
-	for (uint8_t ch=0; ch<4; ch++) {
-        if (internal_adc_config.channel_mask & (1<<ch)) 
-            adc_gpio_init(26+ch); 
-    }
-    adc_init();
-    adc_set_temp_sensor_enabled(true);
 
-    adc_fifo_setup(
-        true,    // Write each completed conversion to the sample FIFO
-        true,    // Enable DMA data request (DREQ)
-        1,       // DREQ (and IRQ) asserted when at least 1 sample present
-        false,   // disable ERR bit
-        false    // don't trunc samples to 8-bit
-    );
-	
-    // Set up the DMA to start transferring data as soon as it appears in FIFO
-    iADC_DMA_chan = dma_claim_unused_channel(true);
-    iADC_DMA_cfg = dma_channel_get_default_config(iADC_DMA_chan);
-    channel_config_set_transfer_data_size(&iADC_DMA_cfg, DMA_SIZE_16);
-    channel_config_set_read_increment(&iADC_DMA_cfg, false); // from ADC
-    channel_config_set_write_increment(&iADC_DMA_cfg, true); // into buffer
-    channel_config_set_dreq(&iADC_DMA_cfg, DREQ_ADC);
 
-    // Raise interrupt when DMA finishes a block
-    dma_channel_set_irq0_enabled(iADC_DMA_chan, true);
-    irq_set_exclusive_handler(DMA_IRQ_0, iADC_DMA_IRQ_handler);
-    irq_set_enabled(DMA_IRQ_0, true);
-	adc_run(true);
-}
+    //
+    //if (iADC_buffer_choice)  // XXX DEBUG
+        //for (uint16_t i; i<(internal_adc_report._data_count+1); i+=1) {  // DEBUG data
+            //finished_adc_buf[i*2] = 0xff; // XXX
+            //finished_adc_buf[i*2+1] = 0x0f; // XXX
+        //}
+    //else 
+        //for (uint16_t i; i<(internal_adc_report._data_count+1); i+=1) {  // DEBUG data
+            //finished_adc_buf[i*2] = 0x00; // XXX
+            //finished_adc_buf[i*2+1] = 0x00; // XXX
+        //}
+    //for (uint16_t i; i<(data_count+1)/2; i+=1) {  // DEBUG data
+        //buf[i*3] = i/256; // XXX
+        //buf[i*3+1] = i%256; // XXX
+        //buf[i*3+2] = 0; // XXX
+    //}
+

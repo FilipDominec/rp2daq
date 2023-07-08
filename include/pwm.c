@@ -36,7 +36,7 @@ void pwm_configure_pair() {
 	pwm_set_wrap(slice_num, args->wrap_value);
     pwm_set_clkdiv_int_frac(slice_num, args->clkdiv, args->clkdiv_int_frac);
 
-	tx_header_and_data(&pwm_configure_pair_report, sizeof(pwm_configure_pair_report), 0, 0, 0);
+	prepare_report(&pwm_configure_pair_report, sizeof(pwm_configure_pair_report), 0, 0, 0);
 }
 
 
@@ -62,9 +62,8 @@ void pwm_set_value() {
     gpio_set_function(args->pin, GPIO_FUNC_PWM);
 
     pwm_set_gpio_level(args->pin, args->value); 
-    //pwm_set_gpio_level(args->pin, 1025); 
 
-	tx_header_and_data(&pwm_set_value_report, sizeof(pwm_set_value_report), 0, 0, 0);
+	prepare_report(&pwm_set_value_report, sizeof(pwm_set_value_report), 0, 0, 0);
 }
 
 // TODO facilitate further PWM uses for accurate timer, pulse counter, and freq & duty 
