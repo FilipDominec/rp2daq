@@ -85,7 +85,7 @@ void pin_on_change() {
      * 
      * __Fixme__: in current firmware, edge events cannot be turned off! 
      * 
-     * __This command potentially results in multiple delayed reports. Note that input signal over 10kHz may result in some events being not reported.__
+     * __This command potentially results in multiple later reports. Note that input signal over 10kHz may result in some events not being reported.__
      */
 	struct  __attribute__((packed)) {
 		uint8_t pin;		// min=0 max=25 Pin specification

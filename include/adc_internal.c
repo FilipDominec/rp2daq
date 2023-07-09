@@ -1,6 +1,6 @@
 
 void iADC_DMA_setup();
-void iADC_DMA_start();
+void iADC_DMA_start(uint8_t is_delayed);
 void iADC_DMA_IRQ_handler();
 #define DEBUG_PIN 4
 #define DEBUG2_PIN 5
@@ -11,7 +11,8 @@ struct __attribute__((packed)) {
     uint8_t _data_bitwidth;
     uint8_t channel_mask;
     uint16_t blocks_to_send;
-    uint8_t transmit_delayed_by_usb;
+    uint8_t block_delayed_by_usb;
+
 } internal_adc_report;
 
 struct { 
@@ -42,18 +43,22 @@ void internal_adc() {
 	internal_adc_config.clkdiv = command->clkdiv; 
 	if (command->blocks_to_send) {
 		internal_adc_config.blocks_to_send = command->blocks_to_send; 
-		iADC_DMA_start(); 
+		iADC_DMA_start(0); 
 	}
 }
 
 
 
-// *** auxiliary functions *** //
+// *** double-buffer management and auxiliary functions *** //
 
 uint16_t iADC_buffer0[1024*16];
 uint16_t iADC_buffer1[1024*16];
 volatile uint8_t iADC_buffer_choice = 0;
-volatile uint8_t iADC_buffer_write_lock[2]; // TODO TEST
+uint8_t iADC_buffer_write_lock0;
+uint8_t iADC_buffer_write_lock1;
+uint8_t iADC_buffer_isdelayed0;
+uint8_t iADC_buffer_isdelayed1;
+uint8_t iADC_DMA_start_pending;
 
 dma_channel_config iADC_DMA_cfg;
 int iADC_DMA_chan;
@@ -83,6 +88,8 @@ void iADC_DMA_setup() {
     channel_config_set_write_increment(&iADC_DMA_cfg, true); // into buffer
     channel_config_set_dreq(&iADC_DMA_cfg, DREQ_ADC);
 
+    iADC_buffer_choice = 1;
+
     // Raise interrupt when DMA finishes a block
     dma_channel_set_irq0_enabled(iADC_DMA_chan, true);
     irq_set_exclusive_handler(DMA_IRQ_0, iADC_DMA_IRQ_handler);
@@ -90,17 +97,21 @@ void iADC_DMA_setup() {
 	adc_run(true);
 }
 
-void iADC_DMA_start() {
+void iADC_DMA_start(uint8_t is_delayed) {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
+    iADC_DMA_start_pending = 0;
 	adc_run(false);				
 	adc_fifo_drain(); // ??
 
 	adc_set_round_robin(internal_adc_config.channel_mask);
 	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
 
+    if (iADC_buffer_choice) { iADC_buffer_isdelayed1 = is_delayed; } else { iADC_buffer_isdelayed0 = is_delayed; };
+    if (iADC_buffer_choice) { iADC_buffer_write_lock1 = 1; } else { iADC_buffer_write_lock0 = 1; };
+
 	// Initiate non-blocking ADC run, instead of calling dma_channel_wait_for_finish_blocking()
 	dma_channel_configure(iADC_DMA_chan, &iADC_DMA_cfg,
-		iADC_buffer_choice ? iADC_buffer1 : iADC_buffer0,    // dst
+		iADC_buffer_choice ? iADC_buffer1 : iADC_buffer0,    // destination
 		&adc_hw->fifo,  // src
 		internal_adc_config.blocksize,  // transfer count
 		true            // start immediately  (?)
@@ -131,34 +142,40 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
     }
 }
 
+
+
 void iADC_DMA_IRQ_handler() {
     // Re-start ADC acquisition if appropriate
-    gpio_put(DEBUG_PIN, 1);
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
-    iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 	adc_run(false);
-    if (internal_adc_config.infinite || --internal_adc_config.blocks_to_send) iADC_DMA_start();					  
 
-    uint8_t* finished_adc_buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer0 : &iADC_buffer1);
+    uint8_t* finished_adc_buf = (uint8_t*)(iADC_buffer_choice ? &iADC_buffer1 : &iADC_buffer0);
+    iADC_buffer_choice = iADC_buffer_choice ^ 0x01; // swap buffers
 
+    if (internal_adc_config.infinite || --internal_adc_config.blocks_to_send) { 
+        if (iADC_buffer_choice ? iADC_buffer_write_lock1 : iADC_buffer_write_lock0) {
+            iADC_DMA_start_pending = 1;
+        } else { 
+            iADC_DMA_start(0);
+        };
+    } 
+
+    //gpio_put(DEBUG_PIN, 1); /// TODO this damages the first buffer after restart (??) - test timing
+    //compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
+    //internal_adc_report._data_bitwidth = 12;
+    //gpio_put(DEBUG_PIN, 0);
+    internal_adc_report._data_bitwidth = 16; // XXX legacy/simplified option, does not save USB bw
     internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report.channel_mask = internal_adc_config.channel_mask;
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
-    internal_adc_report.transmit_delayed_by_usb = 0;
-	// (small todo: transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2) )
-    
-    //compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
-    //internal_adc_report._data_bitwidth = 12;
-    internal_adc_report._data_bitwidth = 16; // XXX legacy/simplified option, does not save USB bw
-    
-	prepare_report(&internal_adc_report, 
+    internal_adc_report.block_delayed_by_usb = (iADC_buffer_choice ? iADC_buffer_isdelayed0 : iADC_buffer_isdelayed1);
+	prepare_report_wrl(&internal_adc_report, 
             sizeof(internal_adc_report), 
 			finished_adc_buf, 
             (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8, //rounding up
-			0);
-
-
-    gpio_put(DEBUG_PIN, 0);
+            0,
+            (iADC_buffer_choice ? &iADC_buffer_write_lock0 : &iADC_buffer_write_lock1)); // TODO fix pointer arithmetics
+	// (small todo: transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2) )
 
 }
 

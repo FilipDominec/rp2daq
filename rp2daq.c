@@ -49,7 +49,7 @@ message_descriptor message_table[] = // #new_features: add your command to this 
         };  
 
 
-void rx_command() {
+inline void rx_next_command() {
     int packet_size;
     uint8_t packet_data;
     message_descriptor message_entry;
@@ -78,12 +78,15 @@ void rx_command() {
     }
 }
 
-void tx_report() {
+inline void tx_next_report() {
     fwrite(&txbuf[TXBUF_LEN*txbuf_tosend], txbuf_struct_len[txbuf_tosend], 1, stdout);
     if (txbuf_data_len[txbuf_tosend]) {
         fwrite(txbuf_data_ptr[txbuf_tosend], txbuf_data_len[txbuf_tosend], 1, stdout);
     }
     fflush(stdout);
+    if (txbuf_data_write_lock_ptr[txbuf_tosend]) {
+        *txbuf_data_write_lock_ptr[txbuf_tosend] = 0; // clear buffer lock to allow writing
+    }
 }
 
 
@@ -91,6 +94,11 @@ void tx_report() {
 // for being transmitted as soon as possible.
 void prepare_report(void* headerptr, uint16_t headersize, void* dataptr, 
 		uint16_t datasize, uint8_t make_copy_of_data) {
+    prepare_report_wrl(headerptr, headersize, dataptr, datasize, make_copy_of_data, 0x0000); 
+}
+
+void prepare_report_wrl(void* headerptr, uint16_t headersize, void* dataptr, 
+		uint16_t datasize, uint8_t make_copy_of_data, uint8_t* data_write_lock_ptr) {
 	while (txbuf_lock); txbuf_lock=1;
 	memcpy(&txbuf[TXBUF_LEN*txbuf_tofill], headerptr, headersize);
 	if (make_copy_of_data) { // if data copied after the header (length must be <= TXBUF_LEN)
@@ -98,14 +106,14 @@ void prepare_report(void* headerptr, uint16_t headersize, void* dataptr,
 		txbuf_struct_len[txbuf_tofill] = headersize + datasize;
 		txbuf_data_ptr[txbuf_tofill] = 0x0000;
 		txbuf_data_len[txbuf_tofill] = 0;
-		//txbuf_data_write_lock_ptr[txbuf_tofill] = 0x0000; TODO
+		txbuf_data_write_lock_ptr[txbuf_tofill] = 0x0000;
 		memcpy(&txbuf[TXBUF_LEN*txbuf_tofill+headersize], dataptr, datasize);
 	} else {  // if data are referenced only; does not need a memory copy to be made, but needs 
-                // them to stay there until sent
+                // them to stay there until sent, as ensured by the write_lock
 		txbuf_struct_len[txbuf_tofill] = headersize;
 		txbuf_data_ptr[txbuf_tofill] = dataptr;
 		txbuf_data_len[txbuf_tofill] = datasize;
-		//txbuf_data_write_lock_ptr[txbuf_tofill] = data_write_lock_ptr; TODO 
+		txbuf_data_write_lock_ptr[txbuf_tofill] = data_write_lock_ptr;
 	}
 	txbuf_tofill = (txbuf_tofill + 1) % TXBUF_COUNT;
 	txbuf_lock=0;
@@ -126,6 +134,10 @@ bool timer10khz_update_routine(struct repeating_timer *t) {
 
 void core1_main() { // CPU core1 takes care of real-time tasks
     while (true) {
+        if (iADC_DMA_start_pending && !(iADC_buffer_choice ? iADC_buffer_write_lock1 : iADC_buffer_write_lock0)) {
+            iADC_DMA_start(1);
+        }
+
 		if (timer10khz_triggered) {
 			timer10khz_triggered = 0;
 			stepper_update();
@@ -169,11 +181,11 @@ int main() {  // CPU core0 can be fully occupied with USB communication
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 
-		rx_command();
+		rx_next_command();
 
 		if (txbuf_tosend != txbuf_tofill) {
 			gpio_put(DEBUG2_PIN, 1); 
-            tx_report();
+            tx_next_report();
 			txbuf_tosend = (txbuf_tosend + 1) % TXBUF_COUNT;
 			gpio_put(DEBUG2_PIN, 0); 
 

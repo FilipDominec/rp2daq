@@ -23,14 +23,15 @@
 uint8_t command_buffer[RXBUF_LEN];
 
 // Cyclic buffer for staging reports to be sent (headers + optional data payload if fits in)
-#define TXBUF_LEN 256    
-#define TXBUF_COUNT 8    // up to 8 reports can be immediately scheduled for tx if USB is busy
+#define TXBUF_LEN 256    // (longer data than this can be transmitted as reference to memory)
+#define TXBUF_COUNT 8    // up to 8 reports can be immediately scheduled, even if USB is busy
 uint8_t  txbuf[(TXBUF_LEN*TXBUF_COUNT)];
 uint16_t txbuf_struct_len[TXBUF_COUNT];
 void*    txbuf_data_ptr[TXBUF_COUNT];
 uint32_t txbuf_data_len[TXBUF_COUNT];
+uint8_t* txbuf_data_write_lock_ptr[TXBUF_COUNT]; // optional write lock; released upon transmit
 
-uint8_t  txbuf_tofill, txbuf_tosend;
+volatile uint8_t txbuf_tofill, txbuf_tosend;  // start & end of a cyclic buffer
 volatile uint8_t txbuf_lock;
 
 void prepare_report(void* headerptr, 
@@ -38,3 +39,9 @@ void prepare_report(void* headerptr,
 		void* dataptr, 
 		uint16_t datasize, 
 		uint8_t make_copy_of_data);
+void prepare_report_wrl(void* headerptr, 
+		uint16_t headersize, 
+		void* dataptr, 
+		uint16_t datasize, 
+		uint8_t make_copy_of_data, 
+        uint8_t* data_write_lock_ptr);
