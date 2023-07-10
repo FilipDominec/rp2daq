@@ -29,7 +29,7 @@ __Call signature:__
 __Parameters__:
 
   * flush_buffer : Avoid possible pending messages from previous session 
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
@@ -55,7 +55,7 @@ __Parameters__:
   * high_z : High-impedance (i.e. not sinking nor sourcing current) 
   * pull_up : If high_z 1, connects to 3.3V through built-in resistor 
   * pull_down : If high_z 1, connects to 0V through built-in resistor 
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
@@ -73,18 +73,18 @@ __Call signature:__
 __Parameters__:
 
   * pin   
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
 
 ## pin_on_change
 
-Sets up a pin to issue a report if the pin changes its state (both from external and internal signal).
+Sets up a pin to issue a report every time the pin changes its state. This is sensitive to both external and internal events.
 
 __Fixme__: in current firmware, edge events cannot be turned off! 
 
-__This command potentially results in multiple delayed reports. Note that input signal over 10kHz may result in some events being not reported.__
+__This command potentially results in multiple later reports. Note that input signal over 10kHz may result in some events not being reported.__
 
 __Call signature:__
 
@@ -95,29 +95,30 @@ __Parameters__:
   * pin : Pin specification 
   * on_rising_edge : Reports on pin going from logical 0 to 1 
   * on_falling_edge : Reports on pin going from logical 1 to 0 
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
 
 ## internal_adc
 
-Initiates analog-to-digital conversion (ADC), using by the RP2040 built-in feature.
+Initiates analog-to-digital conversion (ADC), using the RP2040 built-in feature.
 
-__This command can result in one, several or infinitely many report(s). They can be near infinite, or delayed, depending on block size and timing. __
+__This command can result in one, several or infinitely many report(s). They can be 
+almost immediate or delayed, depending on block size and timing. __
 
 __Call signature:__
 
-`internal_adc(channel_mask=1, infinite=0, blocksize=1000, blocks_to_send=1, clkdiv=96,  _callback=None)`
+`internal_adc(channel_mask=1, blocksize=1000, infinite=0, blocks_to_send=1, clkdiv=96,  _callback=None)`
 
 __Parameters__:
 
-  * channel_mask : Bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor 
-  * infinite : Disables blocks_to_send countdown (reports keep coming until explicitly stopped) 
+  * channel_mask : Masks 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor 
   * blocksize : Number of sample points until a report is sent 
-  * blocks_to_send : Number of reports to be sent 
+  * infinite : Disables blocks_to_send countdown (reports keep coming until explicitly stopped) 
+  * blocks_to_send : Number of reports to be sent (if not infinite) 
   * clkdiv : Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.) 
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
@@ -126,7 +127,7 @@ __Parameters__:
 
 Sets frequency for a pair of pins ("slice")
 
-To control usual small servos, set `wrap=65536, clkdiv=20` to get 190 Hz
+To control usual small servos, set `wrap_value=65535, clkdiv=20` to get 190 Hz
 cycle. Value of 10000 (0.8ms pulse) then turns servo near its minimum value,
 and value of 30000 (2.4ms pulse) turns it near maximum value. YMMV.
 (see https://en.wikipedia.org/wiki/Servo_control)
@@ -152,7 +153,7 @@ __Parameters__:
   * wrap_value   
   * clkdiv   
   * clkdiv_int_frac   
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
@@ -173,7 +174,7 @@ __Parameters__:
 
   * pin   
   * value   
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
@@ -194,7 +195,7 @@ __Parameters__:
   * endswitch_pin   
   * disable_pin   
   * inertia   
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
@@ -210,7 +211,7 @@ __Call signature:__
 __Parameters__:
 
   * stepper_number   
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 
 
@@ -231,6 +232,6 @@ __Parameters__:
   * endswitch_ignore   
   * endswitch_expect   
   * reset_nanopos   
-  * _callback : a function to later handle the report; if set, makes this command asynchronous 
+  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 

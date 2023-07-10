@@ -24,16 +24,16 @@ struct {
 } internal_adc_config;
 
 void internal_adc() {
-    /* Initiates analog-to-digital conversion (ADC), using by the RP2040 built-in feature.
+    /* Initiates analog-to-digital conversion (ADC), using the RP2040 built-in feature.
      * 
      * __This command can result in one, several or infinitely many report(s). They can be 
      * almost immediate or delayed, depending on block size and timing. __
      */ 
 	struct __attribute__((packed)) {
-		uint8_t channel_mask;		// default=1		min=0		max=31 Bits 1,2,4 are GPIO26,27,28; bit 8 internal reference, 16 temperature sensor
-		uint8_t infinite;			// default=0		min=0		max=1  Disables blocks_to_send countdown (reports keep coming until explicitly stopped)
+		uint8_t channel_mask;		// default=1		min=0		max=31 Masks 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor
 		uint16_t blocksize;			// default=1000		min=1		max=8192 Number of sample points until a report is sent
-		uint16_t blocks_to_send;	// default=1		min=0		         Number of reports to be sent
+		uint8_t infinite;			// default=0		min=0		max=1  Disables blocks_to_send countdown (reports keep coming until explicitly stopped)
+		uint16_t blocks_to_send;	// default=1		min=0		         Number of reports to be sent (if not infinite)
 		uint16_t clkdiv;			// default=96		min=96		max=65535 Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.)
 	} * command = (void*)(command_buffer+1);
 
