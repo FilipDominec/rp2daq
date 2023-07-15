@@ -78,13 +78,11 @@ class Rp2daq_internals(threading.Thread):
         self.sleep_tune = 0.001
 
         threading.Thread.__init__(self) 
-        self.data_receiving_thread = threading.Thread(target=self._data_receiver, daemon=True)
         self.report_processing_thread = threading.Thread(target=self._report_processor, daemon=True)
         self.callback_dispatching_thread = threading.Thread(target=self._callback_dispatcher, daemon=True)
 
         self.rx_bytes = deque()
         self.run_event = threading.Event()
-        self.data_receiving_thread.start()
         self.report_processing_thread.start()
         self.callback_dispatching_thread.start()
         self.run_event.set()
@@ -110,44 +108,28 @@ class Rp2daq_internals(threading.Thread):
         self.report_callbacks = {} 
 
 
-    def _data_receiver(self):
-        self.run_event.wait()
-
-        while self.run_event.is_set():
-                inwaiting = self.port.inWaiting()
-                if inwaiting:
-                    c = self.port.read(inwaiting)
-                    self.rx_bytes.extend(c)
-                else:
-                    time.sleep(self.sleep_tune)
-
     def _report_processor(self):
         """
         Thread to continuously check for incoming data.
         When a byte comes in, place it onto the deque.
         """
-        def rx_at_least_bytes(length):
-            while len(self.rx_bytes) < length:
-                #c = self.port.read(w)
-                #self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
-                time.sleep(self.sleep_tune)
-            return [self.rx_bytes.popleft() for _ in range(length)]
 
         self.run_event.wait()
 
         while self.run_event.is_set():
             try:
-                if len(self.rx_bytes):
+
+                if self.port.inWaiting():
                     # report_header_bytes will be populated with the received data for the report
-                    report_type = self.rx_bytes.popleft()
+                    report_type_b = self.port.read(1); report_type = ord(report_type_b)
                     packet_length = self.report_header_lenghts[report_type] - 1
 
-                    report_header_bytes = rx_at_least_bytes(packet_length)
+                    report_header_bytes = self.port.read(packet_length) 
 
                     #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
 
                     report_args = struct.unpack(self.report_header_formats[report_type], 
-                            bytes([report_type]+report_header_bytes))
+                            report_type_b+report_header_bytes)
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
 
                     data_bytes = []
@@ -156,7 +138,7 @@ class Rp2daq_internals(threading.Thread):
                         payload_length = -((-dc*dbw)//8)  # integer division is like floor(); this makes it ceil()
                         #print("  PL", payload_length)
 
-                        data_bytes = rx_at_least_bytes(payload_length)
+                        data_bytes = self.port.read(payload_length)
 
                         if dbw == 8:
                             cb_kwargs["data"] = data_bytes
