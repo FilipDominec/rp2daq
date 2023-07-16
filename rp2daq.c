@@ -91,7 +91,7 @@ inline void tx_next_report() {
 
 
 // Generic routine that should be used for scheduling any report (i.e. ordinary outgoing message)
-// for being transmitted as soon as possible.
+// for being transmitted as soon as possible. When make_copy_of_data=0, it is done within 1 us. 
 void prepare_report(void* headerptr, uint16_t headersize, void* dataptr, 
 		uint16_t datasize, uint8_t make_copy_of_data) {
     prepare_report_wrl(headerptr, headersize, dataptr, datasize, make_copy_of_data, 0x0000); 
@@ -184,10 +184,8 @@ int main() {  // CPU core0 can be fully occupied with USB communication
 		rx_next_command();
 
 		if (txbuf_tosend != txbuf_tofill) {
-			gpio_put(DEBUG2_PIN, 1); 
             tx_next_report();
 			txbuf_tosend = (txbuf_tosend + 1) % TXBUF_COUNT;
-			gpio_put(DEBUG2_PIN, 0); 
 
 			// Notes: fwrite() seems most appropriate for bulk data transfers; it  blocks code 
             // execution, but transmits >850 kBps (~limit of USB 1.1) for message length >50 B 

@@ -2,8 +2,6 @@
 void iADC_DMA_setup();
 void iADC_DMA_start(uint8_t is_delayed);
 void iADC_DMA_IRQ_handler();
-#define DEBUG_PIN 4
-#define DEBUG2_PIN 5
 
 struct __attribute__((packed)) {
     uint8_t report_code;
@@ -98,6 +96,7 @@ void iADC_DMA_setup() {
 }
 
 void iADC_DMA_start(uint8_t is_delayed) {
+			gpio_put(DEBUG2_PIN, 0); 
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
     iADC_DMA_start_pending = 0;
 	adc_run(false);				
@@ -132,6 +131,7 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
     // e.g. from two decimal values 2748 3567, originally stored little-endian as four bytes 
     // 0xBC 0x0A 0xEF 0x0D,  this makes 0xBC 0xAE 0xFD to be later expanded back in computer
     for (uint16_t i; i<(data_count+1)/2; i+=1) { 
+		// It takes 320 us for 4000 pairs (i.e. 8kB->6kB); one i-cycle is thus 40 CPU cycles.
         uint8_t a = buf[i*4];
         uint8_t b = buf[i*4+1]*16 + buf[i*4+2]/16;
         uint8_t c = buf[i*4+2]*16 + buf[i*4+3];
@@ -155,16 +155,18 @@ void iADC_DMA_IRQ_handler() {
     if (internal_adc_config.infinite || --internal_adc_config.blocks_to_send) { 
         if (iADC_buffer_choice ? iADC_buffer_write_lock1 : iADC_buffer_write_lock0) {
             iADC_DMA_start_pending = 1;
+			gpio_put(DEBUG2_PIN, 1); 
         } else { 
+			gpio_put(DEBUG2_PIN, 0); 
             iADC_DMA_start(0);
         };
     } 
 
-    //gpio_put(DEBUG_PIN, 1); /// TODO this damages the first buffer after restart (??) - test timing
+    gpio_put(DEBUG_PIN, 1); /// TODO this damages the first buffer after restart (??) - test timing
     //compress_2x12b_to_24b_inplace(finished_adc_buf, internal_adc_report._data_count);
     //internal_adc_report._data_bitwidth = 12;
-    //gpio_put(DEBUG_PIN, 0);
     internal_adc_report._data_bitwidth = 16; // XXX legacy/simplified option, does not save USB bw
+
     internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report.channel_mask = internal_adc_config.channel_mask;
     internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
@@ -175,6 +177,7 @@ void iADC_DMA_IRQ_handler() {
             (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8, //rounding up
             0,
             (iADC_buffer_choice ? &iADC_buffer_write_lock0 : &iADC_buffer_write_lock1)); // TODO fix pointer arithmetics
+    gpio_put(DEBUG_PIN, 0);
 	// (small todo: transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2) )
 
 }

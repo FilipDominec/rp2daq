@@ -114,55 +114,45 @@ class Rp2daq_internals(threading.Thread):
         When a byte comes in, place it onto the deque.
         """
 
+        def unpack_data_payload(data_bytes, count, bitwidth):
+            if bitwidth == 8:
+                return data_bytes
+            elif bitwidth == 12:      # decompress 3B  into pairs of 12b values & flatten
+                odd = [a + ((b&0xF0)<<4)  for a,b
+                        in zip(data_bytes[::3], data_bytes[1::3])]
+                even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
+                        in zip(                   data_bytes[1:-1:3], data_bytes[2::3])]
+                return [x for l in zip(odd,even) for x in l] + ([odd[-1]] if len(odd)>len(even) else [])
+            elif bitwidth == 16:      # using little endian byte order everywhere
+                return [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
+            else:
+                raise NotImplementedError 
+
         self.run_event.wait()
 
         while self.run_event.is_set():
             try:
 
                 if self.port.inWaiting():
-                    # report_header_bytes will be populated with the received data for the report
+                    # 1st: Get 1 byte to tell the report type
                     report_type_b = self.port.read(1); report_type = ord(report_type_b)
                     packet_length = self.report_header_lenghts[report_type] - 1
 
+                    # 2nd: Get the corresponding header
                     report_header_bytes = self.port.read(packet_length) 
-
-                    #logging.debug(f"received packet header {report_type=} {report_header_bytes=} {bytes(report_header_bytes)=}")
-
                     report_args = struct.unpack(self.report_header_formats[report_type], 
                             report_type_b+report_header_bytes)
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
+                    #logging.debug(f"received packet header {report_type=} {bytes(report_header_bytes)=}")
 
-                    data_bytes = []
-                    dc, dbw = cb_kwargs.get("_data_count",0), cb_kwargs.get("_data_bitwidth",0)
-                    if dc and dbw:
-                        payload_length = -((-dc*dbw)//8)  # integer division is like floor(); this makes it ceil()
-                        #print("  PL", payload_length)
-
-                        data_bytes = self.port.read(payload_length)
-
-                        if dbw == 8:
-                            cb_kwargs["data"] = data_bytes
-                        elif dbw == 12:      # decompress 3B  into pairs of 12b values & flatten
-                            odd = [a + ((b&0xF0)<<4)  for a,b
-                                    in zip(data_bytes[::3], data_bytes[1::3])]
-                            even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
-                                    in zip(                   data_bytes[1:-1:3], data_bytes[2::3])]
-                            cb_kwargs["data"] = [x for l in zip(odd,even) for x in l]
-                            if len(odd)>len(even): cb_kwargs["data"].append(odd[-1])
-
-                        elif dbw == 16:      # using little endian byte order everywhere
-                            cb_kwargs["data"] = [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
-
-                        #if max(cb_kwargs["data"]) > 2250: print(data_bytes) # XXX
-                    
+                    # 3rd: Get the data payload (if present), and convert it into a list of ints
+                    if cb_kwargs.get("_data_count") and cb_kwargs["_data_count"]:
+                        count, bitwidth = cb_kwargs["_data_count"], cb_kwargs["_data_bitwidth"]
+                        payload_length = -((-count*bitwidth)//8)  # int div like floor(); this makes it ceil()
+                        cb_kwargs["data"] = unpack_data_payload(self.port.read(payload_length), count, bitwidth)
 
                     cb = self.report_callbacks.get(report_type, False) # false for unexpected reports
                     if cb:
-                        #logging.debug("CALLING CB {cb_kwargs}")
-                        #print(f"CALLING CB {cb} {cb_kwargs}")
-                        ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
-                        ## TODO: check if sync cmd works correctly after async cmd (of the same type)
-                        #cb(**cb_kwargs)
                         self.async_report_cb_queue.put((cb, cb_kwargs))
                     elif cb is None: # expected report from blocking command
                         #print(f"UNBLOCKING CB {report_type=} {cb_kwargs}")
@@ -172,6 +162,11 @@ class Rp2daq_internals(threading.Thread):
                         pass 
                 else:
                     time.sleep(self.sleep_tune)
+                #logging.debug("CALLING CB {cb_kwargs}")
+                #print(f"CALLING CB {cb} {cb_kwargs}")
+                ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
+                ## TODO: check if sync cmd works correctly after async cmd (of the same type)
+                #cb(**cb_kwargs)
 
             except OSError:
                 logging.error("Device disconnected")
