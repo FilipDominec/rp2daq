@@ -16,8 +16,8 @@ MIN_FW_VER = 210400
 
 import atexit
 from collections import deque
+import io
 import logging
-import multiprocessing
 import os
 import queue
 import serial
@@ -43,7 +43,6 @@ def init_error_msgbox():  # error handling with a graphical message box
     sys.excepthook = myerr
 
 
-
 class Rp2daq():
     def __init__(self, required_device_id="", verbose=False):
 
@@ -65,19 +64,8 @@ class Rp2daq():
 
 
 
-def usb_backend(report_queue, port): 
-    """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
-    print(" usb_backend PORT = ", port)
-    while True:
-        while port.in_waiting:
-            report_queue.put(port.read(port.in_waiting))
-        time.sleep(0.001)
-
-
-
 class Rp2daq_internals(threading.Thread):
     def __init__(self, externals, required_device_id="", verbose=False):
-        threading.Thread.__init__(self) 
 
         self._e = externals
 
@@ -85,25 +73,17 @@ class Rp2daq_internals(threading.Thread):
 
         time.sleep(.05)
         self.port = self._find_device(required_device_id, required_firmware_version=MIN_FW_VER)
-
         ## Asynchronous communication using threads
-        self.sleep_tune = 0.001
+        self.sleep_tune = 0.000001
 
-        self.report_queue = multiprocessing.Queue()  
-        self.usb_backend_process = multiprocessing.Process(
-                target=usb_backend, 
-                args=(self.report_queue, self.port))
-        self.usb_backend_process.daemon = True
-        self.usb_backend_process.start()
-
-
+        threading.Thread.__init__(self) 
+        self.data_receiving_thread = threading.Thread(target=self._data_receiver, daemon=True)
         self.report_processing_thread = threading.Thread(target=self._report_processor, daemon=True)
         self.callback_dispatching_thread = threading.Thread(target=self._callback_dispatcher, daemon=True)
 
         self.rx_bytes = deque()
-        self.rx_bytes_total_len = 0
-
         self.run_event = threading.Event()
+        self.data_receiving_thread.start()
         self.report_processing_thread.start()
         self.callback_dispatching_thread.start()
         self.run_event.set()
@@ -128,34 +108,59 @@ class Rp2daq_internals(threading.Thread):
         # Register callbacks (to dispatch reports as they arrive)
         self.report_callbacks = {} 
 
+    def _data_receiver(self):
+        self.run_event.wait()
+        #dummy = []
+        #dummyb = bytes(b'oeu'*10000)
+
+        while self.run_event.is_set():
+                if self.port.in_waiting:
+                    #pass #XXX
+                    #self.port.reset_input_buffer()
+
+                    #print(dir(self.port))
+                    #print(self.port.fd)
+
+                    #os.reset_input_buffer(self.port.fd)
+                    #c = os.read(self.port.fd, self.port.in_waiting)
+                    #c = self.port.read(self.port.in_waiting)
+
+                    #print(len(c))
+                    #self.rx_bytes.extend(c)
+                    self.rx_bytes.extend(os.read(self.port.fd, self.port.in_waiting))
+                    #dummy.extend(c)
+                else:
+                    pass
+                    time.sleep(self.sleep_tune)
 
     def _report_processor(self):
         """
         Thread to continuously check for incoming data.
         When a byte comes in, place it onto the deque.
         """
+        #print(dir(self.port))
 
-        def queue_recv_bytes(length): # note: should re-implement with io.BytesIO() ring buffer?
+        def rx_at_least_bytes(length):
             while len(self.rx_bytes) < length:
-                c = self.report_queue.get()
-                self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
-                self.rx_bytes_total_len += len(c)
-            return bytes([self.rx_bytes.popleft() for _ in range(length)])
+                #c = self.port.read(w)
+                #self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
+                time.sleep(self.sleep_tune)
+            return [self.rx_bytes.popleft() for _ in range(length)]
 
         def unpack_data_payload(data_bytes, count, bitwidth):
             if bitwidth == 8:
                 return data_bytes
             elif bitwidth == 12:      # decompress 3B  into pairs of 12b values & flatten
-                odd = [a + ((b&0xF0)<<4)  for a,b
-                        in zip(data_bytes[::3], data_bytes[1::3])]
-                even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
-                        in zip(                   data_bytes[1:-1:3], data_bytes[2::3])]
-                return [x for l in zip(odd,even) for x in l] + ([odd[-1]] if len(odd)>len(even) else [])
+                #odd = [a + ((b&0xF0)<<4)  for a,b
+                        #in zip(data_bytes[::3], data_bytes[1::3])]
+                #even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
+                        #in zip(                   data_bytes[1:-1:3], data_bytes[2::3])]
+                #return [x for l in zip(odd,even) for x in l] + ([odd[-1]] if len(odd)>len(even) else [])
 
-                # maybe more efficient variant, fixme: shouldn't miss last odd byte, if any
-                #return [x 
-                        #for a,b,c in zip(data_bytes[::3], data_bytes[1::3], data_bytes[2::3]) 
-                        #for x in (a + ((b&0xF0)<<4), (c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256)] 
+                # Optimized version - but TODO append last odd entry
+                return [x 
+                        for a,b,c in zip(data_bytes[::3], data_bytes[1::3], data_bytes[2::3]) 
+                        for x in (a + ((b&0xF0)<<4), (c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256)] 
             elif bitwidth == 16:      # using little endian byte order everywhere
                 return [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
             else:
@@ -165,37 +170,49 @@ class Rp2daq_internals(threading.Thread):
 
         while self.run_event.is_set():
             try:
-                #if self.port.in_waiting:
-                    # 1st: Get 1st byte to tell the report type
-                    report_type_b = queue_recv_bytes(1); 
-                    report_type = ord(report_type_b)
+
+                while len(self.rx_bytes):
+                    t0 = time.time()
+
+                    # 1st: Get 1 byte to tell the report type
+                    report_type = self.rx_bytes.popleft()
                     packet_length = self.report_header_lenghts[report_type] - 1
 
                     # 2nd: Get the corresponding header
-                    report_header_bytes = queue_recv_bytes(packet_length)
+                    report_header_bytes = rx_at_least_bytes(packet_length) 
                     report_args = struct.unpack(self.report_header_formats[report_type], 
-                            report_type_b+report_header_bytes)
+                            bytes([report_type]+report_header_bytes))
+                            #report_type_b+report_header_bytes)
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
                     #logging.debug(f"received packet header {report_type=} {bytes(report_header_bytes)=}")
 
                     # 3rd: Get the data payload (if present), and convert it into a list of ints
                     if cb_kwargs.get("_data_count") and cb_kwargs["_data_count"]:
+                        t1 = time.time()
                         count, bitwidth = cb_kwargs["_data_count"], cb_kwargs["_data_bitwidth"]
                         payload_length = -((-count*bitwidth)//8)  # int div like floor(); this makes it ceil()
-                        payload_raw = queue_recv_bytes(payload_length)
-                        cb_kwargs["data"] = unpack_data_payload(payload_raw, count, bitwidth)
+                        raw_payload = rx_at_least_bytes(payload_length)
+                        #print(f'-- -- payload rcv in {(time.time()-t1)*1e6} us')
+                        t2 = time.time()
+                        #cb_kwargs["data"] = []
+                        cb_kwargs["data"] = unpack_data_payload(raw_payload, count, bitwidth)
+                        #cb_kwargs["data"] = raw_payload # XXX
+                        #print(f'-- -- payload unp in {(time.time()-t2)*1e6} us')
 
-                    # 4th: Register callback (if async), or wait (if sync)
                     cb = self.report_callbacks.get(report_type, False) # false for unexpected reports
                     if cb:
                         self.async_report_cb_queue.put((cb, cb_kwargs))
                     elif cb is None: # expected report from blocking command
+                        #print(f"UNBLOCKING CB {report_type=} {cb_kwargs}")
                         self.sync_report_cb_queues[report_type].put(cb_kwargs) # unblock default callback (& send it data)
                     elif cb is False: # unexpected report, from command that was not yet called in this script instance
-                        logging.warning(f"Warning: Got callback that was not asked for\n\tDebug info: {cb_kwargs}")
+                        #print(f"Warning: Got callback that was not asked for\n\tDebug info: {cb_kwargs}")
                         pass 
-                #else:
-                    #time.sleep(self.sleep_tune)
+
+                    #print(f'-- msg rcv in {(time.time()-t0)*1e6} us')
+                else:
+                    #pass
+                    time.sleep(self.sleep_tune)
                 #logging.debug("CALLING CB {cb_kwargs}")
                 #print(f"CALLING CB {cb} {cb_kwargs}")
                 ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
@@ -243,19 +260,25 @@ class Rp2daq_internals(threading.Thread):
             if not port_name.hwid.startswith("USB VID:PID=2E8A:000A SER="+required_device_id.upper()):
                 continue
             #print(f"port_name.hwid={port_name.hwid}")
-            try_port = serial.Serial(port=port_name.device, timeout=1)
 
-            try:
+            # TODO: get along without the serial module
+            try_port = serial.Serial(port=port_name.device, timeout=0)     # working way
+            #try_port = io.open(list_ports.comports()[0].device) # crude approach# fixme: no response from device?
+            #try_port = io.open(port_name.device, 'wb') 
+            #try_port_r = io.open(port_name.device, 'rb') 
+
+            #try:
                 #try_port.reset_input_buffer(); try_port.flush()
                 #time.sleep(.05) # 50ms round-trip time is enough
 
                 # the "identify" command is hard-coded here, as the receiving threads are not ready yet
-                try_port.write(struct.pack(r'<BBB', 1, 0, 1)) 
-                time.sleep(.15) # 50ms round-trip time is enough
-                assert try_port.in_waiting == 1+2+1+30
-                id_data = try_port.read(try_port.in_waiting)[4:] 
-            except:
-                id_data = b''
+            time.sleep(.75) # 50ms round-trip time is enough
+            try_port.write(struct.pack(r'<BBB', 1, 0, 1)) 
+            time.sleep(.75) # 50ms round-trip time is enough
+            assert try_port.in_waiting == 1+2+1+30
+            id_data = try_port.read(try_port.in_waiting)[4:] 
+            #except:
+                #id_data = b''
 
             if not id_data[:6] == b'rp2daq': 
                 logging.info(f"\tport open, but device does not identify itself as rp2daq: {id_data}" )
@@ -302,8 +325,3 @@ if __name__ == "__main__":
 
 
 
-
-            #try_port = serial.Serial(port=port_name.device, timeout=1)
-            # TODO: get along without the serial module
-            #try_port = io.open(port_name.device) # fixme: no response from device?
-            #try_port = io.open(list_ports.comports()[0].device) # crude approach
