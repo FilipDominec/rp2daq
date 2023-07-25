@@ -28,7 +28,7 @@
 //
 // If a new functionality is added to this firmware, we suggest to start with a copy of 
 // any of above included command handlers. Then don't forget to register this new function 
-// in the command_table below.
+// along with the report structure in the message_table below.
 // The corresponding method in the pythonic interface will then be auto-generated.
  
 typedef struct { void (*command_func)(); void (*report_struct); } message_descriptor;
@@ -134,7 +134,7 @@ bool timer10khz_update_routine(struct repeating_timer *t) {
 
 void core1_main() { // CPU core1 takes care of real-time tasks
     while (true) {
-        if (iADC_DMA_start_pending && !(iADC_buffer_choice ? iADC_buffer_write_lock1 : iADC_buffer_write_lock0)) {
+        if (iADC_DMA_start_pending && !(iADC_buffers[iADC_buffer_choice].write_lock)) {
             iADC_DMA_start(1);
         }
 
