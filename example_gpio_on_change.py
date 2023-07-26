@@ -9,11 +9,11 @@ import time
 import rp2daq
 rp = rp2daq.Rp2daq()
 
-# Optional: Let's prepare PWM for some artificial signal on pin 0
+# Optional: Let's prepare PWM for some artificial signal on GPIO 0
 # Note that even 10kHz clock works, i.e. 100k reports per second can be received
 print("Configuring PWM channel to make artificial 5kHz square wave (and waiting for it to settle)")
-rp.pwm_configure_pair(0, 
-        clkdiv=250, # clock at 1000.0 kHz
+rp.pwm_configure_pair(gpio=0, 
+        clkdiv=250, # clock at 1.000 MHz
         wrap_value=200) # one rising edge, one falling edge at 5.000 kHz  
 
 time.sleep(.08) # unclear why, but 100 ms is safe
@@ -21,13 +21,13 @@ time.sleep(.08) # unclear why, but 100 ms is safe
 rp.pwm_set_value(0, 100) 
 
 
-## Define a report handler and start asynchronous reporting on each pin change
+## Define a report handler and start asynchronous reporting on each GPIO change
 print("Registering rising/falling edge events...")
 
 count = [0]
 def handler(**kwargs): 
     count[0] += 1
-rp.pin_on_change(0, on_rising_edge=1, on_falling_edge=0, _callback=handler)
+rp.gpio_on_change(0, on_rising_edge=1, on_falling_edge=0, _callback=handler)
 
 
 

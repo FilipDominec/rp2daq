@@ -13,8 +13,7 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
  * Features implemented and planned: 
     * [x] analog input (continuous 12-bit measurement with built-in ADC, at 500k samples per second)
     * [x] stepper motors (pulse control for up to 12 "stepstick" drivers simultaneously)
-	* [x] digital pin output (direct pin write, also high-Z and pull-up can be controlled)
-	* [x] digital pin input (on-demand read, or report on rising/falling edge)
+	* [x] direct digital input/output (also high-Z and pull-up)
 	* [x] pulse-width modulation output (up to 16 PWM channels)
 	* [ ] pulse frequency and timing measurement
 	* [ ] digital messaging (USART/I2C/I2S/SPI) for sensors 
@@ -45,7 +44,7 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 Launch the ```hello_world.py``` script in the main project folder. 
 
-![Two possible outcomes of the script](docs/hello_world_screens.png)
+![Two possible outcomes of the script](docs/hello_world_screens.png){width=794,height=130}
 
 * If a window like the one depicted left appears, rp2daq device is ready to be used! You can interactively control the onboard LED with the buttons.  
 * If an error message appears (like depicted right) the device does not respond correctly. Check it your RP2 blinks twice when USB is re-connected, and make sure you uploaded fresh firmware. 
@@ -61,35 +60,35 @@ To check everything is ready, navigate to the unpacked project directory and lau
 ```Python
 import rp2daq          # import the module (must be available in your PYTHONPATH)
 rp = rp2daq.Rp2daq()   # connect to the Pi Pico
-rp.pin_set(25, 1)      # sets pin no. 25 to logical 1
+rp.gpio_set(25, 1)     # sets GPIO no. 25 to logical 1
 ```
 
-The pin number 25 is connected to the green onboard LED on Raspberry Pi Pico - it should turn on when you paste these three lines. Turning the LED off is a trivial exercise for the reader.
+The GPIO (general-purpose input-output) 25 is connected to the green onboard LED on Raspberry Pi Pico - it should turn on when you paste these three lines. Turning the LED off is a trivial exercise for the reader.
 
 ### Receiving analog data
 
-Similarly, you can get a readout from the built-in analog/digital converter (ADC). With default configuration, it will measure 1000 voltage values on the pin 26:
+Similarly, you can get a readout from the built-in analog/digital converter (ADC). With default configuration, it will measure 1000 voltage values on the GPIO 26:
 
 ```Python
 import rp2daq
 rp = rp2daq.Rp2daq()
-print( rp.internal_adc() )
+print( rp.adc() )
 ```
 
-The ```internal_adc()``` command returns a standard pythonic dictionary, with several (more or less useful) *key:value* pairs. Among these, the ADC readouts are simply named ```data```; value ```0``` corresponds to cca 0 V, and ```4095``` to cca 3.2 V.
+The ```adc()``` command returns a standard pythonic dictionary, with several (more or less useful) *key:value* pairs. Among these, the ADC readouts are simply named ```data```; value ```0``` corresponds to cca 0 V, and ```4095``` to cca 3.2 V.
 
-Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.internal_adc(channel_mask=16)``` will switch the ADC to get raw readouts from the built-in thermometer.
+Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.adc(channel_mask=16)``` will switch the ADC to get raw readouts from the built-in thermometer.
 
 
 ### Tip: Use TAB completion
 
 The ```ipython3``` interface has numerous user-friendly features. For instance, a list of commands is suggested by ipython when one hits TAB after writing ```rp.```:
 
-![ipython console printout for rp.internal_adc?](docs/ipython_command_hint.png)
+![ipython console printout for rp.adc?](docs/ipython_command_hint.png)
 
 The docstring for any command is printed out when one adds ```?``` and hits enter:
 
-![ipython console printout for rp.internal_adc?](docs/ipython_command_info.png)
+![ipython console printout for rp.adc?](docs/ipython_command_info.png)
 
 Note that most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
 
@@ -107,14 +106,14 @@ rp = rp2daq.Rp2daq()
 def my_callback(**kwargs):
 	print(kwargs)
 
-rp.internal_adc(_callback=my_callback)     # non-blocking!
+rp.adc(_callback=my_callback)     # non-blocking!
 
 print("code does not wait for ADC data here")
 import time
 time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
 ```
 
-Obviously, it is a bit more complicated. But more important is that here the ```rp.internal_adc``` is provided with a *callback*, which makes it asynchronous: it does no more block further program flow, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
+Obviously, it is a bit more complicated. But more important is that here the ```rp.adc``` is provided with a *callback*, which makes it asynchronous: it does no more block further program flow, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
 
 Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. Also it is necessary for long commands like ADC acquisition and stepping motor movement, if the program must remain responsive. 
 
@@ -141,17 +140,17 @@ def my_callback(**kwargs):
     print(f"{len(all_data)} ADC samples received so far")
 print(all_data)
 
-rp.internal_adc(_callback=my_callback, blocks_to_send=1000)
+rp.adc(_callback=my_callback, blocks_to_send=1000)
 
 print("code does not wait for ADC data here")
 import time
 time.sleep(.5)
-rp.internal_adc(blocks_to_send=0)
+rp.adc(blocks_to_send=0)
 ```
 
 Few practical notes:
    * If high temporal resolution is not necessary, each data packet can be averaged into a single number by not storing ```kwargs['data']```, but ```[sum(kwargs["data"])/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
-   * With option ```infinite=1```, the ADC reports will keep coming forever. Or until they are stopped by ```rp.internal_adc(blocks_to_send=0)```.
+   * With option ```infinite=1```, the ADC reports will keep coming forever. Or until they are stopped by ```rp.adc(blocks_to_send=0)```.
    * The built-in ADC is somewhat nonlinear.
 
 More elaborate uses of ADC, as well as other features, can be found in the [example_ADC_async.py](example_ADC_async.py) and other example scripts.
@@ -173,7 +172,7 @@ More elaborate uses of ADC, as well as other features, can be found in the [exam
 
 A: Very likely it can be directly uploaded to all boards featuring the RP2040 microcontroller. *RP2040-zero* was tested to work fine. 
 
-Obviously the available pin number, as well as their assignment, may differ. E.g., the colourful LED on the *RP2040-zero* is in fact a WS2812B chip, and its data bus is connected to pin 16.
+Obviously the available GPIO number, as well as their assignment, may differ. E.g., the colourful LED on the *RP2040-zero* is in fact a WS2812B chip, and its data bus is connected to GPIO 16.
 
 The Arduino family of boards is not supported. Neither the ESP/Espressif boards are. (Development of this project was started on the ESP32-WROOM module, but it suffered from its randomly failing (and consistently slow) USB communication, as well as somewhat lacking documentation.)
 </details>

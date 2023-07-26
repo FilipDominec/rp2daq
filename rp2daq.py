@@ -67,7 +67,6 @@ class Rp2daq():
 
 def usb_backend(report_queue, port): 
     """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
-    print(" usb_backend PORT = ", port)
     while True:
         while port.in_waiting:
             report_queue.put(port.read(port.in_waiting))

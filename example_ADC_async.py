@@ -19,9 +19,9 @@ import threading
 import time
 
 ## User options
-ADC_channel_names = {0:"pin 26", 1:"pin 27", 2:"pin 28", 3:"ref V", 4:"builtin thermo"}
+ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
-channels = [1,4]     # 0,1,2 are pins 26-28;  3 is V_ref and 4 is internal thermometer
+channels = [1,4]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
 kSPS_per_ch = 250 * len(channels)    # note there is only one multiplexed ADC
 
 
@@ -30,9 +30,9 @@ kSPS_per_ch = 250 * len(channels)    # note there is only one multiplexed ADC
 rp = rp2daq.Rp2daq()
 
 ## Generate some realistic signal on GPIO 2 (connect it with a jumper to GPIO 26)
-rp.pwm_configure_pair(pin=2, wrap_value=6553, clkdiv=250, clkdiv_int_frac=0)
-rp.pwm_set_value(pin=2, value=3500) # minimum position
-time.sleep(.01)
+rp.pwm_configure_pair(gpio=2, wrap_value=6553, clkdiv=250, clkdiv_int_frac=0)
+rp.pwm_set_value(gpio=2, value=3500) # minimum position
+time.sleep(.1)
 
 ## Run-time objects and variables
 all_ADC_done = threading.Event() # a thread-safe semaphore
@@ -62,7 +62,7 @@ def ADC_callback(**kwargs):
 
 ## Initialize the ADC into asynchronous operation...
 t0 = None
-rp.internal_adc(channel_mask=sum(2**ch for ch in channels), 
+rp.adc(channel_mask=sum(2**ch for ch in channels), 
         blocksize=2000*len(channels), 
         blocks_to_send=10, 
         clkdiv=int(48000//kSPS_per_ch), 
@@ -83,9 +83,9 @@ def busy_wait(t):
     t0 = time.time()
     while time.time() < t0+t: pass
 while not all_ADC_done.is_set():
-    rp.pin_set(25,1)
+    rp.gpio_set(25,1)
     busy_wait(.01)
-    rp.pin_set(25,0)
+    rp.gpio_set(25,0)
     busy_wait(.01)
 
     # Waiting option 4: stress test with single busy loop (observed to cause random USB delayed blocks)

@@ -1,19 +1,22 @@
+// TODO Measure timing if NANOPOS_AT_ENDSWITCH is int32 instead; what was a trouble on atmega8 may be fine
+// TODO Try how many steppers can really be controlled (e.g. when ADC runs at 500 kSps...)
+// TODO Disperse motor service routines consecutively in time (e.g. change 1kHz timer to 8kHz)
 
 // Stepper support using Stepstick
 #define NANOPOS_AT_ENDSWITCH  (uint32_t)(1<<31)   // so that motor can move symmetrically from origin
-#define NANOSTEP_PER_MICROSTEP  256             // for fine-grained position control
+#define NANOSTEP_PER_MICROSTEP  256             // for fine-grained speed and position control
 #define MAX_STEPPER_COUNT 16
 #define STEPPER_IS_MOVING(m)	(stepper[m].max_nanospeed > 0)
-#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_pin) && \
-			(!stepper[m].endswitch_ignore) && (!gpio_get(stepper[m].endswitch_pin)))
+#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_gpio) && \
+			(!stepper[m].endswitch_ignore) && (!gpio_get(stepper[m].endswitch_gpio)))
 
 
 typedef struct __attribute__((packed)) {
     uint8_t  initialized;      
-    uint8_t  dir_pin;      // always byte 0
-    uint8_t  step_pin;
-    uint8_t  endswitch_pin;
-    uint8_t  disable_pin;
+    uint8_t  dir_gpio;
+    uint8_t  step_gpio;
+    uint8_t  endswitch_gpio;
+    uint8_t  disable_gpio;
     uint8_t  endswitch_ignore;
 	uint8_t  endswitch_expected;
     uint32_t nanopos;
@@ -35,32 +38,32 @@ struct __attribute__((packed)) {
 void stepper_init() {
 	struct __attribute__((packed)) {
 		uint8_t  stepper_number;	// min=0	max=15 
-		uint8_t  dir_pin;			// min=0	max=24
-		uint8_t  step_pin;			// min=0	max=24
-		int8_t   endswitch_pin;		// min=-1	max=24		default=-1
-		int8_t   disable_pin;		// min=-1	max=25		default=-1
+		uint8_t  dir_gpio;			// min=0	max=24
+		uint8_t  step_gpio;			// min=0	max=24
+		int8_t   endswitch_gpio;	// min=-1	max=24		default=-1
+		int8_t   disable_gpio;		// min=-1	max=25		default=-1
 		uint32_t inertia;			// min=0	max=10000	default=30
 	} * args = (void*)(command_buffer+1);
 
 	uint8_t m = args->stepper_number;
 	if (m<MAX_STEPPER_COUNT) {
-		stepper[m].dir_pin     = args->dir_pin;
-		stepper[m].step_pin    = args->step_pin;
-		stepper[m].endswitch_pin = args->endswitch_pin;
-		stepper[m].disable_pin = args->disable_pin;
+		stepper[m].dir_gpio     = args->dir_gpio;
+		stepper[m].step_gpio    = args->step_gpio;
+		stepper[m].endswitch_gpio = args->endswitch_gpio;
+		stepper[m].disable_gpio = args->disable_gpio;
 		stepper[m].inertia_coef  = max(args->inertia, 1); // prevent div/0 error
 		stepper[m].endswitch_ignore = 0;
 		stepper[m].previous_endswitch = 0;
 		stepper[m].endswitch_expected = 1;
 
-		gpio_init(stepper[m].dir_pin); gpio_set_dir(stepper[m].dir_pin, GPIO_OUT);
-		gpio_init(stepper[m].step_pin); gpio_set_dir(stepper[m].step_pin, GPIO_OUT);
-		if (stepper[m].endswitch_pin >= 0) {
-			gpio_set_dir(stepper[m].endswitch_pin, GPIO_IN);
-			gpio_pull_up(stepper[m].endswitch_pin); }
-		if (stepper[m].disable_pin >= 0) {
-			gpio_init(stepper[m].disable_pin);
-			gpio_set_dir(stepper[m].disable_pin, GPIO_OUT);
+		gpio_init(stepper[m].dir_gpio); gpio_set_dir(stepper[m].dir_gpio, GPIO_OUT);
+		gpio_init(stepper[m].step_gpio); gpio_set_dir(stepper[m].step_gpio, GPIO_OUT);
+		if (stepper[m].endswitch_gpio >= 0) {
+			gpio_set_dir(stepper[m].endswitch_gpio, GPIO_IN);
+			gpio_pull_up(stepper[m].endswitch_gpio); }
+		if (stepper[m].disable_gpio >= 0) {
+			gpio_init(stepper[m].disable_gpio);
+			gpio_set_dir(stepper[m].disable_gpio, GPIO_OUT);
         }
 
 		stepper[m].nanopos = NANOPOS_AT_ENDSWITCH; // default position !=0 to allow going back
@@ -224,10 +227,10 @@ void stepper_update() {
 						usqrt(udiff(stepper[m].nanopos, stepper[m].previous_nanopos))*100/stepper[m].inertia_coef + 1);
 
 				if (stepper[m].nanopos < stepper[m].target_nanopos) {
-				  gpio_put(stepper[m].dir_pin, 1);
+				  gpio_put(stepper[m].dir_gpio, 1);
 				  new_nanopos = min(stepper[m].nanopos + actual_nanospeed, stepper[m].target_nanopos);
 				} else {
-				  gpio_put(stepper[m].dir_pin, 0);
+				  gpio_put(stepper[m].dir_gpio, 0);
 				  new_nanopos = max(stepper[m].nanopos - actual_nanospeed, stepper[m].target_nanopos);
 				}
 
@@ -246,10 +249,10 @@ void stepper_update() {
 					mk_tx_stepper_report(m);
 				}
 
-				if (stepper[m].disable_pin >= 0) gpio_put(stepper[m].disable_pin, 0);
+				if (stepper[m].disable_gpio >= 0) gpio_put(stepper[m].disable_gpio, 0);
 			} else { // i.e. when stepper is not moving
 			  new_nanopos = stepper[m].nanopos;
-			  if (stepper[m].disable_pin >= 0) gpio_put(stepper[m].disable_pin, 1);
+			  if (stepper[m].disable_gpio >= 0) gpio_put(stepper[m].disable_gpio, 1);
 			}
 
 			//for (uint8_t j=0; j< abs((new_nanopos/NANOSTEP_PER_MICROSTEP) -
@@ -258,9 +261,9 @@ void stepper_update() {
 					j< udiff((new_nanopos/NANOSTEP_PER_MICROSTEP), 
 						(stepper[m].nanopos/NANOSTEP_PER_MICROSTEP)); 
 					j++) {
-				gpio_put(stepper[m].step_pin, 1); 
+				gpio_put(stepper[m].step_gpio, 1); 
 				busy_wait_us_32(1);// TODO safety margin, but 50ns pulse seems OK?
-				gpio_put(stepper[m].step_pin, 0);
+				gpio_put(stepper[m].step_gpio, 0);
 			}
 			stepper[m].nanopos = new_nanopos;
 		}

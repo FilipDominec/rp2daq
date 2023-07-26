@@ -13,8 +13,8 @@
 
 #include "rp2daq.h"
 #include "include/identify.c"
-#include "include/pin_out.c"
-#include "include/adc_internal.c"
+#include "include/gpio.c"
+#include "include/adc_builtin.c"
 #include "include/pwm.c"
 #include "include/stepper.c"
 //#include "include/"
@@ -27,7 +27,7 @@
 // numbers.
 //
 // If a new functionality is added to this firmware, we suggest to start with a copy of 
-// any of above included command handlers. Then don't forget to register this new function 
+// e.g. the `identify` command handler. Then don't forget to register this new function 
 // along with the report structure in the message_table below.
 // The corresponding method in the pythonic interface will then be auto-generated.
  
@@ -35,13 +35,12 @@ typedef struct { void (*command_func)(); void (*report_struct); } message_descri
 message_descriptor message_table[] = // #new_features: add your command to this table
         {   
                 {&identify,			&identify_report},  
-                {&pin_set,			&pin_set_report},
-                {&pin_get,			&pin_get_report},
-                {&pin_on_change,	&pin_on_change_report},
-                {&internal_adc,		&internal_adc_report},
+                {&gpio_set,			&gpio_set_report},
+                {&gpio_get,			&gpio_get_report},
+                {&gpio_on_change,	&gpio_on_change_report},
+                {&adc,				&adc_report},
                 {&pwm_configure_pair, &pwm_configure_pair_report},
                 {&pwm_set_value,	&pwm_set_value_report},
-
                 {&stepper_init,		&stepper_init_report},
                 {&stepper_status,	&stepper_status_report},
                 {&stepper_move,		&stepper_move_report},

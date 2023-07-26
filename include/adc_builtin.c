@@ -10,7 +10,7 @@ struct __attribute__((packed)) {
     uint8_t channel_mask;
     uint16_t blocks_to_send;
     uint8_t block_delayed_by_usb;
-} internal_adc_report;
+} adc_report;
 
 struct { 
 	uint8_t channel_mask;	
@@ -21,7 +21,7 @@ struct {
 } internal_adc_config;
 
 
-void internal_adc() {
+void adc() {
     /* Initiates analog-to-digital conversion (ADC), using the RP2040 built-in feature.
      * 
      * __This command can result in one, several or infinitely many report(s). They can be 
@@ -49,8 +49,8 @@ void internal_adc() {
 
 // *** double-buffer management and auxiliary functions *** //
 
-typedef struct { uint8_t data[1024*16]; uint8_t write_lock; uint8_t is_delayed; } iADC_buffer; // TODO switch 16b to 8b !
-#define iADC_BUF_COUNT 3 // multi-buffering ensures continuous acquisition without USB delays
+typedef struct { uint8_t data[1024*16]; uint8_t write_lock; uint8_t is_delayed; } iADC_buffer;
+#define iADC_BUF_COUNT 4 // multi-buffering ensures continuous acquisition without USB delays
 iADC_buffer iADC_buffers[iADC_BUF_COUNT];
 
 volatile uint8_t iADC_buffer_choice = 0;
@@ -84,8 +84,6 @@ void iADC_DMA_setup() {
     channel_config_set_write_increment(&iADC_DMA_cfg, true); // into buffer
     channel_config_set_dreq(&iADC_DMA_cfg, DREQ_ADC);
 
-    iADC_buffer_choice = 1;
-
     // Raise interrupt when DMA finishes a block
     dma_channel_set_irq0_enabled(iADC_DMA_chan, true);
     irq_set_exclusive_handler(DMA_IRQ_0, iADC_DMA_IRQ_handler);
@@ -94,11 +92,10 @@ void iADC_DMA_setup() {
 }
 
 void iADC_DMA_start(uint8_t is_delayed) {
-	gpio_put(DEBUG2_PIN, 0); 
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
     iADC_DMA_start_pending = 0;
 	adc_run(false);				
-	adc_fifo_drain(); // ??
+	adc_fifo_drain(); 
 	adc_set_round_robin(internal_adc_config.channel_mask);
 	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
 
@@ -147,15 +144,13 @@ void iADC_DMA_IRQ_handler() {
 
     if (internal_adc_config.infinite || --internal_adc_config.blocks_to_send) { 
         if (iADC_buffers[iADC_buffer_choice].write_lock) {
-			gpio_put(DEBUG2_PIN, 1);  // LED warning = buf delayed
             iADC_DMA_start_pending = 1;
         } else { 
-			gpio_put(DEBUG2_PIN, 0); 
             iADC_DMA_start(0);
         };
     } 
 
-    gpio_put(DEBUG_PIN, 1); 
+	// Schedule finished buffer to be transmitted
     internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
     internal_adc_report._data_bitwidth = 12;
     compress_2x12b_to_24b_inplace(iADC_buffers[iADC_buffer_prev].data, internal_adc_report._data_count);
@@ -166,40 +161,8 @@ void iADC_DMA_IRQ_handler() {
             sizeof(internal_adc_report), 
 			iADC_buffers[iADC_buffer_prev].data, 
             (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8, //rounding up
-            0, // won't make buffer copy
-			&iADC_buffers[iADC_buffer_prev].write_lock); // will be auto-cleared by main transmitting routine
-    gpio_put(DEBUG_PIN, 0);
+            0, // don't make buffer copy
+			&iADC_buffers[iADC_buffer_prev].write_lock); // will be auto-cleared upon transmit (see rp2daq.c)
 	// (small todo: transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2) )
 
 }
-
-
-    // when tx schedule before DMA_start:
-    // (note: compiled with the TUD_OPT_HIGH_SPEED trick)
-    //
-    // timing check for 12bitwidth @500 ksps nom.: core0 ~16160us transmitting, 584us outside loop (i.e. near full load)
-    // 524280 out of expected 524280 kB received, 100% success, real 477345 ksps
-    //
-    // timing check for 16bitwidth @500 ksps nom.: core0 ~16000us transmitting, 0.9us outside loop (overload, data loss:)
-    // 523960 out of expected 524280 kB received, 327 out of 65535 chunks lost (~0.06% loss)
-    
-
-
-
-    //
-    //if (iADC_buffer_choice)  // XXX DEBUG
-        //for (uint16_t i; i<(internal_adc_report._data_count+1); i+=1) {  // DEBUG data
-            //finished_adc_buf[i*2] = 0xff; // XXX
-            //finished_adc_buf[i*2+1] = 0x0f; // XXX
-        //}
-    //else 
-        //for (uint16_t i; i<(internal_adc_report._data_count+1); i+=1) {  // DEBUG data
-            //finished_adc_buf[i*2] = 0x00; // XXX
-            //finished_adc_buf[i*2+1] = 0x00; // XXX
-        //}
-    //for (uint16_t i; i<(data_count+1)/2; i+=1) {  // DEBUG data
-        //buf[i*3] = i/256; // XXX
-        //buf[i*3+1] = i%256; // XXX
-        //buf[i*3+2] = 0; // XXX
-    //}
-
