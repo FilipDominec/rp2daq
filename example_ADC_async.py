@@ -8,6 +8,10 @@ It demonstrates how a virtually unlimited amount of data can be acquired, with
 the main thread staying responsive. Such asynchronous, callback-based operation is 
 generally more flexible and efficient. 
 
+Rp2daq implements direct-memory access (DMA), triple-buffering and bit-compression 
+in the firmware, along with multi-threading and -processing in the python module, to 
+achieve reliable uninterrupted data stream at 500k × 12bit samples per second.
+
 Finally, the ADC record is separated into channels and plotted using numpy and
 matplotlib's interactive plot.
 
@@ -22,7 +26,7 @@ import time
 ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
 channels = [1,4]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
-kSPS_per_ch = 250 * len(channels)    # note there is only one multiplexed ADC
+kSPS_per_ch = 1 * len(channels)    # note there is only one multiplexed ADC
 
 
 
@@ -64,7 +68,7 @@ def ADC_callback(**kwargs):
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
         blocksize=2000*len(channels), 
-        blocks_to_send=10, 
+        blocks_to_send=1000, 
         clkdiv=int(48000//kSPS_per_ch), 
         _callback=ADC_callback)
 

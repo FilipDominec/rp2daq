@@ -163,12 +163,12 @@ More elaborate uses of ADC, as well as other features, can be found in the [exam
   
   A: They are two fundamentally different paths that may lead to similar results. [MicroPython](https://github.com/micropython/micropython)[![GitHub stars](https://img.shields.io/github/stars/micropython/micropython.svg?style=social&label=)](https://github.com/exoclime/helios/stargazers/) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
 
-  In contrast, RP2DAQ assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
+  In contrast, rp2daq assumes the microcontroller is constantly connected to computer via USB; then the precompiled firmware efficiently handles all actions and communication, so that you only need to write one Python script for your computer. 
 </details>
 
 
 <details>
-  <summary><ins>Q: Is the use of RP2DAQ limited to Raspberry Pi Pico board?</ins></summary>
+  <summary><ins>Q: Is the use of rp2daq limited to Raspberry Pi Pico board?</ins></summary>
 
 A: Very likely it can be directly uploaded to all boards featuring the RP2040 microcontroller. *RP2040-zero* was tested to work fine. 
 

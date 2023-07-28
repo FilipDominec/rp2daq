@@ -49,7 +49,13 @@ void adc() {
 
 // *** double-buffer management and auxiliary functions *** //
 
-typedef struct { uint8_t data[1024*16]; uint8_t write_lock; uint8_t is_delayed; } iADC_buffer;
+typedef struct { 
+    uint8_t data[1024*16]; 
+    uint64_t start_timestamp_us; 
+    uint64_t end_timestamp_us; 
+    uint8_t write_lock; 
+    uint8_t is_delayed; 
+} iADC_buffer;
 #define iADC_BUF_COUNT 4 // multi-buffering ensures continuous acquisition without USB delays
 iADC_buffer iADC_buffers[iADC_BUF_COUNT];
 
@@ -100,6 +106,8 @@ void iADC_DMA_start(uint8_t is_delayed) {
 	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
 
 	// Prepare a new non-blocking ADC acquisition using DMA in background
+    iADC_buffers[iADC_buffer_choice].start_timestamp_us; 
+
 	iADC_buffers[iADC_buffer_choice].is_delayed = is_delayed;
 	iADC_buffers[iADC_buffer_choice].write_lock = 1;
 	dma_channel_configure(iADC_DMA_chan, &iADC_DMA_cfg,
@@ -151,16 +159,16 @@ void iADC_DMA_IRQ_handler() {
     } 
 
 	// Schedule finished buffer to be transmitted
-    internal_adc_report._data_count = internal_adc_config.blocksize; // should not change
-    internal_adc_report._data_bitwidth = 12;
-    compress_2x12b_to_24b_inplace(iADC_buffers[iADC_buffer_prev].data, internal_adc_report._data_count);
-    internal_adc_report.channel_mask = internal_adc_config.channel_mask;
-    internal_adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
-    internal_adc_report.block_delayed_by_usb = iADC_buffers[iADC_buffer_prev].is_delayed;
-	prepare_report_wrl(&internal_adc_report, 
-            sizeof(internal_adc_report), 
+    adc_report._data_count = internal_adc_config.blocksize; // should not change
+    adc_report._data_bitwidth = 12;
+    compress_2x12b_to_24b_inplace(iADC_buffers[iADC_buffer_prev].data, adc_report._data_count);
+    adc_report.channel_mask = internal_adc_config.channel_mask;
+    adc_report.blocks_to_send = internal_adc_config.blocks_to_send;
+    adc_report.block_delayed_by_usb = iADC_buffers[iADC_buffer_prev].is_delayed;
+	prepare_report_wrl(&adc_report, 
+            sizeof(adc_report), 
 			iADC_buffers[iADC_buffer_prev].data, 
-            (internal_adc_report._data_count * internal_adc_report._data_bitwidth + (8-1))/8, //rounding up
+            (adc_report._data_count * adc_report._data_bitwidth + (8-1))/8, //rounding up
             0, // don't make buffer copy
 			&iADC_buffers[iADC_buffer_prev].write_lock); // will be auto-cleared upon transmit (see rp2daq.c)
 	// (small todo: transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2) )

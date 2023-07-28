@@ -83,9 +83,9 @@ def generate_command_binary_interface():
 
 
         param_docstring = ""
-        for line in re.finditer(r"(u?)int(8|16|32)_t\s+([\w,]*)(.*)",  args_struct):
+        for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)(.*)",  args_struct):
             unsigned, bits, arg_name_multi, line_comments = line.groups()
-            bit_width_code = {8:'b', 16:'h', 32:'i'}[int(bits)]
+            bit_width_code = {8:'b', 16:'h', 32:'i', 64:'q'}[int(bits)]
 
             arg_attribs = {}
             arg_comment = ""
@@ -162,9 +162,9 @@ def generate_report_binary_interface():
         report_header_signature, report_length = "<", 0
         arg_names, arg_defaults = [], []
 
-        for line in re.finditer(r"(u?)int(8|16|32)_t\s+([\w,]*)([; \t\w=\/]*)",  report_struct_code):
+        for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)([; \t\w=\/]*)",  report_struct_code):
             unsigned, bits, arg_name_multi, line_comments = line.groups()
-            bit_width_code = {8:'b', 16:'h', 32:'i'}[int(bits)]
+            bit_width_code = {8:'b', 16:'h', 32:'i', 64:'q'}[int(bits)]
 
             for arg_name in arg_name_multi.split(","):
                 report_length += int(bits)//8

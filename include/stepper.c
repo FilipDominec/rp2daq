@@ -159,6 +159,7 @@ void stepper_move() {
         stepper[m].target_nanopos       = args->to;
         stepper[m].max_nanospeed        = max(args->speed, 1); // if zero, it means motor is idle
     }
+	// no report yet; will report until stepper finishes
 }
 
 void mk_tx_stepper_report(uint8_t n)
@@ -187,8 +188,6 @@ void mk_tx_stepper_report(uint8_t n)
 			if (ENDSWITCH_TEST(m))
 				stepper_move_report.steppers_endswitch_bitmask |= (1<<m);
 		}
-
-        //uint64_t ts = (uint64_t)to_us_since_boot(get_absolute_time()); TODO
 	}
 	prepare_report(&stepper_move_report, sizeof(stepper_move_report), 0, 0, 0);
 }
@@ -257,6 +256,9 @@ void stepper_update() {
 
 			//for (uint8_t j=0; j< abs((new_nanopos/NANOSTEP_PER_MICROSTEP) -
 						//(stepper[m].nanopos/NANOSTEP_PER_MICROSTEP)); j++) {
+			// TODO just update a field in steps_to_go[m] array
+			// then transmit them at once using gpio_put_masked(mask, value)
+			//
 			for (uint8_t j=0; 
 					j< udiff((new_nanopos/NANOSTEP_PER_MICROSTEP), 
 						(stepper[m].nanopos/NANOSTEP_PER_MICROSTEP)); 

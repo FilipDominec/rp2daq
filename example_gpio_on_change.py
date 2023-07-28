@@ -14,7 +14,7 @@ rp = rp2daq.Rp2daq()
 print("Configuring PWM channel to make artificial 5kHz square wave (and waiting for it to settle)")
 rp.pwm_configure_pair(gpio=0, 
         clkdiv=250, # clock at 1.000 MHz
-        wrap_value=200) # one rising edge, one falling edge at 5.000 kHz  
+        wrap_value=200-1) # one rising edge, one falling edge at 5.000 kHz  
 
 time.sleep(.08) # unclear why, but 100 ms is safe
 
@@ -26,8 +26,9 @@ print("Registering rising/falling edge events...")
 
 count = [0]
 def handler(**kwargs): 
+    #print(kwargs)
     count[0] += 1
-rp.gpio_on_change(0, on_rising_edge=1, on_falling_edge=0, _callback=handler)
+rp.gpio_on_change(0, on_rising_edge=1, on_falling_edge=1, _callback=handler)
 
 
 

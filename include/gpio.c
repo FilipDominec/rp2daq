@@ -1,9 +1,9 @@
 
 struct __attribute__((packed)) {
     uint8_t report_code; // identifies command & report type
-} gpio_set_report;
+} gpio_out_report;
 
-void gpio_set() {
+void gpio_out() {
     /* Changes the output state of the specified *gpio*, i.e. general-purpose input/output pin. The 
 	 * optional arguments, if not left default, determine the gpio's multi-state logic behaviour. 
 	 * Namely, if *high_z* = 1 and no "pulls" are set, the gpio behaves as if disconnected (the impedance 
@@ -36,7 +36,7 @@ void gpio_set() {
 	}
     // TODO for outputs: gpio_set_slew_rate(GPIO_SLEW_RATE_SLOW) or GPIO_SLEW_RATE_FAST
     // TODO     and:     gpio_set_drive_strength()
-	prepare_report(&gpio_set_report, sizeof(gpio_set_report), 0, 0, 0);
+	prepare_report(&gpio_out_report, sizeof(gpio_out_report), 0, 0, 0);
 }
 
 
@@ -48,9 +48,9 @@ struct __attribute__((packed)) {
     uint8_t report_code;
     uint8_t gpio;
     uint8_t value;
-} gpio_get_report;
+} gpio_in_report;
 
-void gpio_get() {
+void gpio_in() {
     /* Checks the digital state of a gpio. Most useful if the gpio is configured as high-impedance input.
      * 
      * __This command results in single near-immediate report.__
@@ -58,9 +58,9 @@ void gpio_get() {
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25
 	} * args = (void*)(command_buffer+1);
-	gpio_get_report.gpio = args->gpio;
-	gpio_get_report.value = gpio_get(args->gpio);
-	prepare_report(&gpio_get_report, sizeof(gpio_get_report), 0, 0, 0);
+	gpio_in_report.gpio = args->gpio;
+	gpio_in_report.value = gpio_get(args->gpio);
+	prepare_report(&gpio_in_report, sizeof(gpio_in_report), 0, 0, 0);
 }
 
 
@@ -70,9 +70,11 @@ struct __attribute__((packed)) {
     uint8_t report_code;
     uint32_t gpio;
     uint32_t events;
+	uint64_t time_us;
 } gpio_on_change_report;
 
 void gpio_on_change_IRQ(uint gpio, uint32_t events) {
+	gpio_on_change_report.time_us = time_us_64();
 	gpio_on_change_report.gpio = gpio;
 	gpio_on_change_report.events = events;
 	//BLINK_LED_US(100000);

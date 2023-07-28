@@ -35,8 +35,8 @@ typedef struct { void (*command_func)(); void (*report_struct); } message_descri
 message_descriptor message_table[] = // #new_features: add your command to this table
         {   
                 {&identify,			&identify_report},  
-                {&gpio_set,			&gpio_set_report},
-                {&gpio_get,			&gpio_get_report},
+                {&gpio_out,			&gpio_out_report},
+                {&gpio_in,			&gpio_in_report},
                 {&gpio_on_change,	&gpio_on_change_report},
                 {&adc,				&adc_report},
                 {&pwm_configure_pair, &pwm_configure_pair_report},
@@ -132,6 +132,9 @@ bool timer10khz_update_routine(struct repeating_timer *t) {
 
 
 void core1_main() { // CPU core1 takes care of real-time tasks
+	// SDK: "Care should be taken with calling C library functions from both cores simultaneously 
+	// as they are generally not designed to be thread safe. You can use the mutex_ API provided by 
+	// the SDK in the pico_sync"
     while (true) {
         if (iADC_DMA_start_pending && !(iADC_buffers[iADC_buffer_choice].write_lock)) {
             iADC_DMA_start(1);
