@@ -26,7 +26,7 @@ import time
 ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
 channels = [1,4]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
-kSPS_per_ch = 1 * len(channels)    # note there is only one multiplexed ADC
+kSPS_per_ch = 250 * len(channels)    # note there is only one multiplexed ADC
 
 
 
@@ -49,7 +49,7 @@ def ADC_callback(**kwargs):
     global t0
 
     all_data.extend(kwargs['data'])
-    print("LEN all, kwargs: ", len(all_data), len(kwargs['data']))
+    print("LEN all, kwargs: ", len(all_data), len(kwargs['data']), ' --------', kwargs['start_time_us'], kwargs['end_time_us'])
     received_time.extend([time.time()]*(len(kwargs['data'])//2))
     delayed.extend([kwargs['block_delayed_by_usb']]*(len(kwargs['data'])//2))
 
@@ -67,7 +67,7 @@ def ADC_callback(**kwargs):
 ## Initialize the ADC into asynchronous operation...
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
-        blocksize=2000*len(channels), 
+        blocksize=1000*len(channels), 
         blocks_to_send=1000, 
         clkdiv=int(48000//kSPS_per_ch), 
         _callback=ADC_callback)
@@ -87,9 +87,9 @@ def busy_wait(t):
     t0 = time.time()
     while time.time() < t0+t: pass
 while not all_ADC_done.is_set():
-    rp.gpio_set(25,1)
+    rp.gpio_out(25,1)
     busy_wait(.01)
-    rp.gpio_set(25,0)
+    rp.gpio_out(25,0)
     busy_wait(.01)
 
     # Waiting option 4: stress test with single busy loop (observed to cause random USB delayed blocks)
@@ -98,7 +98,6 @@ while not all_ADC_done.is_set():
 
 print(f"Received total {len(all_data)} samples in {time.time()-t0}")
 print(f"Average incoming data rate was {len(all_data)/(time.time()-t0):.2f} samples per second")
-
 
 ## Optional plotting of all channels
 t0 = time.time()

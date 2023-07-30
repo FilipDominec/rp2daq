@@ -1,6 +1,6 @@
 // TODO Measure timing if NANOPOS_AT_ENDSWITCH is int32 instead; what was a trouble on atmega8 may be fine
 // TODO Try how many steppers can really be controlled (e.g. when ADC runs at 500 kSps...)
-// TODO Disperse motor service routines consecutively in time (e.g. change 1kHz timer to 8kHz)
+// TODO Disperse motor service routines consecutively in time (e.g. change 10kHz timer to 80kHz ?)
 
 // Stepper support using Stepstick
 #define NANOPOS_AT_ENDSWITCH  (uint32_t)(1<<31)   // so that motor can move symmetrically from origin
@@ -25,6 +25,7 @@ typedef struct __attribute__((packed)) {
     uint32_t inertia_coef;
     uint32_t previous_nanopos;
     uint8_t  previous_endswitch;
+    uint64_t start_time_us; 
 } stepper_config_t;
 volatile stepper_config_t stepper[MAX_STEPPER_COUNT];
 
@@ -85,7 +86,6 @@ struct __attribute__((packed)) {
     uint8_t report_code;
     uint8_t stepper_number;
     uint8_t endswitch;
-		// even sorcerers are subject to work safety regulations, else a motor "ends" them
     uint32_t nanopos; // TODO
     uint16_t steppers_init_bitmask; // TODO
     uint16_t steppers_moving_bitmask; // TODO
@@ -130,6 +130,8 @@ struct __attribute__((packed)) {
     uint16_t steppers_init_bitmask;		
     uint16_t steppers_moving_bitmask;	
     uint16_t steppers_endswitch_bitmask;
+    uint64_t start_time_us; 
+    uint64_t end_time_us; 
 } stepper_move_report;  // (transmitted when a stepper actually finishes its move)
 
 void stepper_move() {
@@ -143,22 +145,22 @@ void stepper_move() {
 		int8_t  reset_nanopos;			// min=0 max=1		default=0
 	} * args = (void*)(command_buffer+1);
 
-    uint8_t m = args->stepper_number; if (m<MAX_STEPPER_COUNT) {
-		if (args->reset_nanopos) {stepper[m].nanopos = NANOPOS_AT_ENDSWITCH;} // a.k.a. relative movement
+    uint8_t m = args->stepper_number; 
+	stepper[m].start_time_us = time_us_64();
+	if (args->reset_nanopos) {stepper[m].nanopos = NANOPOS_AT_ENDSWITCH;} // a.k.a. relative movement
 
-		if (args->endswitch_ignore == -1) { // auto-set value
-			stepper[m].endswitch_ignore = stepper[m].previous_endswitch;
-		} else {		// user-set value
-			stepper[m].endswitch_ignore   = args->endswitch_ignore;
-		}
+	if (args->endswitch_ignore == -1) { // auto-set value
+		stepper[m].endswitch_ignore = stepper[m].previous_endswitch;
+	} else {		// user-set value
+		stepper[m].endswitch_ignore = args->endswitch_ignore;
+	}
 
-		if (args->endswitch_expect != -1) 
-			stepper[m].endswitch_expected =  args->endswitch_expect;
+	if (args->endswitch_expect != -1) 
+		stepper[m].endswitch_expected = args->endswitch_expect;
 
-        stepper[m].previous_nanopos      = stepper[m].nanopos; // remember the starting position (for smooth start)
-        stepper[m].target_nanopos       = args->to;
-        stepper[m].max_nanospeed        = max(args->speed, 1); // if zero, it means motor is idle
-    }
+	stepper[m].previous_nanopos      = stepper[m].nanopos; // remember the starting position (for smooth start)
+	stepper[m].target_nanopos       = args->to;
+	stepper[m].max_nanospeed        = max(args->speed, 1); // if zero, it means motor is idle
 	// no report yet; will report until stepper finishes
 }
 
@@ -173,6 +175,8 @@ void mk_tx_stepper_report(uint8_t n)
 	stepper_move_report.steppers_init_bitmask = 0;
 	stepper_move_report.steppers_moving_bitmask = 0;
 	stepper_move_report.steppers_endswitch_bitmask = 0;
+	stepper_move_report.start_time_us = stepper[n].start_time_us;
+	stepper_move_report.end_time_us = time_us_64();
 	
 	for (uint8_t m=0; m<MAX_STEPPER_COUNT; m++) {
 		if (stepper[m].initialized) 
@@ -196,6 +200,7 @@ void mk_tx_stepper_report(uint8_t n)
 
 
 inline uint32_t usqrt(uint32_t val) { // fast and terribly inaccurate uint32 square root
+// other approaches at https://stackoverflow.com/questions/34187171/fast-integer-square-root-approximation
 #define USQRTBOOST 1  // defaults to 0, set to 1 for faster convergence when 1<iterN<5
 #define USQRTITERN 3 // increase iterations until accuracy is ok for you
 #define USQRTSTART 100 // best if close to likely result (use 1<<16 if no guess)
@@ -220,7 +225,9 @@ void stepper_update() {
 
 			//TODO if (STEPPER_IS_MOVING(m))  { // i.e. when stepper is moving
 			if (stepper[m].nanopos != stepper[m].target_nanopos)  { // i.e. when stepper is moving
-				actual_nanospeed = min(stepper[m].max_nanospeed,
+				
+				// TODO can be optimized: avoid usqrt if "udiff()^2 > max_nanospeed"
+				actual_nanospeed = min(stepper[m].max_nanospeed, 
 						usqrt(udiff(stepper[m].nanopos, stepper[m].target_nanopos))*100/stepper[m].inertia_coef + 1);
 				actual_nanospeed = min(actual_nanospeed,
 						usqrt(udiff(stepper[m].nanopos, stepper[m].previous_nanopos))*100/stepper[m].inertia_coef + 1);
@@ -233,15 +240,13 @@ void stepper_update() {
 				  new_nanopos = max(stepper[m].nanopos - actual_nanospeed, stepper[m].target_nanopos);
 				}
 
-				if (ENDSWITCH_TEST(m)) { 
-					// occurs once stepper triggers end-stop switch
+				if (ENDSWITCH_TEST(m)) { // if the stepper triggers end-stop switch
 					stepper[m].max_nanospeed = 0; 
 					stepper[m].target_nanopos = new_nanopos;  // immediate stop
 					stepper[m].previous_endswitch = 1; // remember reason for stopping
 					mk_tx_stepper_report(m);
 					stepper[m].endswitch_expected = 0;
-				} else if (new_nanopos == stepper[m].target_nanopos) {
-					// occurs once move finishes successfully
+				} else if (new_nanopos == stepper[m].target_nanopos) { // if the move finishes successfully
 					stepper[m].max_nanospeed = 0;
 					//stepper[m].target_nanopos = new_nanopos;  // TODO rm?
 					stepper[m].previous_endswitch = 0;

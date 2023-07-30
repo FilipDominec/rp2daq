@@ -7,6 +7,8 @@ struct __attribute__((packed)) {
     uint8_t report_code;
     uint16_t _data_count; 
     uint8_t _data_bitwidth;
+	uint64_t start_time_us;
+	uint64_t end_time_us;
     uint8_t channel_mask;
     uint16_t blocks_to_send;
     uint8_t block_delayed_by_usb;
@@ -51,8 +53,7 @@ void adc() {
 
 typedef struct { 
     uint8_t data[1024*16]; 
-    uint64_t start_timestamp_us; 
-    uint64_t end_timestamp_us; 
+    uint64_t start_time_us; 
     uint8_t write_lock; 
     uint8_t is_delayed; 
 } iADC_buffer;
@@ -106,7 +107,7 @@ void iADC_DMA_start(uint8_t is_delayed) {
 	adc_set_clkdiv(internal_adc_config.clkdiv); // user-set
 
 	// Prepare a new non-blocking ADC acquisition using DMA in background
-    iADC_buffers[iADC_buffer_choice].start_timestamp_us; 
+    iADC_buffers[iADC_buffer_choice].start_time_us = time_us_64();
 
 	iADC_buffers[iADC_buffer_choice].is_delayed = is_delayed;
 	iADC_buffers[iADC_buffer_choice].write_lock = 1;
@@ -145,20 +146,23 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
 void iADC_DMA_IRQ_handler() {
     dma_hw->ints0 = 1u << iADC_DMA_chan;  // clear the interrupt request to avoid re-trigger
 	adc_run(false);
+    adc_report.end_time_us = time_us_64(); 
 
 	// Quickly swap buffers & start a new ADC acquisition (if appropriate)
     uint8_t iADC_buffer_prev = iADC_buffer_choice;
     iADC_buffer_choice = (iADC_buffer_choice + 1) % iADC_BUF_COUNT;
 
+    // If possible start the next ADC acquisition block non-delayed (i.e. within <4 us)
     if (internal_adc_config.infinite || --internal_adc_config.blocks_to_send) { 
         if (iADC_buffers[iADC_buffer_choice].write_lock) {
-            iADC_DMA_start_pending = 1;
+            iADC_DMA_start_pending = 1; // (or arm it to be started ASAP, should never occur)
         } else { 
-            iADC_DMA_start(0);
+            iADC_DMA_start(0); 
         };
     } 
 
 	// Schedule finished buffer to be transmitted
+    adc_report.start_time_us = iADC_buffers[iADC_buffer_prev].start_time_us;
     adc_report._data_count = internal_adc_config.blocksize; // should not change
     adc_report._data_bitwidth = 12;
     compress_2x12b_to_24b_inplace(iADC_buffers[iADC_buffer_prev].data, adc_report._data_count);

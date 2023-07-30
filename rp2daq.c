@@ -154,6 +154,7 @@ int main() {  // CPU core0 can be fully occupied with USB communication
     bi_decl(bi_1pin_with_name(PICO_DEFAULT_LED_PIN, "Diagnostic LED, other pins assigned run-time"));
 
     set_sys_clock_khz(250000, false); // reasonable overclock with safe margin
+	// TODO check freq accuracy, set 'true' ? Seems a bit off, us_timer ticking 1% faster.
     stdio_set_translate_crlf(&stdio_usb, false); // crucial for correct binary data transmission
     stdio_init_all();
 
