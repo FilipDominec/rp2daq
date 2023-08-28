@@ -953,14 +953,14 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.96000524"
-     inkscape:cx="1535.4083"
-     inkscape:cy="437.49761"
+     inkscape:zoom="0.48000262"
+     inkscape:cx="1030.2027"
+     inkscape:cy="659.3714"
      inkscape:document-units="mm"
-     inkscape:current-layer="layer2"
+     inkscape:current-layer="layer3"
      showgrid="false"
      inkscape:window-width="1920"
-     inkscape:window-height="1032"
+     inkscape:window-height="1030"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -984,6 +984,20 @@
       </cc:Work>
     </rdf:RDF>
   </metadata>
+  <g
+     inkscape:groupmode="layer"
+     id="layer3"
+     inkscape:label="bg">
+    <rect
+       style="display:inline;fill:#ffffff;stroke-width:20.3938;-inkscape-stroke:none;paint-order:markers fill stroke;stop-color:#000000"
+       id="rect1107"
+       width="559.65802"
+       height="309.89938"
+       x="0"
+       y="0"
+       ry="9.7528133"
+       rx="9.7528133" />
+  </g>
   <g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
