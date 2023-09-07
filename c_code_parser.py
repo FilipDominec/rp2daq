@@ -120,6 +120,7 @@ def generate_command_binary_interface():
                             f"'Maximum value for {arg_name} is {arg_attribs['max']}'\n"
 
                 param_docstring += f"  * {arg_name} {':' if comment else ''} {comment} \n" #  TODO print range  (min=0 max= 2³²-1)
+            print(command_name, command_code, ":", exec_header)
 
         param_docstring += f"  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) \n\n"
 
@@ -156,6 +157,11 @@ def generate_report_binary_interface():
         q = re.search(f"}}\\s*{report_name}_report", C_code)
         #print(report_number, report_name,q)
         report_struct_code = get_prev_code_block(C_code[:q.span()[0]+1]) # code enclosed by closest brace block
+        report_struct_code = remove_c_comments(report_struct_code)
+        for ll in report_struct_code.split('\n'):
+            if re.match("\s*//", ll):
+                print("XXXXX",end='')
+            print(ll)
         # FIXME THIS IS JUST USELESS ERROR:  AttributeError: 'NoneType' object has no attribute 'span'
         #print(f"{report_name=} {report_struct_code=}") 
 
@@ -175,6 +181,8 @@ def generate_report_binary_interface():
         report_header_signatures[report_number] = report_header_signature
         arg_names_for_reports[report_number] = arg_names
 
+    print(report_header_signatures)
+    print(arg_names_for_reports)
     return report_lengths, report_header_signatures, arg_names_for_reports
 
 def gather_C_code():
