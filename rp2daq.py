@@ -65,11 +65,13 @@ class Rp2daq():
 
 
 
-def usb_backend(report_queue, port): 
+def usb_backend(report_pipe, port): 
+#def usb_backend(report_queue, port): 
     """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
     while True:
         while port.in_waiting:
-            report_queue.put(port.read(port.in_waiting))
+            report_pipe.send(port.read(port.in_waiting))
+            #report_queue.put(port.read(port.in_waiting))
         time.sleep(0.001)
 
 
@@ -88,10 +90,12 @@ class Rp2daq_internals(threading.Thread):
         ## Asynchronous communication using threads
         self.sleep_tune = 0.001
 
-        self.report_queue = multiprocessing.Queue()  
+        #self.report_queue = multiprocessing.Queue()  
+        self.report_pipe_out, report_pipe_in = multiprocessing.Pipe()
         self.usb_backend_process = multiprocessing.Process(
                 target=usb_backend, 
-                args=(self.report_queue, self.port))
+                args=(report_pipe_in, self.port))
+                #args=(self.report_queue, self.port))
         self.usb_backend_process.daemon = True
         self.usb_backend_process.start()
 
@@ -136,7 +140,9 @@ class Rp2daq_internals(threading.Thread):
 
         def queue_recv_bytes(length): # note: should re-implement with io.BytesIO() ring buffer?
             while len(self.rx_bytes) < length:
-                c = self.report_queue.get()
+                c = self.report_pipe_out.recv()
+                #c = self.report_queue.get()
+
                 self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
                 self.rx_bytes_total_len += len(c)
             return bytes([self.rx_bytes.popleft() for _ in range(length)])
@@ -202,7 +208,11 @@ class Rp2daq_internals(threading.Thread):
                 #cb(**cb_kwargs)
 
             except OSError:
-                logging.error("Device disconnected")
+                logging.error("Device disconnected, check your cabling or possible short-circuits")
+                self._e.quit()
+
+            except EOFError:
+                logging.debug("Got EOF from the receiver process, quitting")
                 self._e.quit()
 
     def _callback_dispatcher(self):
