@@ -16,7 +16,7 @@ try:
     label.config(text = "Successfully connected to " + id_string)
 
     def set_LED(state):
-        rp.pin_set(25, state) # onboard LED assigned to pin 25 on R Pi Pico
+        rp.gpio_out(25, state) # onboard LED assigned to gpio 25 on R Pi Pico
 
     btn_on = tkinter.Button(window, text='LED on', bg='green3', command=lambda:set_LED(1))
     btn_on.grid(column=0, row=1)
