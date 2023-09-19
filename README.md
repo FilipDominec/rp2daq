@@ -60,7 +60,7 @@ To check everything is ready, navigate to the unpacked project directory and lau
 ```Python
 import rp2daq          # import the module (must be available in your PYTHONPATH)
 rp = rp2daq.Rp2daq()   # connect to the Pi Pico
-rp.gpio_set(25, 1)     # sets GPIO no. 25 to logical 1
+rp.gpio_out(25, 1)     # sets GPIO no. 25 to logical 1
 ```
 
 The GPIO (general-purpose input-output) 25 is connected to the green onboard LED on Raspberry Pi Pico - it should turn on when you paste these three lines. Turning the LED off is a trivial exercise for the reader.
