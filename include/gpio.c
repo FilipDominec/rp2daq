@@ -104,6 +104,8 @@ void gpio_on_change() {
     // FIXME: edge_mask=0 does not stop acq?
     //          try gpio_remove_raw_irq_handler()
 	gpio_set_irq_enabled_with_callback(args->gpio, edge_mask, true, &gpio_on_change_IRQ);
+	//if (edge_mask == 0) {unregister irq} // TODO 
+
 }
 
 

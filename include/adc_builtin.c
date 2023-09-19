@@ -1,7 +1,10 @@
 
 void iADC_DMA_setup();
-void iADC_DMA_start(uint8_t is_delayed);
+void iADC_DMA_start();
 void iADC_DMA_IRQ_handler();
+void iADC_trigger_IRQ();
+void iADC_start_or_wait_for_trigger();
+void iADC_start_or_wait_for_usb();
 
 struct { 
 	uint8_t channel_mask;	
@@ -12,9 +15,13 @@ struct {
     uint64_t start_time_us;	
     uint64_t end_time_us;	
 	uint8_t waits_for_usb;		
+	uint8_t waits_for_trigger;		
 	uint8_t block_delayed_by_usb;		
-	uint8_t block_delayed_by_trigger;		
-	uint8_t block_terminated_by_trigger;		
+	int8_t  trigger_gpio;		
+	uint8_t trigger_on_falling_edge;
+	//uint8_t trigger_timeout_max;		// TODO
+	//uint8_t block_delayed_by_trigger;		// TODO
+	//uint8_t block_terminated_by_trigger;	// TODO
 } iADC_config;
 
 
@@ -28,7 +35,7 @@ struct __attribute__((packed)) {
 	uint64_t start_time_us;
 	uint64_t end_time_us;
     uint8_t channel_mask;
-    uint16_t blocks_to_send;
+    uint32_t blocks_to_send;
     uint8_t block_delayed_by_usb;
 } adc_report;
 
@@ -42,19 +49,35 @@ void adc() {
 		uint8_t channel_mask;		// default=1		min=0		max=31 Masks 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor
 		uint16_t blocksize;			// default=1000		min=1		max=8192 Number of sample points until a report is sent
 		uint8_t infinite;			// default=0		min=0		max=1  Disables blocks_to_send countdown (reports keep coming until explicitly stopped)
-		uint16_t blocks_to_send;	// default=1		min=0		         Number of reports to be sent (if not infinite)
+		uint32_t blocks_to_send;	// default=1		min=0		         Number of reports to be sent (if not infinite)
 		uint16_t clkdiv;			// default=96		min=96		max=65535 Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.)
+		int8_t trigger_gpio;		// default=-1		min=-1		max=24 GPIO number for start trigger (set to -1 to make ADC start w/o trigger)
+		uint8_t trigger_on_falling_edge;	// default=0		min=0		max=1 If set to 1, triggers on falling edge instead of rising edge.
 	} * command = (void*)(command_buffer+1);
 
 	iADC_config.channel_mask = command->channel_mask; 
 	iADC_config.infinite = command->infinite; 
 	iADC_config.blocksize = command->blocksize; 
 	iADC_config.clkdiv = command->clkdiv; 
-	if (command->blocks_to_send) {
-		iADC_config.blocks_to_send = command->blocks_to_send; 
-		iADC_DMA_start(0); 
-	}
+	iADC_config.blocks_to_send = command->blocks_to_send; 
+
+	iADC_config.trigger_gpio = command->trigger_gpio;
+	iADC_config.trigger_on_falling_edge = command->trigger_on_falling_edge;
+	if (iADC_config.trigger_gpio > -1) {
+		gpio_set_irq_enabled_with_callback(
+				iADC_config.trigger_gpio, 
+				iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, 
+				true, 
+				&iADC_trigger_IRQ);
+	} else {
+		// TODO unregister irq
+	};
+
+	iADC_start_or_wait_for_trigger();
 }
+
+
+
 
 
 
@@ -107,11 +130,12 @@ void iADC_DMA_init() {
 	adc_run(true);
 }
 
-void iADC_DMA_start(uint8_t delayed_by_usb) {
+void iADC_DMA_start() {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
+    iADC_config.block_delayed_by_usb = iADC_config.waits_for_usb;
     iADC_config.waits_for_usb = 0;
-    iADC_config.block_delayed_by_usb = delayed_by_usb;
-    //iADC_config.block_delayed_by_trigger = delayed_by_trigger; TODO 
+    //iADC_config.block_delayed_by_trigger = iADC_config.waits_for_trigger; TODO 
+    //iADC_config.waits_for_trigger = 0;
 	adc_run(false);				
 	adc_fifo_drain(); 
 	adc_set_round_robin(iADC_config.channel_mask);
@@ -153,19 +177,37 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
 }
 
 
-uint8_t iADC_check_start() {
-    if ((iADC_config.infinite) || (--iADC_config.blocks_to_send)) { 
-        if (iADC_buffers[iADC_active_buffer].write_lock) {
-            iADC_config.waits_for_usb = 1; // (or arm it to be started ASAP, should never occur)
-        } else { 
-            iADC_DMA_start(0); 
-        };
+
+void iADC_start_or_wait_for_trigger() { // ... or for user-defined timeout TODO
+    if ((iADC_config.infinite) || (iADC_config.blocks_to_send > 0)) { 
+		if (iADC_config.trigger_gpio < 0) {
+			iADC_start_or_wait_for_usb();
+		} else {
+			iADC_config.waits_for_trigger = 1;
+		}
     } 
 }
 
-uint8_t iADC_on_buffer_transmitted() { // TODO merge with above fn
+void iADC_trigger_IRQ(uint gpio, uint32_t events) {
+	if (iADC_config.waits_for_trigger) {
+		//gpio_put(PICO_DEFAULT_LED_PIN, 1); // XXX
+		iADC_start_or_wait_for_usb();
+	};
+}
+
+void iADC_start_or_wait_for_usb() {
+	iADC_config.waits_for_trigger = 0;
+
+	if (iADC_buffers[iADC_active_buffer].write_lock) {
+		iADC_config.waits_for_usb = 1; // (or arm it to be started ASAP, should never occur)
+	} else { 
+		iADC_DMA_start(); 
+	};
+}
+
+uint8_t iADC_on_buffer_transmitted() {
 	if (iADC_config.waits_for_usb && !(iADC_buffers[iADC_active_buffer].write_lock)) {
-		iADC_DMA_start(1);
+		iADC_DMA_start();
 	}
 }
 
@@ -182,7 +224,8 @@ void iADC_DMA_IRQ_handler() {
     adc_report.start_time_us = iADC_config.start_time_us;
 
     // If possible start the next ADC acquisition block non-delayed (i.e. within <4 us)
-	iADC_check_start();
+	iADC_config.blocks_to_send--;
+	iADC_start_or_wait_for_trigger();
 
 	// Schedule the just finished buffer to be transmitted
     adc_report._data_count = iADC_config.blocksize; // should not change
@@ -202,3 +245,20 @@ void iADC_DMA_IRQ_handler() {
 	// (small todo: transmit CRC (already computed in SNIFF_DATA reg, chap. 2.5.5.2) )
 
 }
+
+
+
+
+/* XXX
+struct __attribute__((packed)) {
+    uint8_t report_code;
+} adc_set_trigger_report;
+void adc_set_trigger() 
+{
+	struct __attribute__((packed)) {
+		int8_t trigger_gpio;		// default=0		min=-1		max=24 Masks 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor
+	} * command = (void*)(command_buffer+1);
+
+	//gpio_set_irq_enabled_with_callback(args->trigger_gpio, edge_mask, true, &iADC_trigger_IRQ);
+}
+*/
