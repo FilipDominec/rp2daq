@@ -25,8 +25,9 @@ import time
 ## User options
 ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
-channels = [1,4]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
+channels = [1,2]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
 kSPS_per_ch = 250 * len(channels)    # note there is only one multiplexed ADC
+
 
 
 
@@ -45,11 +46,15 @@ received_time = []
 delayed = []
 
 # Called from other thread whenever data come from RP2
+prev_etime_us = 0
 def ADC_callback(**kwargs): 
-    global t0
+    global t0, prev_etime_us
 
     all_data.extend(kwargs['data'])
-    print("LEN all, kwargs: ", len(all_data), len(kwargs['data']), ' --------', kwargs['start_time_us'], kwargs['end_time_us'])
+    print("LEN all, kwargs: ", len(all_data), len(kwargs['data']), ' --------', kwargs['start_time_us'], kwargs['end_time_us'], 
+            kwargs['start_time_us']-kwargs['end_time_us'],
+            prev_etime_us-kwargs['start_time_us'])
+    prev_etime_us = kwargs['end_time_us']
     received_time.extend([time.time()]*(len(kwargs['data'])//2))
     delayed.extend([kwargs['block_delayed_by_usb']]*(len(kwargs['data'])//2))
 
@@ -68,21 +73,23 @@ def ADC_callback(**kwargs):
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
         blocksize=1000*len(channels), 
-        blocks_to_send=1000, 
+        blocks_to_send=500, 
+        #trigger_gpio=1,
+        trigger_on_falling_edge=1,
         clkdiv=int(48000//kSPS_per_ch), 
         _callback=ADC_callback)
 
 
 ## Unless all data are received, the program can continue (or wait) here
 
-    ## Waiting option 1: the right and efficient waiting (and causes almost no delayed blocks)
+    ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)
 #all_ADC_done.wait()  #rp.quit()
 
-    ## Waiting option 2: moderate CPU load is also OK
+    ## Waiting option 2: moderate CPU load is (also OK)
 #while not all_ADC_done.is_set():
     #time.sleep(.000005)
 
-    ## Waiting option 3: stress test with busy loops (still responsive, but <1% random USB delayed blocks)
+    # Waiting option 3: stress test with busy loops (still OK)
 def busy_wait(t):
     t0 = time.time()
     while time.time() < t0+t: pass
@@ -92,7 +99,7 @@ while not all_ADC_done.is_set():
     rp.gpio_out(25,0)
     busy_wait(.01)
 
-    # Waiting option 4: stress test with single busy loop (observed to cause random USB delayed blocks)
+    # Waiting option 4: stress test with single busy loop (OBSERVED to cause random USB delayed blocks)
 #while not all_ADC_done.is_set():
     #pass
 

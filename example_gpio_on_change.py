@@ -10,15 +10,15 @@ import rp2daq
 rp = rp2daq.Rp2daq()
 
 # Optional: Let's prepare PWM for some artificial signal on GPIO 0
-# Note that even 10kHz clock works, i.e. 100k reports per second can be received
+# Note that with wrap_value=40, even 50k reports per second can be received, this is about the limit
 print("Configuring PWM channel to make artificial 5kHz square wave (and waiting for it to settle)")
 rp.pwm_configure_pair(gpio=0, 
         clkdiv=250, # clock at 1.000 MHz
-        wrap_value=200-1) # one rising edge, one falling edge at 5.000 kHz  
+        wrap_value=50-1) # one rising or falling edge 20 kHz  
 
 time.sleep(.08) # unclear why, but 100 ms is safe
 
-rp.pwm_set_value(0, 100) 
+rp.pwm_set_value(0, 10) 
 
 
 ## Define a report handler and start asynchronous reporting on each GPIO change

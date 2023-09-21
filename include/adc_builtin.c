@@ -3,8 +3,8 @@ void iADC_DMA_setup();
 void iADC_DMA_start();
 void iADC_DMA_IRQ_handler();
 void iADC_trigger_IRQ();
-void iADC_start_or_wait_for_trigger();
-void iADC_start_or_wait_for_usb();
+void iADC_start_or_schedule_after_trigger();
+void iADC_start_or_schedule_after_usb();
 
 struct { 
 	uint8_t channel_mask;	
@@ -25,7 +25,8 @@ struct {
 } iADC_config;
 
 
-
+// TODO rp.adc(blocks_to_send=1, blocksize=10, trigger_gpio=-1) ## freezes ? 
+//rp.adc(blocks_to_send=3, trigger_gpio=2) ## IS OK? 
 // =============================================================================
 
 struct __attribute__((packed)) {
@@ -63,17 +64,28 @@ void adc() {
 
 	iADC_config.trigger_gpio = command->trigger_gpio;
 	iADC_config.trigger_on_falling_edge = command->trigger_on_falling_edge;
-	if (iADC_config.trigger_gpio > -1) {
-		gpio_set_irq_enabled_with_callback(
-				iADC_config.trigger_gpio, 
-				iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, 
-				true, 
-				&iADC_trigger_IRQ);
-	} else {
-		// TODO unregister irq
-	};
 
-	iADC_start_or_wait_for_trigger();
+
+	 if (iADC_config.trigger_gpio > -1)
+		 gpio_set_irq_enabled_with_callback(
+				 1, 
+				 iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, //GPIO_IRQ_EDGE_FALL ,
+				 true, 
+				 &iADC_trigger_IRQ);
+
+	// TODO may need to reimplement GPIO IRQ globally like
+	//void irqhandler1() {
+		//from https://forums.raspberrypi.com/viewtopic.php?t=339696
+		//if (gpio_get_irq_event_mask(1) & GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL) {
+			//gpio_acknowledge_irq(1, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL);
+			//gpio_xor_mask(0b100);
+		//}
+	//}
+	//gpio_set_irq_enabled(1, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true); //monitor pin 1 connected to pin 0
+    //gpio_add_raw_irq_handler(1,irqhandler1);
+    //irq_set_enabled(IO_IRQ_BANK0, true);
+
+	iADC_start_or_schedule_after_trigger(); 
 }
 
 
@@ -131,11 +143,11 @@ void iADC_DMA_init() {
 }
 
 void iADC_DMA_start() {
-	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
     iADC_config.block_delayed_by_usb = iADC_config.waits_for_usb;
     iADC_config.waits_for_usb = 0;
     //iADC_config.block_delayed_by_trigger = iADC_config.waits_for_trigger; TODO 
-    //iADC_config.waits_for_trigger = 0;
+	
+	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
 	adc_run(false);				
 	adc_fifo_drain(); 
 	adc_set_round_robin(iADC_config.channel_mask);
@@ -178,24 +190,26 @@ void compress_2x12b_to_24b_inplace(uint8_t* buf, uint32_t data_count) {
 
 
 
-void iADC_start_or_wait_for_trigger() { // ... or for user-defined timeout TODO
+void iADC_start_or_schedule_after_trigger() { // ... or for user-defined timeout TODO
     if ((iADC_config.infinite) || (iADC_config.blocks_to_send > 0)) { 
 		if (iADC_config.trigger_gpio < 0) {
-			iADC_start_or_wait_for_usb();
+			iADC_start_or_schedule_after_usb();
 		} else {
+		gpio_put(PICO_DEFAULT_LED_PIN, 1); // XXX
 			iADC_config.waits_for_trigger = 1;
 		}
     } 
 }
 
 void iADC_trigger_IRQ(uint gpio, uint32_t events) {
+	
 	if (iADC_config.waits_for_trigger) {
-		//gpio_put(PICO_DEFAULT_LED_PIN, 1); // XXX
-		iADC_start_or_wait_for_usb();
+		gpio_put(PICO_DEFAULT_LED_PIN, 0); // XXX
+		iADC_start_or_schedule_after_usb();
 	};
 }
 
-void iADC_start_or_wait_for_usb() {
+void iADC_start_or_schedule_after_usb() {
 	iADC_config.waits_for_trigger = 0;
 
 	if (iADC_buffers[iADC_active_buffer].write_lock) {
@@ -225,7 +239,11 @@ void iADC_DMA_IRQ_handler() {
 
     // If possible start the next ADC acquisition block non-delayed (i.e. within <4 us)
 	iADC_config.blocks_to_send--;
-	iADC_start_or_wait_for_trigger();
+
+    //if ((iADC_config.infinite) || (iADC_config.blocks_to_send > 0)) { 
+		//iADC_DMA_start();
+	//}
+	iADC_start_or_schedule_after_trigger();
 
 	// Schedule the just finished buffer to be transmitted
     adc_report._data_count = iADC_config.blocksize; // should not change
@@ -236,6 +254,7 @@ void iADC_DMA_IRQ_handler() {
 
 	if (adc_report._data_bitwidth == 12) {
 		compress_2x12b_to_24b_inplace(iADC_buffers[iADC_buffer_prev].data, adc_report._data_count); }
+
 	prepare_report_wrl(&adc_report, 
             sizeof(adc_report), 
 			iADC_buffers[iADC_buffer_prev].data, 

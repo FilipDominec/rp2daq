@@ -61,18 +61,33 @@ class Rp2daq():
         """Clean termination of tx/rx threads, and explicit releasing of serial ports (for win32) """ 
         # TODO: add device reset option
         self._i.run_event.clear()
-        self._i.port.close()
+        #self._i.port.close()
 
 
 
-def usb_backend(report_pipe, port): 
-#def usb_backend(report_queue, port): 
+def usb_backend(report_pipe, port_name): 
+#def usb_backend(report_queue, port_name): 
     """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
-    while True:
-        while port.in_waiting:
-            report_pipe.send(port.read(port.in_waiting))
-            #report_queue.put(port.read(port.in_waiting))
-        time.sleep(0.001)
+
+    try: 
+        port = serial.Serial(port=port_name.device, timeout=0)
+        while True:
+            #time.sleep(0.001)
+            if port.in_waiting:
+                rxb = port.read(port.in_waiting)
+                #print("RX", len(rxb))
+                report_pipe.send_bytes(rxb)
+                #report_queue.put(port.read(port.in_waiting))
+
+            if report_pipe.poll(0.001): 
+                out_bytes = report_pipe.recv_bytes()
+                #print("TX", len(out_bytes))
+                port.write(out_bytes)
+
+    except OSError:
+        logging.error("Device disconnected, check your cabling or possible short-circuits")
+        #TODO should somehow invoke self._e.quit()
+        #port.close() ? 
 
 
 
@@ -85,16 +100,16 @@ class Rp2daq_internals(threading.Thread):
         self._register_commands()
 
         time.sleep(.05)
-        self.port = self._find_device(required_device_id, required_firmware_version=MIN_FW_VER)
+        self.port_name = self._find_device(required_device_id, required_firmware_version=MIN_FW_VER)
 
         ## Asynchronous communication using threads
         self.sleep_tune = 0.001
 
         #self.report_queue = multiprocessing.Queue()  
-        self.report_pipe_out, report_pipe_in = multiprocessing.Pipe()
+        self.report_pipe_out, report_pipe_in = multiprocessing.Pipe(duplex=True)
         self.usb_backend_process = multiprocessing.Process(
                 target=usb_backend, 
-                args=(report_pipe_in, self.port))
+                args=(report_pipe_in, self.port_name))
                 #args=(self.report_queue, self.port))
         self.usb_backend_process.daemon = True
         self.usb_backend_process.start()
@@ -140,7 +155,7 @@ class Rp2daq_internals(threading.Thread):
 
         def queue_recv_bytes(length): # note: should re-implement with io.BytesIO() ring buffer?
             while len(self.rx_bytes) < length:
-                c = self.report_pipe_out.recv()
+                c = self.report_pipe_out.recv_bytes()
                 #c = self.report_queue.get()
 
                 self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
@@ -164,6 +179,7 @@ class Rp2daq_internals(threading.Thread):
             elif bitwidth == 16:      # using little endian byte order everywhere
                 return [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
             else:
+                print(bitwidth, count, len(data_bytes))
                 raise NotImplementedError 
 
         self.run_event.wait()
@@ -185,6 +201,7 @@ class Rp2daq_internals(threading.Thread):
 
                     # 3rd: Get the data payload (if present), and convert it into a list of ints
                     if cb_kwargs.get("_data_count") and cb_kwargs["_data_count"]:
+                        #print("Get the data payload",cb_kwargs.get("_data_count") )
                         count, bitwidth = cb_kwargs["_data_count"], cb_kwargs["_data_bitwidth"]
                         payload_length = -((-count*bitwidth)//8)  # int div like floor(); this makes it ceil()
                         payload_raw = queue_recv_bytes(payload_length)
@@ -206,10 +223,6 @@ class Rp2daq_internals(threading.Thread):
                 ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
                 ## TODO: check if sync cmd works correctly after async cmd (of the same type)
                 #cb(**cb_kwargs)
-
-            except OSError:
-                logging.error("Device disconnected, check your cabling or possible short-circuits")
-                self._e.quit()
 
             except EOFError:
                 logging.debug("Got EOF from the receiver process, quitting")
@@ -286,7 +299,9 @@ class Rp2daq_internals(threading.Thread):
                 continue
 
             logging.info(f"connected to rp2daq device with manufacturer ID = {found_device_id.decode()}")
-            return try_port
+            #return try_port
+            try_port.close()
+            return port_name
         else:
             msg = "Error: could not find any matching rp2daq device"
             logging.critical(msg)
