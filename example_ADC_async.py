@@ -26,7 +26,7 @@ import time
 ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
 channels = [1,2]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
-kSPS_per_ch = 250 * len(channels)    # note there is only one multiplexed ADC
+kSPS_total = 500    # note there is only one multiplexed ADC
 
 
 
@@ -51,12 +51,15 @@ def ADC_callback(**kwargs):
     global t0, prev_etime_us
 
     all_data.extend(kwargs['data'])
-    print("LEN all, kwargs: ", len(all_data), len(kwargs['data']), ' --------', kwargs['start_time_us'], kwargs['end_time_us'], 
-            kwargs['start_time_us']-kwargs['end_time_us'],
-            prev_etime_us-kwargs['start_time_us'])
-    prev_etime_us = kwargs['end_time_us']
-    received_time.extend([time.time()]*(len(kwargs['data'])//2))
     delayed.extend([kwargs['block_delayed_by_usb']]*(len(kwargs['data'])//2))
+
+    print("Packet received", len(all_data), len(kwargs['data']),
+            -kwargs['start_time_us']+kwargs['end_time_us'],
+            -prev_etime_us+kwargs['start_time_us'],
+            rp._i.report_queue.qsize(), 
+            (" DELAYED" if kwargs['block_delayed_by_usb'] else "") )
+    prev_etime_us = kwargs['end_time_us']
+    received_time.extend([time.time()]*(len(kwargs['data'])//len(channels)))
 
     if not kwargs['blocks_to_send']: # i.e. if all blocks were received
         all_ADC_done.set()   # releases wait() in the main tread
@@ -64,47 +67,48 @@ def ADC_callback(**kwargs):
     if not t0:
         t0 = time.time()
 
-    print(f"at {time.time()-t0:.3f} s, received {len(kwargs['data'])} new " +
-            f"ADC values ({kwargs['blocks_to_send']} blocks to go)" + 
-            (" DELAYED" if kwargs['block_delayed_by_usb'] else "") )
+    #print(f"at {time.time()-t0:.3f} s, received {len(kwargs['data'])} new " +
+            #f"ADC values ({kwargs['blocks_to_send']} blocks to go)" + 
+            #(" DELAYED" if kwargs['block_delayed_by_usb'] else "") )
 
 
 ## Initialize the ADC into asynchronous operation...
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
         blocksize=1000*len(channels), 
-        blocks_to_send=500, 
+        blocks_to_send=1500, 
         #trigger_gpio=1,
         trigger_on_falling_edge=1,
-        clkdiv=int(48000//kSPS_per_ch), 
+        clkdiv=int(48000//kSPS_total), 
         _callback=ADC_callback)
+## Unless all data are received, the program can continue (or wait) here. A dedicated separate process
+## ensures that raw data are quickly offloaded from USB into a queue, so that no message is corrupted. 
+## High CPU load in this user script can however lead to delays in the callbacks being issued.
+## In particular, tight busy loops in main thread (option 4 below) will cause callback delays, so 
+## maximum sustained data rate may be roughly halved on ordinary modern computer (<300 kBps).
 
 
-## Unless all data are received, the program can continue (or wait) here
 
-    ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)
-#all_ADC_done.wait()  #rp.quit()
+#all_ADC_done.wait() ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)
 
-    ## Waiting option 2: moderate CPU load is (also OK)
-#while not all_ADC_done.is_set():
+#while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
     #time.sleep(.000005)
-
-    # Waiting option 3: stress test with busy loops (still OK)
-def busy_wait(t):
-    t0 = time.time()
-    while time.time() < t0+t: pass
-while not all_ADC_done.is_set():
-    rp.gpio_out(25,1)
-    busy_wait(.01)
-    rp.gpio_out(25,0)
-    busy_wait(.01)
-
-    # Waiting option 4: stress test with single busy loop (OBSERVED to cause random USB delayed blocks)
+    
+#def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
+    #t0 = time.time()
+    #while time.time() < t0+t: pass
 #while not all_ADC_done.is_set():
-    #pass
+    #rp.gpio_out(25,1)
+    #busy_wait(.01)
+    #rp.gpio_out(25,0)
+    #busy_wait(.01)
+
+rp.gpio_out(25,1) # Waiting option 4: stress test with single busy loop
+while not all_ADC_done.is_set(): pass
+rp.gpio_out(25,0) # note this only happens after all data is received on computer side
 
 print(f"Received total {len(all_data)} samples in {time.time()-t0}")
-print(f"Average incoming data rate was {len(all_data)/(time.time()-t0):.2f} samples per second")
+print(f"Average processed data rate was {len(all_data)/(time.time()-t0):.2f} samples per second")
 
 ## Optional plotting of all channels
 t0 = time.time()

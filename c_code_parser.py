@@ -140,9 +140,11 @@ def generate_command_binary_interface():
                 f"\tif {command_code} not in self.sync_report_cb_queues.keys():\n" +\
                 f"\t\tself.sync_report_cb_queues[{command_code}] = queue.Queue()\n" +\
                 f"\tself.report_callbacks[{command_code}] = _callback\n" +\
-                f"\tself.report_pipe_out.send_bytes(struct.pack('<BB{exec_struct}{exec_msghdr}{exec_stargs}))\n" +\
+                f"\tself.command_queue.put(struct.pack('<BB{exec_struct}{exec_msghdr}{exec_stargs}))\n" +\
                 f"\tif not _callback:\n" +\
                 f"\t\treturn self.default_blocking_callback({command_code})"
+
+                #f"\tself.report_pipe_out.send_bytes(struct.pack('<BB{exec_struct}{exec_msghdr}{exec_stargs}))\n" +\
 
 
 

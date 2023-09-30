@@ -65,24 +65,50 @@ class Rp2daq():
 
 
 
-def usb_backend(report_pipe, port_name): 
-#def usb_backend(report_queue, port_name): 
+#def usb_backend(report_pipe, port_name): 
+def usb_backend(report_queue, command_queue, port_name): 
     """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
 
     try: 
         port = serial.Serial(port=port_name.device, timeout=0)
-        while True:
-            #time.sleep(0.001)
-            if port.in_waiting:
-                rxb = port.read(port.in_waiting)
-                #print("RX", len(rxb))
-                report_pipe.send_bytes(rxb)
-                #report_queue.put(port.read(port.in_waiting))
+        # (fixme:) There is some space for further optimization if this backend process was aware of the 
+        # message types and received each whole message at once.
 
-            if report_pipe.poll(0.001): 
-                out_bytes = report_pipe.recv_bytes()
+
+        while True:
+            # Stress test in worst scenario - tight busy loop on user main thread. Thanks to multiprocessing
+            # and experimental optimization, rp2daq can handle it gracefully.
+            # Paradoxically, no (or too short) sleep time here leads to smaller chunks in queue and its 
+            # clogging. So moderate data aggregation into longer chunks in interprocess queue is desirable.
+
+            # Sleep time results on Linux with busy loop in user's process:
+            #   0.00001 is terrible; 
+            #   0.001 .. 0.005 seems optimum, processing up to 240kBps
+            #   0.01 causes DELAYED messages on device side (due to OS's USB buffer overflow)
+            
+            time.sleep(0.005) 
+            if port.in_waiting: # faster is 'if' than 'while'
+                #rxb = port.read(port.in_waiting)
+                #print("RX", len(rxb),port.in_waiting, rxb)
+                #report_pipe.send_bytes(rxb)
+                report_queue.put(port.read(port.in_waiting))
+
+            #if report_pipe.poll(0.001): 
                 #print("TX", len(out_bytes))
+                #out_bytes = report_pipe.recv_bytes()
+                #port.write(out_bytes)
+
+            if not command_queue.empty():
+                out_bytes = command_queue.get(block=True)
                 port.write(out_bytes)
+                print("n/e", report_queue.qsize())
+#
+            #try:
+                #out_bytes = command_queue.get(block=False)
+            #except: ## XXX
+                #pass
+            #else:
+                #port.write(out_bytes)
 
     except OSError:
         logging.error("Device disconnected, check your cabling or possible short-circuits")
@@ -105,12 +131,13 @@ class Rp2daq_internals(threading.Thread):
         ## Asynchronous communication using threads
         self.sleep_tune = 0.001
 
-        #self.report_queue = multiprocessing.Queue()  
-        self.report_pipe_out, report_pipe_in = multiprocessing.Pipe(duplex=True)
+        self.report_queue = multiprocessing.Queue()  
+        self.command_queue = multiprocessing.Queue()  
+        #self.report_pipe_out, report_pipe_in = multiprocessing.Pipe(duplex=True)
         self.usb_backend_process = multiprocessing.Process(
                 target=usb_backend, 
-                args=(report_pipe_in, self.port_name))
-                #args=(self.report_queue, self.port))
+                #args=(report_pipe_in, self.port_name))
+                args=(self.report_queue, self.command_queue, self.port_name))
         self.usb_backend_process.daemon = True
         self.usb_backend_process.start()
 
@@ -155,8 +182,8 @@ class Rp2daq_internals(threading.Thread):
 
         def queue_recv_bytes(length): # note: should re-implement with io.BytesIO() ring buffer?
             while len(self.rx_bytes) < length:
-                c = self.report_pipe_out.recv_bytes()
-                #c = self.report_queue.get()
+                #c = self.report_pipe_out.recv_bytes()
+                c = self.report_queue.get()
 
                 self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
                 self.rx_bytes_total_len += len(c)
@@ -197,7 +224,7 @@ class Rp2daq_internals(threading.Thread):
                     report_args = struct.unpack(self.report_header_formats[report_type], 
                             report_type_b+report_header_bytes)
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
-                    #logging.debug(f"received packet header {report_type=} {bytes(report_header_bytes)=}")
+                    logging.debug(f"received packet header {report_type=} {bytes(report_header_bytes)=}")
 
                     # 3rd: Get the data payload (if present), and convert it into a list of ints
                     if cb_kwargs.get("_data_count") and cb_kwargs["_data_count"]:
