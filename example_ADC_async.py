@@ -76,7 +76,7 @@ def ADC_callback(**kwargs):
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
         blocksize=1000*len(channels), 
-        blocks_to_send=1500, 
+        blocks_to_send=3500, 
         #trigger_gpio=1,
         trigger_on_falling_edge=1,
         clkdiv=int(48000//kSPS_total), 
@@ -91,8 +91,8 @@ rp.adc(channel_mask=sum(2**ch for ch in channels),
 
 #all_ADC_done.wait() ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)
 
-#while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
-    #time.sleep(.000005)
+while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
+    time.sleep(.000005)
     
 #def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
     #t0 = time.time()
@@ -103,9 +103,9 @@ rp.adc(channel_mask=sum(2**ch for ch in channels),
     #rp.gpio_out(25,0)
     #busy_wait(.01)
 
-rp.gpio_out(25,1) # Waiting option 4: stress test with single busy loop
-while not all_ADC_done.is_set(): pass
-rp.gpio_out(25,0) # note this only happens after all data is received on computer side
+#rp.gpio_out(25,1) # Waiting option 4: stress test with single busy loop
+#while not all_ADC_done.is_set(): pass
+#rp.gpio_out(25,0) # note this only happens after all data is received on computer side
 
 print(f"Received total {len(all_data)} samples in {time.time()-t0}")
 print(f"Average processed data rate was {len(all_data)/(time.time()-t0):.2f} samples per second")

@@ -1,7 +1,7 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 
-if __name__ == "__mp_main__": quit() ## avoid spawn bomb due to multiprocessing
+#if __name__ == "__mp_main__": quit() ## avoid spawn bomb due to multiprocessing
 
 import tkinter      
 from tkinter import ttk 
@@ -18,7 +18,6 @@ label.grid(column=0, row=0)
 try:
     import rp2daq
     rp = rp2daq.Rp2daq()
-    style = ttk.Style()
 
     id_string = "".join(chr(b) for b in rp.identify()["data"])
     label.config(text = "Successfully connected to " + id_string)
@@ -26,6 +25,7 @@ try:
     def set_LED(state):
         rp.gpio_out(25, state) # onboard LED assigned to gpio 25 on R Pi Pico
 
+    style = ttk.Style()
     style.configure("lime.TButton", background="lime")
     btn_on = ttk.Button(window, text='LED on', command=lambda:set_LED(1), style="lime.TButton")
     btn_on.grid(column=0, row=1)

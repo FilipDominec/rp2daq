@@ -70,28 +70,54 @@ def usb_backend(report_queue, command_queue, port_name):
     """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
 
     try: 
-        port = serial.Serial(port=port_name.device, timeout=0)
+        port = serial.Serial(port=port_name.device, timeout=0) # , xonxoff = True
+
+        # Stress tested in worst realistic scenario - tight busy loop on user script keeping single CPU
+        # core busy. Thanks to dedicating this "usb_backend" process entirely for rx/tx on USB, 
+        # rp2daq can handle it gracefully. It required a lot of experimental optimization, and there is 
+        # much to be improved in the Python environment.
+        
+        # Sleep time results on Linux with busy loop in user's process:
+        #   No sleep .. busy loop consumes one CPU core, suboptimal
+        #   0.00001 transfers super-short byte sequences through queue, slow overall data transfer; 
+        #   0.001 .. 0.005 seems optimum, passing up to 240kBps to the user script (plaform dependent?)
+        #   0.01 .. DELAYED messages on device side (due to USB buffer throttling transfer rate?)
+        # So a short sleep within the receiving loop prevents the usb_backend process from eating up 100 % of the 
+        # CPU core; however or too short sleep time here leads to smaller chunks in queue and its 
+        # clogging. So moderate data aggregation into longer bytes objects in interprocess queue is desirable.
+
+        # Sleep time results on Windows10 with busy loop in user's process:
+        #   No sleep .. allows receiving 1000 kBps reliably, but python script processes reports slower
+        #   Any sleep .. causes CORRUPTED messages (due to silent USB buffer overrun?), rp2daq crashes
+        # Windows uses coarser multitasking slices, this unfortunately has to be avoided by keeping a short
+        # busy loop. Otherwise rp2daq becomes unreliable. Pyserial's options like xonxoff or buffer sizes did'nt 
+        # help. 
+
         # (fixme:) There is some space for further optimization if this backend process was aware of the 
         # message types and received each whole message at once.
+        #port.set_buffer_size(rx_size = 1280, tx_size = 1280) # only for Windows, but still does nothing?  
 
+        # (fixme:) Another solution is multi-threading even in this receiver process
+        # https://stackoverflow.com/questions/19908167/reading-serial-data-in-realtime-in-python
+        # https://stackoverflow.com/questions/62836625/python-serial-port-event
 
+        if os.name == 'nt': 
+            short_sleep = 0
+        elif os.name == 'posix': # Linux tested, MacOS untested
+            short_sleep = 0.004
+        t0 = time.time()
         while True:
-            # Stress test in worst scenario - tight busy loop on user main thread. Thanks to multiprocessing
-            # and experimental optimization, rp2daq can handle it gracefully.
-            # Paradoxically, no (or too short) sleep time here leads to smaller chunks in queue and its 
-            # clogging. So moderate data aggregation into longer chunks in interprocess queue is desirable.
 
-            # Sleep time results on Linux with busy loop in user's process:
-            #   0.00001 is terrible; 
-            #   0.001 .. 0.005 seems optimum, processing up to 240kBps
-            #   0.01 causes DELAYED messages on device side (due to OS's USB buffer overflow)
             
-            time.sleep(0.005) 
+            #print(" ------ RX", port.in_waiting, time.time()-t0)
             if port.in_waiting: # faster is 'if' than 'while'
                 #rxb = port.read(port.in_waiting)
-                #print("RX", len(rxb),port.in_waiting, rxb)
                 #report_pipe.send_bytes(rxb)
                 report_queue.put(port.read(port.in_waiting))
+            
+            if short_sleep: 
+                time.sleep(short_sleep)
+                
 
             #if report_pipe.poll(0.001): 
                 #print("TX", len(out_bytes))
@@ -101,8 +127,7 @@ def usb_backend(report_queue, command_queue, port_name):
             if not command_queue.empty():
                 out_bytes = command_queue.get(block=True)
                 port.write(out_bytes)
-                print("n/e", report_queue.qsize())
-#
+
             #try:
                 #out_bytes = command_queue.get(block=False)
             #except: ## XXX
@@ -110,10 +135,10 @@ def usb_backend(report_queue, command_queue, port_name):
             #else:
                 #port.write(out_bytes)
 
-    except OSError:
+    except OSError: 
         logging.error("Device disconnected, check your cabling or possible short-circuits")
-        #TODO should somehow invoke self._e.quit()
-        #port.close() ? 
+        # (todo) Should somehow invoke self._e.quit() here ? 
+        # (todo) Should port.close() ? 
 
 
 
