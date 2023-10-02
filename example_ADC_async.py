@@ -91,17 +91,17 @@ rp.adc(channel_mask=sum(2**ch for ch in channels),
 
 #all_ADC_done.wait() ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)
 
-while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
-    time.sleep(.000005)
+#while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
+    #time.sleep(.000005)
     
-#def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
-    #t0 = time.time()
-    #while time.time() < t0+t: pass
-#while not all_ADC_done.is_set():
-    #rp.gpio_out(25,1)
-    #busy_wait(.01)
-    #rp.gpio_out(25,0)
-    #busy_wait(.01)
+def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
+    t0 = time.time()
+    while time.time() < t0+t: pass
+while not all_ADC_done.is_set():
+    rp.gpio_out(25,1)
+    busy_wait(.01)
+    rp.gpio_out(25,0)
+    busy_wait(.01)
 
 #rp.gpio_out(25,1) # Waiting option 4: stress test with single busy loop
 #while not all_ADC_done.is_set(): pass

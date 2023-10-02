@@ -33,7 +33,6 @@ import types
 import c_code_parser
 
 
-
 def init_error_msgbox():  # error handling with a graphical message box
     def myerr(exc_type, exc_value, tb): 
         message = '\r'.join(traceback.format_exception(exc_type, exc_value, tb))
@@ -67,10 +66,26 @@ class Rp2daq():
 
 #def usb_backend(report_pipe, port_name): 
 def usb_backend(report_queue, command_queue, port_name): 
-    """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
+    """
+    Default Python interpreter has a Global Interpreter Lock, due to which a high CPU load 
+    in the user script can halt USB data reception, leading to USB buffer overflow. 
+
+    Relegating the raw data handling in this separate process alleviates the problem with GIL. 
+    To keep the communication fluent without a tight busy loop in this process, USB input and 
+    output are handled by two threads here. 
+    """
+
+    def _raw_byte_output_thread():
+        while True:
+            #if not command_queue.empty():
+            out_bytes = command_queue.get(block=True)
+            print('OUT', out_bytes)
+            port.write(out_bytes)
 
     try: 
-        port = serial.Serial(port=port_name.device, timeout=0) # , xonxoff = True
+        port = serial.Serial(port=port_name.device, timeout=None)
+        raw_byte_output_thread = threading.Thread(target=_raw_byte_output_thread, daemon=True)
+        raw_byte_output_thread.start()
 
         # Stress tested in worst realistic scenario - tight busy loop on user script keeping single CPU
         # core busy. Thanks to dedicating this "usb_backend" process entirely for rx/tx on USB, 
@@ -90,8 +105,8 @@ def usb_backend(report_queue, command_queue, port_name):
         #   No sleep .. allows receiving 1000 kBps reliably, but python script processes reports slower
         #   Any sleep .. causes CORRUPTED messages (due to silent USB buffer overrun?), rp2daq crashes
         # Windows uses coarser multitasking slices, this unfortunately has to be avoided by keeping a short
-        # busy loop. Otherwise rp2daq becomes unreliable. Pyserial's options like xonxoff or buffer sizes did'nt 
-        # help. 
+        # busy loop. Otherwise rp2daq becomes unreliable. Pyserial's options like xonxoff or buffer sizes didn't 
+        # help (except for the former spoiling data rate on Linux only).  
 
         # (fixme:) There is some space for further optimization if this backend process was aware of the 
         # message types and received each whole message at once.
@@ -101,32 +116,33 @@ def usb_backend(report_queue, command_queue, port_name):
         # https://stackoverflow.com/questions/19908167/reading-serial-data-in-realtime-in-python
         # https://stackoverflow.com/questions/62836625/python-serial-port-event
 
-        if os.name == 'nt': 
-            short_sleep = 0
-        elif os.name == 'posix': # Linux tested, MacOS untested
-            short_sleep = 0.004
+        #if os.name == 'nt': 
+            #short_sleep = 0
+        #elif os.name == 'posix': # Linux tested, MacOS untested
+            #short_sleep = 0.004
         t0 = time.time()
         while True:
-
+            report_queue.put(port.read(max(1, port.in_waiting))) # assuming timeout=None was set for the port
             
             #print(" ------ RX", port.in_waiting, time.time()-t0)
-            if port.in_waiting: # faster is 'if' than 'while'
+            #if short_sleep: 
+                #time.sleep(short_sleep)
+            #if port.in_waiting: # faster is 'if' than 'while'
+                #report_queue.put(port.read(port.in_waiting))
+
                 #rxb = port.read(port.in_waiting)
+
                 #report_pipe.send_bytes(rxb)
-                report_queue.put(port.read(port.in_waiting))
-            
-            if short_sleep: 
-                time.sleep(short_sleep)
-                
+
 
             #if report_pipe.poll(0.001): 
                 #print("TX", len(out_bytes))
                 #out_bytes = report_pipe.recv_bytes()
                 #port.write(out_bytes)
 
-            if not command_queue.empty():
-                out_bytes = command_queue.get(block=True)
-                port.write(out_bytes)
+            #if not command_queue.empty():
+                #out_bytes = command_queue.get(block=True)
+                #port.write(out_bytes)
 
             #try:
                 #out_bytes = command_queue.get(block=False)

@@ -3,39 +3,45 @@
 
 #if __name__ == "__mp_main__": quit() ## avoid spawn bomb due to multiprocessing
 
+
 import tkinter      
 from tkinter import ttk 
 try:
     from ctypes import windll
     windll.shcore.SetProcessDpiAwareness(1)
-except: pass
+except: 
+    pass
 
 window = tkinter.Tk()   # initialize the graphical interface
 window.title("RP2DAQ test app")
 
-label = ttk.Label(window)
-label.grid(column=0, row=0)
-try:
-    import rp2daq
-    rp = rp2daq.Rp2daq()
+import multiprocessing
+if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn')
 
-    id_string = "".join(chr(b) for b in rp.identify()["data"])
-    label.config(text = "Successfully connected to " + id_string)
+    label = ttk.Label(window)
+    label.grid(column=0, row=0)
+    try:
+        import rp2daq
+        rp = rp2daq.Rp2daq()
 
-    def set_LED(state):
-        rp.gpio_out(25, state) # onboard LED assigned to gpio 25 on R Pi Pico
+        id_string = "".join(chr(b) for b in rp.identify()["data"])
+        label.config(text = "Successfully connected to " + id_string)
 
-    style = ttk.Style()
-    style.configure("lime.TButton", background="lime")
-    btn_on = ttk.Button(window, text='LED on', command=lambda:set_LED(1), style="lime.TButton")
-    btn_on.grid(column=0, row=1)
+        def set_LED(state):
+            rp.gpio_out(25, state) # onboard LED assigned to gpio 25 on R Pi Pico
 
-    style.configure("red.TButton", background="red")
-    btn_off = ttk.Button(window, text='LED off', command=lambda:set_LED(0), style="red.TButton")
-    btn_off.grid(column=0, row=2)
+        style = ttk.Style()
+        style.configure("lime.TButton", background="lime")
+        btn_on = ttk.Button(window, text='LED on', command=lambda:set_LED(1), style="lime.TButton")
+        btn_on.grid(column=0, row=1)
 
-except Exception as e: 
-    label.config(text=str(e))
+        style.configure("red.TButton", background="red")
+        btn_off = ttk.Button(window, text='LED off', command=lambda:set_LED(0), style="red.TButton")
+        btn_off.grid(column=0, row=2)
 
-window.mainloop()
+    except Exception as e: 
+        label.config(text=str(e))
+
+    window.mainloop()
 
