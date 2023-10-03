@@ -64,9 +64,14 @@ class Rp2daq():
         self._i.port.close()
 
 
-
 def usb_backend(report_queue, port): 
     """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
+
+    # TODO this process should open the port anew
+    #print(f"port_name.hwid={port_name.hwid}")
+    #try_port = serial.Serial(port=port_name.device, timeout=1)
+    # or if this does not help also try: TODO  https://stackoverflow.com/questions/9908781/sharing-a-result-queue-among-several-processes
+
     while True:
         while port.in_waiting:
             report_queue.put(port.read(port.in_waiting))
@@ -255,6 +260,7 @@ class Rp2daq_internals(threading.Thread):
                 id_data = try_port.read(try_port.in_waiting)[4:] 
             except:
                 id_data = b''
+            ## TODO close the port, remember its port_name (thus do not keep open many ports & enable pickling for multiproc on win)
 
             if not id_data[:6] == b'rp2daq': 
                 logging.info(f"\tport open, but device does not identify itself as rp2daq: {id_data}" )
@@ -276,6 +282,8 @@ class Rp2daq_internals(threading.Thread):
                 continue
 
             logging.info(f"connected to rp2daq device with manufacturer ID = {found_device_id.decode()}")
+
+            ## TODO should only return port_name
             return try_port
         else:
             msg = "Error: could not find any matching rp2daq device"
