@@ -77,7 +77,7 @@ print( rp.adc() )
 
 The ```adc()``` command returns a standard pythonic dictionary, with several (more or less useful) *key:value* pairs. Among these, the ADC readouts are simply named ```data```; value ```0``` corresponds to cca 0 V, and ```4095``` to cca 3.2 V.
 
-Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.adc(channel_mask=16)``` will switch the ADC to get raw readouts from the built-in thermometer.
+Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.adc(channel_mask=16)``` will switch the ADC to get raw readouts from the built-in thermometer. If the parameters are omitted, some reasonable default values are used.
 
 
 ### Tip: Use TAB completion
@@ -90,14 +90,11 @@ The docstring for any command is printed out when one adds ```?``` and hits ente
 
 ![ipython console printout for rp.adc?](docs/ipython_command_info.png)
 
-Note that most RP2DAQ's commands accept optional, so called *named* parameters. If they are omitted, some reasonable default values are used.
-
-Alternately, you can find the same information extracted in the [Python API reference](docs/PYTHON_REFERENCE.md).
-
+Alternately, you can find the same information extracted in the [Python API reference](docs/PYTHON_REFERENCE.md). In contrast, none of the commands can be found in the python code, as they are generated dynamically by parsing the C code on startup. This eliminates redundancy between the C firmware and the Python module, and always guarantees their perfect binary compatibility.
 
 ### Asynchronous commands
 
-Consider the following ADC readout code, which does almost the same as the previous example:
+Consider the following ADC readout code, which looks different, but does *almost* the same as the previous example:
 
 ```Python
 import rp2daq
@@ -113,21 +110,27 @@ import time
 time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
 ```
 
-Obviously, it is a bit more complicated. But more important is that here the ```rp.adc``` is provided with a *callback*, which makes it asynchronous: it does no more block further program flow, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
+The important difference is that here, the ```rp.adc``` is provided with a *callback* function. This makes it *asynchronous*: it does no more block further program flow, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
 
-Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. Also it is necessary for long commands like ADC acquisition and stepping motor movement, if the program must remain responsive. 
+Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. It is particularly useful for commands taking long time to finish, like extensive ADC acquisition or stepping motor movement. 
 
 ### Caveats of advanced asynchronous commands use
+You can call synchronous rp2daq commands of one type and asynchronous commands of another type without problems.
 
-Note that a callback is remembered in relation to a *command type*, not to *each unique command*. So if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. This behaviour should not cause much trouble, as the callbacks still can tell the corresponding motor numbers apart, thanks to the information passed as keyword arguments to ```B```.
+It's naturally more complicated if you decide to mix synchronous and asynchronous calls of the same type, as the callback function is assigned to each *command type*, not to *each unique command* you issued. 
+
+So is not recommended to mix *asynchronous* and *synchronous* commands *of the same type* and in close succession: Before the first command finishes and corresponding callback is dispatched, the second command would erase the associated callback, and the return message from the first command would not be handled.
+
+For instance, if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. The clean and recommended approach is therefore to define one callback function for a given command type. It can easily tell apart the reports from multiple stepper motors, using information it receives as keyword arguments.
 
 Both synchronous and asynchronous commands can be issued even from within a callback. 
 
-It is not recommended to mix *asynchronous* and *synchronous* commands *of the same type* and in close succession: Before the first command finishes and corresponding callback is dispatched, the second command would erase the associated callback, and the return message from the first command would not be handled.
 
-### Asynchronous command with multiple callbacks
+### Asynchronous command with multiple reports
 
-Maybe the greatest strength of the asynchronous ADC lies in their ability to transmit unlimited amount of data. The following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (limited by 8k buffer). Following code thus can monitor long processes, like temperature changes or battery discharge.
+Maybe the greatest strength of the asynchronous commands lies in their ability to transmit unlimited amount of data through subsequent reports. 
+
+The following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (limited by 8k buffer). This is necessary to monitor slow processes, e.g., temperature changes or battery discharge.
 
 ```Python
 import rp2daq
