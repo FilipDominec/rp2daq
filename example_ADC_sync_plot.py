@@ -6,6 +6,8 @@ width, height = 1000, 1000
 channels = [0, 1, 2,] #,  3, 4]     # 0,1,2 are GPIO 26-28;  3 is V_ref and 4 is internal thermometer
 kSPS_per_ch = 100 * len(channels)  # one-second run
 
+
+
 import rp2daq
 import sys
 import tkinter

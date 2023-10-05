@@ -12,7 +12,7 @@ More information and examples on https://github.com/FilipDominec/rp2daq or in RE
 """
 
 
-MIN_FW_VER = 210400
+MIN_FW_VER = 231005
 
 import atexit
 from collections import deque
@@ -31,6 +31,7 @@ import tkinter
 import types
 
 import c_code_parser
+
 
 
 def init_error_msgbox():  # error handling with a graphical message box
@@ -65,97 +66,6 @@ class Rp2daq():
 
 
 #def usb_backend(report_pipe, port_name): 
-def usb_backend(report_queue, command_queue, port_name): 
-    """
-    Default Python interpreter has a Global Interpreter Lock, due to which a high CPU load 
-    in the user script can halt USB data reception, leading to USB buffer overflow. 
-
-    Relegating the raw data handling in this separate process alleviates the problem with GIL. 
-    To keep the communication fluent without a tight busy loop in this process, USB input and 
-    output are handled by two threads here. 
-    """
-
-    def _raw_byte_output_thread():
-        while True:
-            #if not command_queue.empty():
-            out_bytes = command_queue.get(block=True)
-            print('OUT', out_bytes)
-            port.write(out_bytes)
-
-    try: 
-        port = serial.Serial(port=port_name.device, timeout=None)
-        raw_byte_output_thread = threading.Thread(target=_raw_byte_output_thread, daemon=True)
-        raw_byte_output_thread.start()
-
-        # Stress tested in worst realistic scenario - tight busy loop on user script keeping single CPU
-        # core busy. Thanks to dedicating this "usb_backend" process entirely for rx/tx on USB, 
-        # rp2daq can handle it gracefully. It required a lot of experimental optimization, and there is 
-        # much to be improved in the Python environment.
-        
-        # Sleep time results on Linux with busy loop in user's process:
-        #   No sleep .. busy loop consumes one CPU core, suboptimal
-        #   0.00001 transfers super-short byte sequences through queue, slow overall data transfer; 
-        #   0.001 .. 0.005 seems optimum, passing up to 240kBps to the user script (plaform dependent?)
-        #   0.01 .. DELAYED messages on device side (due to USB buffer throttling transfer rate?)
-        # So a short sleep within the receiving loop prevents the usb_backend process from eating up 100 % of the 
-        # CPU core; however or too short sleep time here leads to smaller chunks in queue and its 
-        # clogging. So moderate data aggregation into longer bytes objects in interprocess queue is desirable.
-
-        # Sleep time results on Windows10 with busy loop in user's process:
-        #   No sleep .. allows receiving 1000 kBps reliably, but python script processes reports slower
-        #   Any sleep .. causes CORRUPTED messages (due to silent USB buffer overrun?), rp2daq crashes
-        # Windows uses coarser multitasking slices, this unfortunately has to be avoided by keeping a short
-        # busy loop. Otherwise rp2daq becomes unreliable. Pyserial's options like xonxoff or buffer sizes didn't 
-        # help (except for the former spoiling data rate on Linux only).  
-
-        # (fixme:) There is some space for further optimization if this backend process was aware of the 
-        # message types and received each whole message at once.
-        #port.set_buffer_size(rx_size = 1280, tx_size = 1280) # only for Windows, but still does nothing?  
-
-        # (fixme:) Another solution is multi-threading even in this receiver process
-        # https://stackoverflow.com/questions/19908167/reading-serial-data-in-realtime-in-python
-        # https://stackoverflow.com/questions/62836625/python-serial-port-event
-
-        #if os.name == 'nt': 
-            #short_sleep = 0
-        #elif os.name == 'posix': # Linux tested, MacOS untested
-            #short_sleep = 0.004
-        t0 = time.time()
-        while True:
-            report_queue.put(port.read(max(1, port.in_waiting))) # assuming timeout=None was set for the port
-            
-            #print(" ------ RX", port.in_waiting, time.time()-t0)
-            #if short_sleep: 
-                #time.sleep(short_sleep)
-            #if port.in_waiting: # faster is 'if' than 'while'
-                #report_queue.put(port.read(port.in_waiting))
-
-                #rxb = port.read(port.in_waiting)
-
-                #report_pipe.send_bytes(rxb)
-
-
-            #if report_pipe.poll(0.001): 
-                #print("TX", len(out_bytes))
-                #out_bytes = report_pipe.recv_bytes()
-                #port.write(out_bytes)
-
-            #if not command_queue.empty():
-                #out_bytes = command_queue.get(block=True)
-                #port.write(out_bytes)
-
-            #try:
-                #out_bytes = command_queue.get(block=False)
-            #except: ## XXX
-                #pass
-            #else:
-                #port.write(out_bytes)
-
-    except OSError: 
-        logging.error("Device disconnected, check your cabling or possible short-circuits")
-        # (todo) Should somehow invoke self._e.quit() here ? 
-        # (todo) Should port.close() ? 
-
 
 
 class Rp2daq_internals(threading.Thread):
@@ -174,14 +84,26 @@ class Rp2daq_internals(threading.Thread):
 
         self.report_queue = multiprocessing.Queue()  
         self.command_queue = multiprocessing.Queue()  
+
+        # Experimental: the "pipe" variant
         #self.report_pipe_out, report_pipe_in = multiprocessing.Pipe(duplex=True)
-        self.usb_backend_process = multiprocessing.Process(
-                target=usb_backend, 
                 #args=(report_pipe_in, self.port_name))
+
+
+        # Experimental: the "guardless" variant
+        import usb_backend_process as ubp
+        self.usb_backend_process = ubp.PatchedProcess(
+                target=ubp.usb_backend, 
                 args=(self.report_queue, self.command_queue, self.port_name))
         self.usb_backend_process.daemon = True
         self.usb_backend_process.start()
 
+        # The default variant
+        #self.usb_backend_process = multiprocessing.Process(
+                #target=ubp.usb_backend, 
+                #args=(self.report_queue, self.command_queue, self.port_name))
+        #self.usb_backend_process.daemon = True  # enables terminating along with main process
+        #self.usb_backend_process.start()
 
         self.report_processing_thread = threading.Thread(target=self._report_processor, daemon=True)
         self.callback_dispatching_thread = threading.Thread(target=self._callback_dispatcher, daemon=True)

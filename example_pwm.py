@@ -1,7 +1,9 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 
-import rp2daq, time
+import time
+
+import rp2daq
 rp = rp2daq.Rp2daq()
 
 # optimum settings to control a small servo (190 Hz) 

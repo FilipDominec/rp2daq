@@ -2,7 +2,7 @@
 #define TUD_OPT_HIGH_SPEED (1)
 //#define CFG_TUD_CDC_EP_BUFSIZE 256 // legacy; needs to go into tusb_config.h that is being used
 
-#define FIRMWARE_VERSION {"rp2daq_230709_"}
+#define FIRMWARE_VERSION {"rp2daq_231005_"}
 
 #define DATA_BY_REF 0
 #define DATA_BY_COPY 1
