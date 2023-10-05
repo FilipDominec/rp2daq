@@ -44,7 +44,7 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 Launch the ```hello_world.py``` script in the main project folder. 
 
-![Two possible outcomes of the script](docs/hello_world_screens.png){width=794,height=130}
+![Two possible outcomes of the script](docs/hello_world_screens.png)
 
 * If a window like the one depicted left appears, rp2daq device is ready to be used! You can interactively control the onboard LED with the buttons.  
 * If an error message appears (like depicted right) the device does not respond correctly. Check it your RP2 blinks twice when USB is re-connected, and make sure you uploaded fresh firmware. 
@@ -193,7 +193,12 @@ Python is fine.
 <details>
   <summary><ins>Q: Are there projects with similar scope?</ins></summary>
 
-A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. RP2DAQ aims for higher performance and broader range of capabilities. However, parts of RP2DAQ code and concepts were inspired by Telemetrix.
+A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. Rp2daq aims for higher performance and broader range of capabilities. However, the report handling subsystem in rp2daq was inspired by Telemetrix.
+
+[PyFirmata](https://pypi.org/project/pyFirmata/) does a similar job, but has not received an update for a while. 
+
+Digital I/O can similarly be performed with [PyFtdi](https://github.com/eblot/pyftdi). 
+
 </details>
 
 
