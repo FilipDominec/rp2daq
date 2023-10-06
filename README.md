@@ -27,12 +27,13 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 # No programming: first steps
 
-### Uploading rp2daq firmware
+### Getting things ready
 
-1. Get material: a Raspberry Pi Pico (RP2) with a USB cable, and a computer with [Python (3.6+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
-	* On Windows, [get anaconda](https://docs.anaconda.com/anaconda/install/windows/) if unsure.
+1. Get material: you only need a Raspberry Pi Pico (RP2) with a USB cable. And your computer.
+1. Make sure your computer has [Python (3.6+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
+	* On Windows, use any [Python3 installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line.
 	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
-    * On Mac, it should be there though [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
+    * On Mac, follow a similar approach; [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
 1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. (Or you can also ```git clone``` this repo.)
 1. Holding the white "BOOTSEL" button on your RP2, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
     * *In few seconds the RP2 should appear as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
@@ -175,11 +176,11 @@ More elaborate uses of ADC, as well as other features, can be found in the [exam
 
 
 <details>
-  <summary><ins>Q: Is the use of rp2daq limited to Raspberry Pi Pico board?</ins></summary>
+  <summary><ins>Q: Can I use Rp2daq with other boards than Raspberry Pi Pico?</ins></summary>
 
-A: Very likely it can be directly uploaded to all boards featuring the RP2040 microcontroller. *RP2040-zero* was tested to work fine. 
+A: Very likely it can be directly uploaded to all boards featuring the RP2040 microcontroller. 
 
-Obviously the available GPIO number, as well as their assignment, may differ. E.g., the colourful LED on the *RP2040-zero* is in fact a WS2812B chip, and its data bus is connected to GPIO 16.
+For instance, *RP2040-zero* was tested to work fine. Obviously the available GPIO number, as well as their assignment, may differ. For instance the colourful LED on the *RP2040-zero* is in fact a WS2812B chip, and its data bus is connected to GPIO 16.
 
 The Arduino family of boards is not supported. Neither the ESP/Espressif boards are. (Development of this project was started on the ESP32-WROOM module, but it suffered from its randomly failing (and consistently slow) USB communication, as well as somewhat lacking documentation.)
 </details>
@@ -211,14 +212,14 @@ Digital I/O can similarly be performed with [PyFtdi](https://github.com/eblot/py
 
 A: No, although basic support e.g. for less common interfaces GPIB could be added in the future. 
 
-Interfacing to instruments is outside of Rp2daq's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, capabilities of RP2 could substitute some commercial instruments in less demanding use cases. 
+Digital interfacing with lab instrumentation is outside of Rp2daq's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While Rp2daq does not aim to provide such interfaces, capabilities of RP2 could substitute some commercial instruments in less demanding use cases. 
 </details>
 
 
 <details>
   <summary><ins>Q: Why are no displays or user interaction devices supported?</ins></summary>
 
-A: The Python script has a much better display and user interaction interface - that is, your computer. RP2DAQ only takes care for the hardware interaction that computer cannot do. 
+A: The Python script has a much better display and user interaction interface - that is, your computer. Rp2daq only takes care for the hardware interaction that computer cannot do. 
 </details>
 
 
@@ -233,7 +234,7 @@ A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A498
 
 The firmware and software are released under the [MIT license](LICENSE). 
 
-They are free as speech after drinking five beers, that is, with no warranty of usefulness or reliability. RP2DAQ cannot be recommended for industrial process control.
+They are free as speech after drinking five beers, that is, with no warranty of usefulness or reliability. Rp2daq cannot be recommended for industrial process control.
 
 
 

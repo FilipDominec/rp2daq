@@ -199,6 +199,7 @@ if __name__ == "__main__":
         for cmdname in command_functions.keys():
             of.write(f"   1. [{cmdname}](#{cmdname})\n") # .replace('_','-')
         of.write(markdown_docs)
+    print("Done")
     #for func_name, func_code in command_functions.items():
         #print(func_code)
 
