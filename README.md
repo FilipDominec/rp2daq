@@ -53,7 +53,7 @@ Launch the ```hello_world.py``` script in the main project folder.
 
 # Python programming: basic concepts
 
-### Controlling LED with 3 lines of Python code
+### Controlling the LED with 3 lines of Python code
 
 To check everything is ready, navigate to the unpacked project directory and launch the Python command console.  [Ipython3](https://ipython.org/) is shown here, but [spyder](https://www.spyder-ide.org/), [idle](https://docs.python.org/3/library/idle.html) or bare ```python3``` console will work too.
 
@@ -117,13 +117,16 @@ Calling commands asynchronously allows one to simultaneously orchestrate multipl
 ### Caveats of advanced asynchronous commands use
 You can call synchronous rp2daq commands of one type and asynchronous commands of another type without problems.
 
-It's naturally more complicated if you decide to mix synchronous and asynchronous calls of the same type, as the callback function is assigned to each *command type*, not to *each unique command* you issued. 
+It is not advisable, however, to issue two asynchronous commands of the same type with two different callback functions, if there is a risk of their temporal overlap.
+At most one callback function is assigned to one *command type*, not to *each unique command* you issued. 
 
-So is not recommended to mix *asynchronous* and *synchronous* commands *of the same type* and in close succession: Before the first command finishes and corresponding callback is dispatched, the second command would erase the associated callback, and the return message from the first command would not be handled.
+As a result, if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor reporting its move being finished will eventually result in calling the ```B``` function as their callback. 
 
-For instance, if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor finishing its move will eventually result in calling the ```B``` function as their callback. The clean and recommended approach is therefore to define one callback function for a given command type. It can easily tell apart the reports from multiple stepper motors, using information it receives as keyword arguments.
+The clean and recommended approach is therefore to define one callback function for a given command type. It can easily tell apart the reports from multiple stepper motors, using information it receives as keyword arguments.
 
-Both synchronous and asynchronous commands can be issued even from within a callback. 
+Likewise, an asynchronous command should never be followed by a synchronous one of the same type, as the latter erases the callback. In such a case, the first command would erroneously interrupt waiting for the second one.
+
+Both synchronous and asynchronous commands can be issued even from within some command's callback. This allows for command chaining in an efficient event-driven loop.
 
 
 ### Asynchronous command with multiple reports
@@ -131,6 +134,8 @@ Both synchronous and asynchronous commands can be issued even from within a call
 Maybe the greatest strength of the asynchronous commands lies in their ability to transmit unlimited amount of data through subsequent reports. 
 
 The following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (limited by 8k buffer). This is necessary to monitor slow processes, e.g., temperature changes or battery discharge.
+
+If high temporal resolution is not necessary, each data packet can be averaged into a single number by not storing ```kwargs['data']```, but ```[sum(kwargs["data"])/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
 
 ```Python
 import rp2daq
@@ -143,7 +148,9 @@ def my_callback(**kwargs):
     print(f"{len(all_data)} ADC samples received so far")
 print(all_data)
 
-rp.adc(_callback=my_callback, blocks_to_send=1000)
+rp.adc(
+	blocks_to_send=1000, 
+	_callback=my_callback)
 
 print("code does not wait for ADC data here")
 import time
@@ -151,10 +158,7 @@ time.sleep(.5)
 rp.adc(blocks_to_send=0)
 ```
 
-Few practical notes:
-   * If high temporal resolution is not necessary, each data packet can be averaged into a single number by not storing ```kwargs['data']```, but ```[sum(kwargs["data"])/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
-   * With option ```infinite=1```, the ADC reports will keep coming forever. Or until they are stopped by ```rp.adc(blocks_to_send=0)```.
-   * The built-in ADC is somewhat nonlinear.
+An alternative to ```blocks_to_send=1000``` is setting ```infinite=1```. The the ADC reports will keep coming, until they are stopped by another command ```rp.adc(blocks_to_send=0)```.
 
 More elaborate uses of ADC, as well as other features, can be found in the [example_ADC_async.py](example_ADC_async.py) and other example scripts.
 
@@ -162,7 +166,7 @@ More elaborate uses of ADC, as well as other features, can be found in the [exam
 # PAQ: Presumably Asked Questions
 
 <details>
-  <summary><ins>Q: How does RP2DAQ differ from writing MicroPython scripts directly on RP2?</ins></summary>
+  <summary><ins>Q: How does Rp2daq differ from writing MicroPython scripts directly on RP2?</ins></summary>
   
   A: They are two fundamentally different paths that may lead to similar results. [MicroPython](https://github.com/micropython/micropython)[![GitHub stars](https://img.shields.io/github/stars/micropython/micropython.svg?style=social&label=)](https://github.com/exoclime/helios/stargazers/) (and [CircuitPython](https://circuitpython.org/)) interpret Python code directly on a microcontroller (including RP2), so they are are good choice for a stand-alone device (if speed of code execution is not critical, which may be better addressed by custom C firmware). There are many libraries that facilitate development in MicroPython. 
 
@@ -182,7 +186,7 @@ The Arduino family of boards is not supported. Neither the ESP/Espressif boards 
 
 
 <details>
-  <summary><ins>Q: Can a RP2DAQ device be controlled from other language than Python 3.6+?</ins></summary>
+  <summary><ins>Q: Can a Rp2daq device be controlled from other language than Python 3.6+?</ins></summary>
 
 A: Perhaps, but it would be rather hard. The firmware and computer communicate over a binary interface that would have to be ported to this language. One of the advantages of RP2DAQ is that the interface on the computer side is autogenerated; the corresponding C-code parser would have to be rewritten. Hard-coding the messages in another language would be a quicker option, but it would be bound to a single firmware version. 
 
@@ -193,7 +197,7 @@ Python is fine.
 <details>
   <summary><ins>Q: Are there projects with similar scope?</ins></summary>
 
-A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses RP2 as a device controlled from Python script in computer. Rp2daq aims for higher performance and broader range of capabilities. However, the report handling subsystem in rp2daq was inspired by Telemetrix.
+A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses Raspberry Pi Pico as a device controlled from Python script in computer. Rp2daq started independently, with focus on higher performance and broader range of capabilities. However, the report handling subsystem in Rp2daq was inspired by Telemetrix.
 
 [PyFirmata](https://pypi.org/project/pyFirmata/) does a similar job, but has not received an update for a while. 
 
@@ -203,16 +207,11 @@ Digital I/O can similarly be performed with [PyFtdi](https://github.com/eblot/py
 
 
 <details>
-  <summary><ins>Q: Does RP2DAQ implement all hardware capabilities available by the Raspberry Pico SDK?</ins></summary>
+  <summary><ins>Q: Can Rp2daq communicate with scientific instruments, e.g. connected over GPIB/VISA?</ins></summary>
 
-A: By far not - and it is not even its scope. RP2DAQ's features make a higher layer above (a subset) of the SDK functions. But it is intended to cover most RP2040's features in the future.
-</details>
+A: No, although basic support e.g. for less common interfaces GPIB could be added in the future. 
 
-
-<details>
-  <summary><ins>Q: Does RP2DAQ help communicating with scientific instruments, e.g. connected over GPIB/VISA?</ins></summary>
-
-A: Interfacing to instruments is outside of RP2DAQ's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, capabilities of RP2 could substitute some commercial instruments in less demanding use cases. 
+Interfacing to instruments is outside of Rp2daq's scope, but [over 40 other projects](https://github.com/python-data-acquisition/meta/issues/14) provide Python interfaces for instrumentation and they can be imported into your scripts independently. While RP2DAQ does not aim to provide such interfaces, capabilities of RP2 could substitute some commercial instruments in less demanding use cases. 
 </details>
 
 
@@ -224,7 +223,7 @@ A: The Python script has a much better display and user interaction interface - 
 
 
 <details>
-  <summary><ins>Q: Can RP2DAQ control unipolar stepper motors using ULN2003?</ins></summary>
+  <summary><ins>Q: Can Rp2daq control unipolar stepper motors using ULN2003?</ins></summary>
 
 A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A4988 modules, with better accuracy and efficiency than provided by ULN2003. 
 </details>
