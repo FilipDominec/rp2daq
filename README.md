@@ -34,11 +34,11 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 	* On Windows, use any [Python3 installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line.
 	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
     * On Mac, follow a similar approach; [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
-1. [Download](https://github.com/FilipDominec/rp2daq/archive/refs/heads/main.zip) and unzip this project. (Or you can also ```git clone``` this repo.)
+1. [Get the binary firmware](https://github.com/FilipDominec/rp2daq/releases/latest/download/rp2daq.uf2) from the latest release. No compilation is necessary.
 1. Holding the white "BOOTSEL" button on your RP2, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
     * *In few seconds the RP2 should appear as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
-1. Copy the ```build/rp2daq.uf2``` file directly to RP2. 
-    * *The fake flashdrive should disconnect in a second.* 
+1. Copy the ```rp2daq.uf2``` firmware file directly to RP2. 
+    * *The flashdrive should disconnect in a second.* 
     * *The green diode on RP2 then flashes twice, indicating the firmware is running and awaiting commands.*
 
 ### Run hello_world.py
