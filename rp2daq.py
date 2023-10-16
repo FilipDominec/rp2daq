@@ -12,7 +12,7 @@ More information and examples on https://github.com/FilipDominec/rp2daq or in RE
 """
 
 
-MIN_FW_VER = 231005
+MIN_FW_VER = 221005
 
 import atexit
 from collections import deque

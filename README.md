@@ -29,17 +29,22 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 ### Getting things ready
 
-1. Get material: you only need a Raspberry Pi Pico (RP2) with a USB cable. And your computer.
-1. Make sure your computer has [Python (3.6+)](https://realpython.com/installing-python/) and ```python-pyserial``` installed.
-	* On Windows, use any [Python3 installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line.
+1. You will need a Raspberry Pi Pico (RP2) with a USB cable. And a computer.
+1. Make sure your computer has [Python (3.6+)](https://realpython.com/installing-python/)
+	* On Windows, use a recent [Python installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line.
 	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
     * On Mac, follow a similar approach; [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
-1. [Get the binary firmware](https://github.com/FilipDominec/rp2daq/releases/latest/download/rp2daq.uf2) from the latest release. No compilation is necessary.
+1. Download the [binary firmware](https://github.com/FilipDominec/rp2daq/releases/latest/download/rp2daq.uf2) from the latest release. No compilation is necessary.
 1. Holding the white "BOOTSEL" button on your RP2, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
     * *In few seconds the RP2 should appear as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
 1. Copy the ```rp2daq.uf2``` firmware file directly to RP2. 
     * *The flashdrive should disconnect in a second.* 
     * *The green diode on RP2 then flashes twice, indicating the firmware is running and awaiting commands.*
+1. Download and unpack [the stable Python+C source](https://github.com/FilipDominec/rp2daq/releases/latest/) from the latest release. 
+
+If you have problems, please [describe them in a new issue](https://github.com/FilipDominec/rp2daq/issues).
+
+If don't fear having problems, you can get fresh code from this repository and compile the firmware according to [Developer notes](docs/DEVELOPERS.md).
 
 ### Run hello_world.py
 
@@ -48,8 +53,8 @@ Launch the ```hello_world.py``` script in the main project folder.
 ![Two possible outcomes of the script](docs/hello_world_screens.png)
 
 * If a window like the one depicted left appears, rp2daq device is ready to be used! You can interactively control the onboard LED with the buttons.  
-* If an error message appears (like depicted right) the device does not respond correctly. Check it your RP2 blinks twice when USB is re-connected, and make sure you uploaded fresh firmware. 
-* If no window appears, there is some error with your Python3 or ```python-pyserial``` installation. 
+* If an error message appears (like depicted right) the device does not respond correctly. Check it your RP2 blinks twice when USB is re-connected, and make sure you uploaded fresh firmware. On Linux, Python may need [to adjust permissions](https://askubuntu.com/a/522776) to access the USB port.
+* If no window appears, there is some deeper error with your Python installation. 
 
 
 # Python programming: basic concepts
@@ -201,6 +206,8 @@ Python is fine.
 A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses Raspberry Pi Pico as a device controlled from Python script in computer. Rp2daq started independently, with focus on higher performance and broader range of capabilities. However, the report handling subsystem in Rp2daq was inspired by Telemetrix.
 
 [PyFirmata](https://pypi.org/project/pyFirmata/) does a similar job, but has not received an update for a while. 
+
+[Belay](https://github.com/BrianPugh/belay)
 
 Digital I/O can similarly be performed with [PyFtdi](https://github.com/eblot/pyftdi). 
 
