@@ -9,10 +9,11 @@ try:
     windll.shcore.SetProcessDpiAwareness(1)
 except: 
     pass
-#ttk.Style().theme_use('clam')
 
 window = tkinter.Tk()   # initialize the graphical interface
 window.title("RP2DAQ test app")
+style = ttk.Style()
+style.theme_use('clam') # optional style customisation, see also color config below
 
 label = ttk.Label(window)
 label.grid(column=0, row=0)
@@ -26,7 +27,6 @@ try:
     def set_LED(state):
         rp.gpio_out(25, state) # onboard LED assigned to gpio 25 on R Pi Pico
 
-    style = ttk.Style()
     style.configure("lime.TButton", background="lime")
     btn_on = ttk.Button(window, text='LED on', command=lambda:set_LED(1), style="lime.TButton")
     btn_on.grid(column=0, row=1)
@@ -34,6 +34,7 @@ try:
     style.configure("red.TButton", background="red")
     btn_off = ttk.Button(window, text='LED off', command=lambda:set_LED(0), style="red.TButton")
     btn_off.grid(column=0, row=2)
+
 
 except Exception as e: 
     label.config(text=str(e))
