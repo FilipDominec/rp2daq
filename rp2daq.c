@@ -47,6 +47,7 @@ message_descriptor message_table[] = // #new_features: add your command to this 
 			 // {handler fn ref,	report struct instance ref}
         };  
 
+                //{&adc_set_trigger,	&adc_set_trigger_report},
 
 inline void rx_next_command() {
     int packet_size;
@@ -82,10 +83,10 @@ inline void tx_next_report() {
     if (txbuf_data_len[txbuf_tosend]) {
         fwrite(txbuf_data_ptr[txbuf_tosend], txbuf_data_len[txbuf_tosend], 1, stdout);
     }
-    fflush(stdout);
     if (txbuf_data_write_lock_ptr[txbuf_tosend]) {
         *txbuf_data_write_lock_ptr[txbuf_tosend] = 0; // clear buffer lock to allow writing
     }
+    fflush(stdout); // TODO check real timing of this; could be left out for higher data rate?
 }
 
 
@@ -136,9 +137,6 @@ void core1_main() { // CPU core1 takes care of real-time tasks
 	// as they are generally not designed to be thread safe. You can use the mutex_ API provided by 
 	// the SDK in the pico_sync"
     while (true) {
-        if (iADC_DMA_start_pending && !(iADC_buffers[iADC_buffer_choice].write_lock)) {
-            iADC_DMA_start(1);
-        }
 
 		if (timer10khz_triggered) {
 			timer10khz_triggered = 0;
@@ -176,7 +174,7 @@ int main() {  // CPU core0 can be fully occupied with USB communication
 	long usPeriod = -100;  // negative value means "start to start" timing
 	add_repeating_timer_us(usPeriod, timer10khz_update_routine, NULL, &timer);
 
-	iADC_DMA_setup();
+	iADC_DMA_init();
 
 	BLINK_LED_US(5000);
 	busy_wait_us_32(100000); 
@@ -198,6 +196,8 @@ int main() {  // CPU core0 can be fully occupied with USB communication
             // (small todo: if rp2daq.py not running in computer, fwrite returns rejected reports, 
             // adapt into error messaging?)
 		}
+
+		iADC_on_buffer_transmitted();
 	}
 }
 

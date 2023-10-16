@@ -33,7 +33,6 @@ import types
 import c_code_parser
 
 
-
 def init_error_msgbox():  # error handling with a graphical message box
     def myerr(exc_type, exc_value, tb): 
         message = '\r'.join(traceback.format_exception(exc_type, exc_value, tb))
@@ -61,21 +60,101 @@ class Rp2daq():
         """Clean termination of tx/rx threads, and explicit releasing of serial ports (for win32) """ 
         # TODO: add device reset option
         self._i.run_event.clear()
-        self._i.port.close()
+        #self._i.port.close()
 
 
-def usb_backend(report_queue, port): 
-    """Separate process for raw USB input, uninterrupted by the user script keeping CPU busy. """
 
-    # TODO this process should open the port anew
-    #print(f"port_name.hwid={port_name.hwid}")
-    #try_port = serial.Serial(port=port_name.device, timeout=1)
-    # or if this does not help also try: TODO  https://stackoverflow.com/questions/9908781/sharing-a-result-queue-among-several-processes
+#def usb_backend(report_pipe, port_name): 
+def usb_backend(report_queue, command_queue, port_name): 
+    """
+    Default Python interpreter has a Global Interpreter Lock, due to which a high CPU load 
+    in the user script can halt USB data reception, leading to USB buffer overflow. 
 
-    while True:
-        while port.in_waiting:
-            report_queue.put(port.read(port.in_waiting))
-        time.sleep(0.001)
+    Relegating the raw data handling in this separate process alleviates the problem with GIL. 
+    To keep the communication fluent without a tight busy loop in this process, USB input and 
+    output are handled by two threads here. 
+    """
+
+    def _raw_byte_output_thread():
+        while True:
+            #if not command_queue.empty():
+            out_bytes = command_queue.get(block=True)
+            print('OUT', out_bytes)
+            port.write(out_bytes)
+
+    try: 
+        port = serial.Serial(port=port_name.device, timeout=None)
+        raw_byte_output_thread = threading.Thread(target=_raw_byte_output_thread, daemon=True)
+        raw_byte_output_thread.start()
+
+        # Stress tested in worst realistic scenario - tight busy loop on user script keeping single CPU
+        # core busy. Thanks to dedicating this "usb_backend" process entirely for rx/tx on USB, 
+        # rp2daq can handle it gracefully. It required a lot of experimental optimization, and there is 
+        # much to be improved in the Python environment.
+        
+        # Sleep time results on Linux with busy loop in user's process:
+        #   No sleep .. busy loop consumes one CPU core, suboptimal
+        #   0.00001 transfers super-short byte sequences through queue, slow overall data transfer; 
+        #   0.001 .. 0.005 seems optimum, passing up to 240kBps to the user script (plaform dependent?)
+        #   0.01 .. DELAYED messages on device side (due to USB buffer throttling transfer rate?)
+        # So a short sleep within the receiving loop prevents the usb_backend process from eating up 100 % of the 
+        # CPU core; however or too short sleep time here leads to smaller chunks in queue and its 
+        # clogging. So moderate data aggregation into longer bytes objects in interprocess queue is desirable.
+
+        # Sleep time results on Windows10 with busy loop in user's process:
+        #   No sleep .. allows receiving 1000 kBps reliably, but python script processes reports slower
+        #   Any sleep .. causes CORRUPTED messages (due to silent USB buffer overrun?), rp2daq crashes
+        # Windows uses coarser multitasking slices, this unfortunately has to be avoided by keeping a short
+        # busy loop. Otherwise rp2daq becomes unreliable. Pyserial's options like xonxoff or buffer sizes didn't 
+        # help (except for the former spoiling data rate on Linux only).  
+
+        # (fixme:) There is some space for further optimization if this backend process was aware of the 
+        # message types and received each whole message at once.
+        #port.set_buffer_size(rx_size = 1280, tx_size = 1280) # only for Windows, but still does nothing?  
+
+        # (fixme:) Another solution is multi-threading even in this receiver process
+        # https://stackoverflow.com/questions/19908167/reading-serial-data-in-realtime-in-python
+        # https://stackoverflow.com/questions/62836625/python-serial-port-event
+
+        #if os.name == 'nt': 
+            #short_sleep = 0
+        #elif os.name == 'posix': # Linux tested, MacOS untested
+            #short_sleep = 0.004
+        t0 = time.time()
+        while True:
+            report_queue.put(port.read(max(1, port.in_waiting))) # assuming timeout=None was set for the port
+            
+            #print(" ------ RX", port.in_waiting, time.time()-t0)
+            #if short_sleep: 
+                #time.sleep(short_sleep)
+            #if port.in_waiting: # faster is 'if' than 'while'
+                #report_queue.put(port.read(port.in_waiting))
+
+                #rxb = port.read(port.in_waiting)
+
+                #report_pipe.send_bytes(rxb)
+
+
+            #if report_pipe.poll(0.001): 
+                #print("TX", len(out_bytes))
+                #out_bytes = report_pipe.recv_bytes()
+                #port.write(out_bytes)
+
+            #if not command_queue.empty():
+                #out_bytes = command_queue.get(block=True)
+                #port.write(out_bytes)
+
+            #try:
+                #out_bytes = command_queue.get(block=False)
+            #except: ## XXX
+                #pass
+            #else:
+                #port.write(out_bytes)
+
+    except OSError: 
+        logging.error("Device disconnected, check your cabling or possible short-circuits")
+        # (todo) Should somehow invoke self._e.quit() here ? 
+        # (todo) Should port.close() ? 
 
 
 
@@ -88,15 +167,18 @@ class Rp2daq_internals(threading.Thread):
         self._register_commands()
 
         time.sleep(.05)
-        self.port = self._find_device(required_device_id, required_firmware_version=MIN_FW_VER)
+        self.port_name = self._find_device(required_device_id, required_firmware_version=MIN_FW_VER)
 
         ## Asynchronous communication using threads
         self.sleep_tune = 0.001
 
         self.report_queue = multiprocessing.Queue()  
+        self.command_queue = multiprocessing.Queue()  
+        #self.report_pipe_out, report_pipe_in = multiprocessing.Pipe(duplex=True)
         self.usb_backend_process = multiprocessing.Process(
                 target=usb_backend, 
-                args=(self.report_queue, self.port))
+                #args=(report_pipe_in, self.port_name))
+                args=(self.report_queue, self.command_queue, self.port_name))
         self.usb_backend_process.daemon = True
         self.usb_backend_process.start()
 
@@ -141,7 +223,9 @@ class Rp2daq_internals(threading.Thread):
 
         def queue_recv_bytes(length): # note: should re-implement with io.BytesIO() ring buffer?
             while len(self.rx_bytes) < length:
+                #c = self.report_pipe_out.recv_bytes()
                 c = self.report_queue.get()
+
                 self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
                 self.rx_bytes_total_len += len(c)
             return bytes([self.rx_bytes.popleft() for _ in range(length)])
@@ -163,6 +247,7 @@ class Rp2daq_internals(threading.Thread):
             elif bitwidth == 16:      # using little endian byte order everywhere
                 return [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
             else:
+                print(bitwidth, count, len(data_bytes))
                 raise NotImplementedError 
 
         self.run_event.wait()
@@ -180,10 +265,11 @@ class Rp2daq_internals(threading.Thread):
                     report_args = struct.unpack(self.report_header_formats[report_type], 
                             report_type_b+report_header_bytes)
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
-                    #logging.debug(f"received packet header {report_type=} {bytes(report_header_bytes)=}")
+                    logging.debug(f"received packet header {report_type=} {bytes(report_header_bytes)=}")
 
                     # 3rd: Get the data payload (if present), and convert it into a list of ints
                     if cb_kwargs.get("_data_count") and cb_kwargs["_data_count"]:
+                        #print("Get the data payload",cb_kwargs.get("_data_count") )
                         count, bitwidth = cb_kwargs["_data_count"], cb_kwargs["_data_bitwidth"]
                         payload_length = -((-count*bitwidth)//8)  # int div like floor(); this makes it ceil()
                         payload_raw = queue_recv_bytes(payload_length)
@@ -206,8 +292,8 @@ class Rp2daq_internals(threading.Thread):
                 ## TODO: check if sync cmd works correctly after async cmd (of the same type)
                 #cb(**cb_kwargs)
 
-            except OSError:
-                logging.error("Device disconnected")
+            except EOFError:
+                logging.debug("Got EOF from the receiver process, quitting")
                 self._e.quit()
 
     def _callback_dispatcher(self):
@@ -282,9 +368,10 @@ class Rp2daq_internals(threading.Thread):
                 continue
 
             logging.info(f"connected to rp2daq device with manufacturer ID = {found_device_id.decode()}")
+            #return try_port
+            try_port.close()
+            return port_name
 
-            ## TODO should only return port_name
-            return try_port
         else:
             msg = "Error: could not find any matching rp2daq device"
             logging.critical(msg)

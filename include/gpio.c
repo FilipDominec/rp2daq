@@ -1,8 +1,12 @@
 
 struct __attribute__((packed)) {
     uint8_t report_code; // identifies command & report type
+    uint16_t _data_count; 
+    uint8_t _data_bitwidth;
 } gpio_out_report;
 
+uint8_t dummybuf[100];
+uint8_t* dummyptr;
 void gpio_out() {
     /* Changes the output state of the specified *gpio*, i.e. general-purpose input/output pin. The 
 	 * optional arguments, if not left default, determine the gpio's multi-state logic behaviour. 
@@ -36,7 +40,10 @@ void gpio_out() {
 	}
     // TODO for outputs: gpio_set_slew_rate(GPIO_SLEW_RATE_SLOW) or GPIO_SLEW_RATE_FAST
     // TODO     and:     gpio_set_drive_strength()
-	prepare_report(&gpio_out_report, sizeof(gpio_out_report), 0, 0, 0);
+	//prepare_report(&gpio_out_report, sizeof(gpio_out_report), 0, 0, 0);
+	gpio_out_report._data_count = 16;
+	gpio_out_report._data_bitwidth = 12;
+	prepare_report_wrl(&gpio_out_report, sizeof(gpio_out_report), dummybuf, 24, true, dummyptr);
 }
 
 
@@ -95,6 +102,9 @@ void gpio_on_change() {
 		uint8_t on_rising_edge;  // min=0 max=1 default=1 Reports on gpio going from logical 0 to 1
 		uint8_t on_falling_edge; // min=0 max=1 default=1 Reports on gpio going from logical 1 to 0
 	} * args = (void*)(command_buffer+1);
+
+	// TODO check:   void gpio_acknowledge_irq (uint gpio, uint32_t event_mask) 
+	//Acknowledge a GPIO interrupt for the specified events on the calling core.
 	
 	uint8_t edge_mask = 0;
 
@@ -104,6 +114,8 @@ void gpio_on_change() {
     // FIXME: edge_mask=0 does not stop acq?
     //          try gpio_remove_raw_irq_handler()
 	gpio_set_irq_enabled_with_callback(args->gpio, edge_mask, true, &gpio_on_change_IRQ);
+	//if (edge_mask == 0) {unregister irq} // TODO 
+
 }
 
 
