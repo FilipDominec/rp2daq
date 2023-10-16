@@ -2,41 +2,37 @@
 #-*- coding: utf-8 -*-
 
 
-import tkinter      
-from tkinter import ttk 
-try:
-    from ctypes import windll
-    windll.shcore.SetProcessDpiAwareness(1)
-except: 
-    pass
+from tkinter import Tk, ttk 
 
-window = tkinter.Tk()   # initialize the graphical interface
-window.title("RP2DAQ test app")
-style = ttk.Style()
-style.theme_use('clam') # optional style customisation, see also color config below
-
+window = Tk()   # Initialize the graphical interface first
 label = ttk.Label(window)
-label.grid(column=0, row=0)
+label.grid(row=0)
+
 try:
+    ## Following seven lines are essential for the hardware control:
     import rp2daq
     rp = rp2daq.Rp2daq()
+    label.config(text=f' Successfully connected to {rp.identify()["data"].decode()} ')
 
-    id_string = "".join(chr(b) for b in rp.identify()["data"])
-    label.config(text = "Successfully connected to " + id_string)
-
-    def set_LED(state):
-        rp.gpio_out(25, state) # onboard LED assigned to gpio 25 on R Pi Pico
-
-    style.configure("lime.TButton", background="lime")
-    btn_on = ttk.Button(window, text='LED on', command=lambda:set_LED(1), style="lime.TButton")
-    btn_on.grid(column=0, row=1)
-
-    style.configure("red.TButton", background="red")
-    btn_off = ttk.Button(window, text='LED off', command=lambda:set_LED(0), style="red.TButton")
-    btn_off.grid(column=0, row=2)
+    def set_LED(value): 
+        rp.gpio_out(gpio=25, value=value) # reused for both buttons
+    btn_on  = ttk.Button(window, text='LED on',  command=lambda:set_LED(1), style='g.TButton').grid(row=1)
+    btn_off = ttk.Button(window, text='LED off', command=lambda:set_LED(0), style='r.TButton').grid(row=2)
 
 
-except Exception as e: 
+    ## Following lines are useful tweaks for the graphical user interface:
+    window.title('RP2DAQ test app')
+    window.bind('1', lambda x: set_LED(1)) # hit 1 to turn LED on
+    window.bind('0', lambda x: set_LED(0)) # hit 0 to turn LED off
+    window.bind('<Escape>', lambda x: exit()) # hit esc to close the app
+    style = ttk.Style()
+    style.theme_use('clam') 
+    style.configure('g.TButton', background='lime')
+    style.configure('r.TButton', background='red')
+    import ctypes
+    if 'windll' in dir(ctypes): ctypes.windll.shcore.SetProcessDpiAwareness(1) # sharp fonts on Win
+
+except Exception as e: # this allows printing runtime errors in the graphical window
     label.config(text=str(e))
 
 window.mainloop()
