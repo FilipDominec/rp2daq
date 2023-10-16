@@ -110,7 +110,7 @@ almost immediate or delayed, depending on block size and timing. __
 
 __Call signature:__
 
-`adc(channel_mask=1, blocksize=1000, infinite=0, blocks_to_send=1, clkdiv=96,  _callback=None)`
+`adc(channel_mask=1, blocksize=1000, infinite=0, blocks_to_send=1, clkdiv=96, trigger_gpio=-1, trigger_on_falling_edge=0,  _callback=None)`
 
 __Parameters__:
 
@@ -119,6 +119,8 @@ __Parameters__:
   * infinite : Disables blocks_to_send countdown (reports keep coming until explicitly stopped) 
   * blocks_to_send : Number of reports to be sent (if not infinite) 
   * clkdiv : Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.) 
+  * trigger_gpio : GPIO number for start trigger (set to -1 to make ADC start w/o trigger) 
+  * trigger_on_falling_edge : If set to 1, triggers on falling edge instead of rising edge. 
   * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) 
 
 

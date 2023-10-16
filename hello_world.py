@@ -1,11 +1,6 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 
-if __name__ == "__main__": 
-    import multiprocessing
-    multiprocessing.set_start_method('spawn')
-# avoid spawn bomb due to multiprocessing
-
 
 import tkinter      
 from tkinter import ttk 
@@ -18,9 +13,6 @@ except:
 
 window = tkinter.Tk()   # initialize the graphical interface
 window.title("RP2DAQ test app")
-
-if __name__ == "__main__":
-    pass
 
 label = ttk.Label(window)
 label.grid(column=0, row=0)
