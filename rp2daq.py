@@ -268,6 +268,7 @@ class Rp2daq_internals(threading.Thread):
                 id_data = try_port.read(try_port.in_waiting)[4:] 
             except:
                 id_data = b''
+            ## TODO close the port, remember its port_name (thus do not keep open many ports & enable pickling for multiproc on win)
 
             if not id_data[:6] == b'rp2daq': 
                 logging.info(f"\tport open, but device does not identify itself as rp2daq: {id_data}" )
@@ -292,6 +293,7 @@ class Rp2daq_internals(threading.Thread):
             #return try_port
             try_port.close()
             return port_name
+
         else:
             msg = "Error: could not find any matching rp2daq device"
             logging.critical(msg)

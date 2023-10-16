@@ -9,6 +9,7 @@ try:
     windll.shcore.SetProcessDpiAwareness(1)
 except: 
     pass
+#ttk.Style().theme_use('clam')
 
 window = tkinter.Tk()   # initialize the graphical interface
 window.title("RP2DAQ test app")
