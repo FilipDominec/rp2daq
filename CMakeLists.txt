@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.12)
 set(CMAKE_CXX_STANDARD 14)
+
+# TODO check if this is necessary for rp2040-zero board reliable reconnect, see commit d609199
 set(PICO_COPY_TO_RAM 1)
+set(XOSC_STARTUP_DELAY_MULTIPLIER  64)
+set(PICO_FLASH_SPI_CLKDIV 4          )
+
+
+
 include(pico_sdk_import.cmake)
 project(rp2daq)
 pico_sdk_init()

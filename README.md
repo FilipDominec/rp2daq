@@ -184,12 +184,12 @@ More elaborate uses of ADC, as well as other features, can be found in the [exam
   <summary><ins>Q: Can I use Rp2daq with other boards than Raspberry Pi Pico?</ins></summary>
 
 A: Very likely it can be directly uploaded to all boards featuring the RP2040 microcontroller. 
+
 Obviously the available GPIO number, as well as their assignment, may differ. For instance the colourful LED on the *RP2040-zero* is in fact a WS2812B chip, and its data bus is connected to GPIO 16.
 
-However, the *RP2040-zero* randomly failed to connect over USB, as reported elsewhere
+(However, the *RP2040-zero* was reported randomly failed to connect over USB, as reported elsewhere
 ![(1)](https://github.com/raspberrypi/pico-sdk/issues/1304)
-![(2)](https://forums.raspberrypi.com/viewtopic.php?t=338085)
-; we cannot consider it fully supported.
+![(2)](https://forums.raspberrypi.com/viewtopic.php?t=338085), but the commit d609199 seems to have fixed it.)
 
 
 The Arduino family of boards is not supported. Neither the ESP/Espressif boards are. (Development of this project was started on the ESP32-WROOM module, but it suffered from its randomly failing (and consistently slow) USB communication, as well as somewhat lacking documentation.)
