@@ -5,9 +5,8 @@
 // 240221 - troubles running Waveshare RP2040-zero board, with this board not reliably 
 // holding firmware and randomly failing to reportt upon USB re-connection or re-set btn. 
 // Following two lines did not help, and we decided to abandon RP2040-Zero board support.
-#define XOSC_STARTUP_DELAY_MULTIPLIER  64
-#undef PICO_FLASH_SPI_CLKDIV
-#define PICO_FLASH_SPI_CLKDIV 4
+//#define XOSC_STARTUP_DELAY_MULTIPLIER  64
+//#define PICO_FLASH_SPI_CLKDIV 4
 
 
 #define FIRMWARE_VERSION {"rp2daq_231005_"}
