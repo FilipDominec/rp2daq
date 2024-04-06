@@ -7,7 +7,7 @@
 #define NANOSTEP_PER_MICROSTEP  256             // for fine-grained speed and position control
 #define MAX_STEPPER_COUNT 16
 #define STEPPER_IS_MOVING(m)	(stepper[m].max_nanospeed > 0)
-#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_gpio) && \
+#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_gpio >= 0) && \
 			(!stepper[m].endswitch_ignore) && (!gpio_get(stepper[m].endswitch_gpio)))
 
 
@@ -60,6 +60,7 @@ void stepper_init() {
 		gpio_init(stepper[m].dir_gpio); gpio_set_dir(stepper[m].dir_gpio, GPIO_OUT);
 		gpio_init(stepper[m].step_gpio); gpio_set_dir(stepper[m].step_gpio, GPIO_OUT);
 		if (stepper[m].endswitch_gpio >= 0) {
+            gpio_init(stepper[m].endswitch_gpio); 
 			gpio_set_dir(stepper[m].endswitch_gpio, GPIO_IN);
 			gpio_pull_up(stepper[m].endswitch_gpio); }
 		if (stepper[m].disable_gpio >= 0) {
