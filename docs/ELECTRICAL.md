@@ -2,6 +2,19 @@
 
 This document gives additional information that may help you get the maximum from your Raspberry Pi. For basic use of the RP2DAQ project, see the [main page](README.md). 
 
+## General purpose input-output pins characteristics
+
+Pins 0-25 of the RP2040 processor are fully available for the user to be set and read - hence they are denoted as GPIO. 
+
+The pins are in fact five-state. Aside of direct output to 0 V or 3.3 V (activated by ```gpio_out()```), they can be pulled down or up towards these voltage rails through 50 kOhm resistors (activated by ```gpio_pull()```) or completely disconnected from the GPIO control (by ```gpio_higz()```).  
+
+The apparent capacity of a pin is about 25pF (being charged 20kOhm resistor had about 500ns time constant). 
+
+## Outputting voltage using internal PWM 
+
+    * passive smoothing of PWM signal to get (slow) analog output
+    * high-efficiency voltage-controlled power supply (0-30 V with LM2596)
+
 ## Direct measurement of voltage with internal ADC
 
 Note the input impedance of the ADC-enabled pins is relatively low, roughly 30 kOhm. (TODO check this) To measure voltages accurately, you may want to buffer each ADC input with an opamp voltage follower. 
@@ -50,10 +63,6 @@ plt.show()
     * integrated current probes (ACS712)
     * measuring magnetic field with Hall sensors
 
-## Outputting voltage using internal PWM 
-
-    * passive smoothing of PWM signal to get (slow) analog output
-    * high-efficiency voltage-controlled power supply (0-30 V with LM2596)
 
 
 ## Stepper motors - practical tips and caveats
