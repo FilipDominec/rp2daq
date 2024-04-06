@@ -1,53 +1,87 @@
 
 struct __attribute__((packed)) {
     uint8_t report_code; // identifies command & report type
-    uint16_t _data_count; 
-    uint8_t _data_bitwidth;
 } gpio_out_report;
 
-uint8_t dummybuf[100];
-uint8_t* dummyptr;
 void gpio_out() {
-    /* Changes the output state of the specified *gpio*, i.e. general-purpose input/output pin. The 
-	 * optional arguments, if not left default, determine the gpio's multi-state logic behaviour. 
-	 * Namely, if *high_z* = 1 and no "pulls" are set, the gpio behaves as if disconnected (the impedance 
-	 * is over 1 megaohm). 
-     * 
-     * This still can be changed by setting *pull_up* or *pull_down*.
-     * 
-     * __This command results in single near-immediate report.__
+    /* Changes the output state of the specified *gpio*, i.e. general-purpose input/output pin. 
+     * Depending on the "value=0" or "value=1" parameter, it connects the pin directly to 0 V,
+     * or 3.3 V, respectively.  
+     *
+     * This overrides previous high-impedance or pull-up/down state of the pin. 
+     *
+     * __This command results in single, meaningless, near-immediate report.__
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
 		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V) for high_z = 0
-		uint8_t high_z; 	// min=0 max=1 default=0 High-impedance (i.e. not sinking nor sourcing current, only through pull-up/-down if set)
-		uint8_t pull_up; 	// min=0 max=1 default=0 If high_z = 1, connects to 3.3V through built-in resistor  
-		uint8_t pull_down; 	// min=0 max=1 default=0 If high_z = 1, connects to 0V through built-in resistor  
 	} * args = (void*)(command_buffer+1);
 	gpio_init(args->gpio); 
 
-	if (args->high_z) 
-	{	
-		gpio_set_dir(args->gpio, GPIO_IN);
-		if (args->pull_up) { gpio_pull_up(args->gpio); };
-		if (args->pull_up) { gpio_pull_down(args->gpio); };
-
-        // TODO test also gpio_disable_pulls() - RP2 is has, in fact, five-state gpios
-        // setting both pulls enables a "bus keep" function, i.e. a weak pull to whatever is current high/low state of GPIO
-	} else {
-		gpio_put(args->gpio, args->value);
-		gpio_set_dir(args->gpio, GPIO_OUT);
-	}
-    // TODO for outputs: gpio_set_slew_rate(GPIO_SLEW_RATE_SLOW) or GPIO_SLEW_RATE_FAST
-    // TODO     and:     gpio_set_drive_strength()
-	//prepare_report(&gpio_out_report, sizeof(gpio_out_report), 0, 0, 0);
-	gpio_out_report._data_count = 16;
-	gpio_out_report._data_bitwidth = 12;
-	prepare_report_wrl(&gpio_out_report, sizeof(gpio_out_report), dummybuf, 24, true, dummyptr);
+    gpio_put(args->gpio, args->value);
+    gpio_set_dir(args->gpio, GPIO_OUT);
+	prepare_report(&gpio_out_report, sizeof(gpio_out_report), 0, 0, 0);
 }
 
 
-// TODO multiple gpio setting at once: with gpio_get_all(), gpio_xor_mask() etc.
+
+struct __attribute__((packed)) {
+    uint8_t report_code; // identifies command & report type
+} gpio_pull_report;
+
+void gpio_pull() {
+    /* Changes the output state of the specified *gpio*, i.e. general-purpose input/output pin. 
+     *
+     * Depending on the "pull=0" or "pull=1" parameter, it engages one of the built-in cca. 
+     * 50 kOhm resistors to pull the pin towards 0 or 3.3 V, respectively.  
+     *
+     * This overrides previous direct-output or high-impedance state of the pin. 
+     *
+     * __This command results in single, meaningless, near-immediate report.__
+     */
+	struct  __attribute__((packed)) {
+		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
+		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V) for high_z = 0
+	} * args = (void*)(command_buffer+1);
+	gpio_init(args->gpio);  // TODO test - is it necessary?
+
+    if (args->value) {
+        gpio_pull_up(args->gpio); 
+    } else {
+        gpio_pull_down(args->gpio); 
+    };
+
+    gpio_set_dir(args->gpio, GPIO_IN);
+
+	prepare_report(&gpio_pull_report, sizeof(gpio_pull_report), 0, 0, 0);
+}
+
+
+
+struct __attribute__((packed)) {
+    uint8_t report_code; // identifies command & report type
+} gpio_highz_report;
+
+void gpio_highz() {
+    /* Changes the output state of the specified *gpio*, i.e. general-purpose input/output pin. 
+     *
+     * The pin will become "high-impedance", or "floating", disconnected from any voltage 
+     * supply or drain.
+     *
+     * This overrides previous direct-output or pull-up/down state of the pin. 
+     *
+     * __This command results in single, meaningless, near-immediate report.__
+     */
+	struct  __attribute__((packed)) {
+		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
+	} * args = (void*)(command_buffer+1);
+	//gpio_init(args->gpio);  // TODO test - is it necessary?
+
+    gpio_set_dir(args->gpio, GPIO_IN);
+    gpio_disable_pulls(args->gpio); 
+
+	prepare_report(&gpio_highz_report, sizeof(gpio_highz_report), 0, 0, 0);
+}
 
 
 
@@ -58,7 +92,9 @@ struct __attribute__((packed)) {
 } gpio_in_report;
 
 void gpio_in() {
-    /* Checks the digital state of a gpio. Most useful if the gpio is configured as high-impedance input.
+    /* Returns the digital state of a gpio pin. 
+     *
+     * Typically used when the pin is set to high-z or pull-up/down.
      * 
      * __This command results in single near-immediate report.__
      */
@@ -69,7 +105,6 @@ void gpio_in() {
 	gpio_in_report.value = gpio_get(args->gpio);
 	prepare_report(&gpio_in_report, sizeof(gpio_in_report), 0, 0, 0);
 }
-
 
 
 
@@ -102,9 +137,6 @@ void gpio_on_change() {
 		uint8_t on_rising_edge;  // min=0 max=1 default=1 Reports on gpio going from logical 0 to 1
 		uint8_t on_falling_edge; // min=0 max=1 default=1 Reports on gpio going from logical 1 to 0
 	} * args = (void*)(command_buffer+1);
-
-	// TODO check:   void gpio_acknowledge_irq (uint gpio, uint32_t event_mask) 
-	//Acknowledge a GPIO interrupt for the specified events on the calling core.
 	
 	uint8_t edge_mask = 0;
 
@@ -115,9 +147,23 @@ void gpio_on_change() {
     //          try gpio_remove_raw_irq_handler()
 	gpio_set_irq_enabled_with_callback(args->gpio, edge_mask, true, &gpio_on_change_IRQ);
 	//if (edge_mask == 0) {unregister irq} // TODO 
+        //gpio_set_irq_enabled_with_callback(args->gpio, edge_mask, false, &gpio_on_change_IRQ);
 
 }
 
 
+
+
+
+
+
+//• enum gpio_slew_rate { GPIO_SLEW_RATE_SLOW = 0, GPIO_SLEW_RATE_FAST = 1 }
+//Slew rate limiting levels for GPIO outputs Slew rate limiting increases the minimum rise/fall time when a GPIO
+//output is lightly loaded, which can help to reduce electromagnetic emissions.
+//• enum
+//gpio_drive_strength { GPIO_DRIVE_STRENGTH_2MA = 0, GPIO_DRIVE_STRENGTH_4MA = 1, GPIO_DRIVE_STRENGTH_8MA = 2,
+//GPIO_DRIVE_STRENGTH_12MA = 3 }
+
+// TODO multiple gpio setting at once: with gpio_get_all(), gpio_xor_mask() etc.
 
 
