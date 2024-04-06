@@ -16,7 +16,7 @@ void gpio_out() {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
 		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V) for high_z = 0
 	} * args = (void*)(command_buffer+1);
-	gpio_init(args->gpio); 
+	gpio_init(args->gpio);  // is it necessary to avoid clash e.g. with PWM output
 
     gpio_put(args->gpio, args->value);
     gpio_set_dir(args->gpio, GPIO_OUT);
@@ -43,7 +43,7 @@ void gpio_pull() {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
 		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V) for high_z = 0
 	} * args = (void*)(command_buffer+1);
-	gpio_init(args->gpio);  // TODO test - is it necessary?
+	gpio_init(args->gpio);  // is it necessary to avoid clash e.g. with PWM output
 
     if (args->value) {
         gpio_pull_up(args->gpio); 
@@ -75,7 +75,7 @@ void gpio_highz() {
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
 	} * args = (void*)(command_buffer+1);
-	//gpio_init(args->gpio);  // TODO test - is it necessary?
+	gpio_init(args->gpio);  // is it necessary to avoid clash e.g. with PWM output
 
     gpio_set_dir(args->gpio, GPIO_IN);
     gpio_disable_pulls(args->gpio); 
