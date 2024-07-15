@@ -1,7 +1,7 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 """
-rp2daq.py  (c) Filip Dominec 2020-2022, MIT licensed
+rp2daq.py  (c) Filip Dominec 2020-2024, MIT licensed
 
 This module uses c_code_parser.py to auto-generate the binary message interface. 
 Then it connects to Raspberry Pi Pico to control various hardware. 
@@ -12,7 +12,7 @@ More information and examples on https://github.com/FilipDominec/rp2daq or in RE
 """
 
 
-MIN_FW_VER = 221005
+MIN_FW_VER = 240715
 
 import atexit
 from collections import deque
@@ -59,13 +59,12 @@ class Rp2daq():
 
     def quit(self):
         """Clean termination of tx/rx threads, and explicit releasing of serial ports (for win32) """ 
-        # TODO: add device reset option
-        self._i.run_event.clear()
-        #self._i.port.close()
+        time.sleep(0.01)
+        if self._i.run_event.is_set():
+            self._i.run_event.clear()
+            self._i.terminate_queue.put(b'1')   # let the subprocess release the port on its own
+            self._i.terminate_queue.get(block=True) # wait for confirmation it succeeded
 
-
-
-#def usb_backend(report_pipe, port_name): 
 
 
 class Rp2daq_internals(threading.Thread):
@@ -84,6 +83,7 @@ class Rp2daq_internals(threading.Thread):
 
         self.report_queue = multiprocessing.Queue()  
         self.command_queue = multiprocessing.Queue()  
+        self.terminate_queue = multiprocessing.Queue()  
 
         # Experimental: the "pipe" variant
         #self.report_pipe_out, report_pipe_in = multiprocessing.Pipe(duplex=True)
@@ -94,7 +94,7 @@ class Rp2daq_internals(threading.Thread):
         import usb_backend_process as ubp
         self.usb_backend_process = ubp.PatchedProcess(
                 target=ubp.usb_backend, 
-                args=(self.report_queue, self.command_queue, self.port_name))
+                args=(self.report_queue, self.command_queue, self.terminate_queue, self.port_name))
         self.usb_backend_process.daemon = True
         self.usb_backend_process.start()
 
@@ -271,13 +271,13 @@ class Rp2daq_internals(threading.Thread):
             ## TODO close the port, remember its port_name (thus do not keep open many ports & enable pickling for multiproc on win)
 
             if not id_data[:6] == b'rp2daq': 
-                logging.info(f"\tport open, but device does not identify itself as rp2daq: {id_data}" )
+                logging.info(f"A Raspberry Pi Pico device is present but its firmware doesn't identify as rp2daq: {id_data}" )
                 continue
 
             version_signature = id_data[7:13]
             if not version_signature.isdigit() or int(version_signature) < required_firmware_version:
                 logging.warning(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
-                        f"older than this script's {MIN_FW_VER}.\nPlease upgrade firmware " +\
+                        f"older than this script requires: {MIN_FW_VER}.\nPlease upgrade firmware " +\
                         "or override this error using 'required_firmware_version=0'.")
                 continue
 
@@ -285,11 +285,11 @@ class Rp2daq_internals(threading.Thread):
                 required_device_id = required_device_id.replace(":", "")
             found_device_id = id_data[14:]
             if required_device_id and found_device_id != required_device_id:
-                logging.info(f"found an rp2daq device, but its ID {found_device_id} does not match " + 
+                logging.info(f"Found an rp2daq device, but its ID {found_device_id} does not match " + 
                         f"required {required_device_id}")
                 continue
 
-            logging.info(f"connected to rp2daq device with manufacturer ID = {found_device_id.decode()}")
+            logging.info(f"Connected to rp2daq device with unique ID = {found_device_id.decode()}")
             #return try_port
             try_port.close()
             return port_name
@@ -305,21 +305,6 @@ if __name__ == "__main__":
     print("Note: Running this module as a standalone script will only try to connect to a RP2 device.")
     print("\tSee the 'examples' directory for further uses.")
     rp = Rp2daq()       # tip you can use e.g. required_device_id='01020304050607'
-    t0 = time.time()
+    t0 = time.sleep(3)
+    rp.quit()
 
-    #rp.pin_set(11, 1, high_z=1, pull_up=1)
-    #print(rp.pin_get(11))
-    #rp.pwm_configure_pair(0, clkdiv=255, wrap_value=500)
-    #rp.pwm_set_value(0, 200)
-    #rp.pwm_configure_pair(0, clkdiv=255, wrap_value=500)
-    #rp.pwm_set_value(1, 100)
-    #rp.pwm_configure_pair(2, clkdiv=255, wrap_value=1000)
-    #rp.pwm_set_value(2, 300)
-
-
-
-
-            #try_port = serial.Serial(port=port_name.device, timeout=1)
-            # TODO: get along without the serial module
-            #try_port = io.open(port_name.device) # fixme: no response from device?
-            #try_port = io.open(list_ports.comports()[0].device) # crude approach

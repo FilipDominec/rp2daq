@@ -9,7 +9,7 @@
 //#define PICO_FLASH_SPI_CLKDIV 4
 
 
-#define FIRMWARE_VERSION {"rp2daq_231005_"}
+#define FIRMWARE_VERSION {"rp2daq_240715_"}
 
 #define DATA_BY_REF 0
 #define DATA_BY_COPY 1

@@ -241,6 +241,13 @@ A: The Python script has a much better display and user interaction interface - 
 A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A4988 modules, with better accuracy and efficiency than provided by ULN2003. 
 </details>
 
+<details>
+  <summary><ins>Q: Running my script in Spyder IDE results in device not reporting </ins></summary>
+
+A: Spyder and probably some other IDEs run a persistent process which blocks the USB port even after your script apparently finishes; you have to explicitly release the port using ```rp.quit()``` at the end. 
+</details>
+
+
 
 # Legal
 

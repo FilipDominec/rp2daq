@@ -88,7 +88,7 @@ inline void tx_next_report() {
     if (txbuf_data_write_lock_ptr[txbuf_tosend]) {
         *txbuf_data_write_lock_ptr[txbuf_tosend] = 0; // clear buffer lock to allow writing
     }
-    fflush(stdout); // TODO check real timing of this; could be left out for higher data rate?
+    fflush(stdout); // todo-optimization: check real timing of this; could be left out for higher data rate?
 }
 
 

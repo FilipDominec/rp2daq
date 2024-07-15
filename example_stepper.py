@@ -15,7 +15,10 @@ result = rp.stepper_move(0,
         endswitch_ignore=0
         ) 
 
+
 print("The stepper has finished its movement, quitting with following return values:\n", result)
+
+rp.quit()
 
 print("Its status is:\n", rp.stepper_status(0))
 
