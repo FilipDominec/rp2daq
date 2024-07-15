@@ -85,6 +85,7 @@ void stepper_init() {
 
 struct __attribute__((packed)) {
     uint8_t report_code;
+	uint64_t timestamp_us;
     uint8_t stepper_number;
     uint8_t endswitch;
     uint32_t nanopos; // TODO
@@ -116,6 +117,7 @@ void stepper_status() {
 	}
 
 	//uint64_t ts = (uint64_t)to_us_since_boot(get_absolute_time()); TODO
+    stepper_status_report.timestamp_us = time_us_64(); 
 	prepare_report(&stepper_status_report, sizeof(stepper_status_report), 0, 0, 0);
 }
 
