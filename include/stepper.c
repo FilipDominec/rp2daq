@@ -164,7 +164,10 @@ void stepper_move() {
 	stepper[m].previous_nanopos      = stepper[m].nanopos; // remember the starting position (for smooth start)
 	stepper[m].target_nanopos       = args->to;
 	stepper[m].max_nanospeed        = max(args->speed, 1); // if zero, it means motor is idle
-	// no report yet; will report until stepper finishes
+   
+	// Normally will not report until stepper finishes, which may take some seconds or minutes.
+    // An exception is obviously when no movement is necessary - then an immediate report is necessary:
+    if (stepper[m].nanopos == stepper[m].target_nanopos) { mk_tx_stepper_report(m); }
 }
 
 void mk_tx_stepper_report(uint8_t n)
