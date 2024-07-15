@@ -123,6 +123,10 @@ void stepper_status() {
 
 
 
+
+
+
+
 struct __attribute__((packed)) {
     uint8_t report_code;
     uint8_t stepper_number;
@@ -137,39 +141,7 @@ struct __attribute__((packed)) {
     uint64_t end_time_us; 
 } stepper_move_report;  // (transmitted when a stepper actually finishes its move)
 
-void stepper_move() {
-	struct __attribute__((packed))  {
-		uint8_t  stepper_number;		// min=0 max=15
-		uint32_t to;					
-		uint32_t speed;					// min=1 max=10000
-		int8_t  endswitch_ignore;		// min=-1 max=1		default=-1
-		int8_t  endswitch_expect;		// min=-1 max=1		default=-1
-
-		int8_t  reset_nanopos;			// min=0 max=1		default=0
-	} * args = (void*)(command_buffer+1);
-
-    uint8_t m = args->stepper_number; 
-	stepper[m].start_time_us = time_us_64();
-	if (args->reset_nanopos) {stepper[m].nanopos = NANOPOS_AT_ENDSWITCH;} // a.k.a. relative movement
-
-	if (args->endswitch_ignore == -1) { // auto-set value
-		stepper[m].endswitch_ignore = stepper[m].previous_endswitch;
-	} else {		// user-set value
-		stepper[m].endswitch_ignore = args->endswitch_ignore;
-	}
-
-	if (args->endswitch_expect != -1) 
-		stepper[m].endswitch_expected = args->endswitch_expect;
-
-	stepper[m].previous_nanopos      = stepper[m].nanopos; // remember the starting position (for smooth start)
-	stepper[m].target_nanopos       = args->to;
-	stepper[m].max_nanospeed        = max(args->speed, 1); // if zero, it means motor is idle
-   
-	// Normally will not report until stepper finishes, which may take some seconds or minutes.
-    // An exception is obviously when no movement is necessary - then an immediate report is necessary:
-    if (stepper[m].nanopos == stepper[m].target_nanopos) { mk_tx_stepper_report(m); }
-}
-
+// Auxiliary function called from different occassions
 void mk_tx_stepper_report(uint8_t n)
 {
 	stepper_move_report.stepper_number = n;
@@ -202,7 +174,38 @@ void mk_tx_stepper_report(uint8_t n)
 	prepare_report(&stepper_move_report, sizeof(stepper_move_report), 0, 0, 0);
 }
 
+void stepper_move() {
+	struct __attribute__((packed))  {
+		uint8_t  stepper_number;		// min=0 max=15
+		uint32_t to;					
+		uint32_t speed;					// min=1 max=10000
+		int8_t  endswitch_ignore;		// min=-1 max=1		default=-1
+		int8_t  endswitch_expect;		// min=-1 max=1		default=-1
 
+		int8_t  reset_nanopos;			// min=0 max=1		default=0
+	} * args = (void*)(command_buffer+1);
+
+    uint8_t m = args->stepper_number; 
+	stepper[m].start_time_us = time_us_64();
+	if (args->reset_nanopos) {stepper[m].nanopos = NANOPOS_AT_ENDSWITCH;} // a.k.a. relative movement
+
+	if (args->endswitch_ignore == -1) { // auto-set value
+		stepper[m].endswitch_ignore = stepper[m].previous_endswitch;
+	} else {		// user-set value
+		stepper[m].endswitch_ignore = args->endswitch_ignore;
+	}
+
+	if (args->endswitch_expect != -1) 
+		stepper[m].endswitch_expected = args->endswitch_expect;
+
+	stepper[m].previous_nanopos      = stepper[m].nanopos; // remember the starting position (for smooth start)
+	stepper[m].target_nanopos       = args->to;
+	stepper[m].max_nanospeed        = max(args->speed, 1); // if zero, it means motor is idle
+   
+	// Normally will not report until stepper finishes, which may take some seconds or minutes.
+    // An exception is obviously when no movement is necessary, this results in one immediate report:
+    if (stepper[m].nanopos == stepper[m].target_nanopos) { mk_tx_stepper_report(m); }
+}
 
 
 inline uint32_t usqrt(uint32_t val) { // fast and terribly inaccurate uint32 square root
