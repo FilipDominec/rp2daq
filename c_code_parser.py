@@ -138,6 +138,7 @@ def generate_command_binary_interface():
         code = f"def {command_name}(self,{exec_header} _callback=None):\n" +\
                 f'\t"""{raw_docstring}\n\nParameters:\n{param_docstring}"""\n' +\
                 exec_prepro +\
+                f"\tif not self.run_event.is_set(): raise RuntimeError('Sending commands when device disconnected')\n" +\
                 f"\tif {command_code} not in self.sync_report_cb_queues.keys():\n" +\
                 f"\t\tself.sync_report_cb_queues[{command_code}] = queue.Queue()\n" +\
                 f"\tself.report_callbacks[{command_code}] = _callback\n" +\
