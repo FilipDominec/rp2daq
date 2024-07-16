@@ -93,6 +93,8 @@ rp.adc(channel_mask=sum(2**ch for ch in channels),
 #while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
     #time.sleep(.000005)
     
+
+tt = time.time()
 def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
     t0 = time.time()
     while time.time() < t0+t: pass
