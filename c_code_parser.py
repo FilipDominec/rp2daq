@@ -51,6 +51,8 @@ def generate_command_binary_interface():
     # Fixme: error-prone assumption that args are always the 1st parentheses block in every 
     # command/function body
 
+    print(__file__)
+    print(pathlib.Path(__file__).resolve().parent)
     proj_path = pathlib.Path(__file__).resolve().parent
     C_code = gather_C_code(proj_path)
     command_codes = generate_command_codes(C_code)
@@ -121,7 +123,7 @@ def generate_command_binary_interface():
                 param_docstring += f"  * {arg_name} {':' if comment else ''} {comment} \n" #  TODO print range  (min=0 max= 2³²-1)
             #print(command_name, command_code, ":", exec_header)
 
-        param_docstring += f"  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) \n\n"
+        param_docstring += f"  * _callback: optional report handling function; if set, makes this command asynchronous so it does not wait for report \n\n"
 
         #exec_docstring += "Returns:\n\n" # TODO analyze report structure (and comments therein)
 

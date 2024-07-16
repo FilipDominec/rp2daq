@@ -57,7 +57,7 @@ void adc() {
 	} * command = (void*)(command_buffer+1);
     // TODO implement send_data and send_statistics options
 
-    if !(iADC_config.blocks_to_send || iADC_config.infinite) { // re-init of running ADC makes trouble
+    if (!(iADC_config.blocks_to_send || iADC_config.infinite)) { // re-init of running ADC makes trouble
         iADC_config.channel_mask = command->channel_mask; 
         iADC_config.infinite = command->infinite; 
         iADC_config.blocksize = command->blocksize; 

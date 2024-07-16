@@ -37,6 +37,27 @@ struct __attribute__((packed)) {
 } stepper_init_report;
 
 void stepper_init() {
+	/* Rp2daq allows to control up to 16 independent stepper motors, provided that
+	 * each motor has its current driver compatible with Stepstick A4988. For this
+	 * driver rp2daq generates two control signals - "dir" and "step" - determining 
+	 * the direction and speed of rotation, respectively. The GPIO numbers of these
+	 * signals are mandatory parameters.
+	 *
+	 * Optionally one can provide the "disable" GPIO number which, when connected to 
+	 * the "!enable" pin on A4988 will automatically turn off current to save energy.
+	 *
+	 * Independent of the A4988, rp2daq accepts the "endswitch" GPIO which 
+	 * automatically stops the stepper whenever it reaches the minimum or maximum 
+	 * position. Having a dedicated end stop is both safety and convenience measure, 
+	 * allowing one to easily calibrate the stepper position upon restart. 
+	 *
+	 * The "inertia" parameter allows for smooth ac-/de-celeration of the stepper, 
+	 * preventing it from losing steps at startup even at high rotation speeds. The 
+	 * default value is usually OK unless the stepper moves some heavy mass.
+	 *
+	 * This command only defines constants and initializes GPIO states, but does not 
+	 * move the stepper; for this one uses the stepper_move() command. 
+	 */
 	struct __attribute__((packed)) {
 		uint8_t  stepper_number;	// min=0	max=15 
 		uint8_t  dir_gpio;			// min=0	max=24
@@ -95,6 +116,18 @@ struct __attribute__((packed)) {
 } stepper_status_report;
 
 void stepper_status() {
+	/* Returns the position and endswitch status of the stepper selected by "stepper_number".
+	 *
+	 * Additionally, returns three 16-bit integers (bitmasks) for all indices 0..15, 
+	 * describing if each corresponding stepper was initialized, if it is actively moving and 
+	 * if it is currently at endswitch. 
+	 *
+	 * These bitmasks are particularly useful when multiple steppers are to be synchronized, 
+	 * e.g., into a two-dimensional movement. (New set of stepper_move() commands then would 
+	 * be issued only when all relevant bits in steppers_moving_bitmask are cleared.)
+	 *
+     * __Results in one immediate report.__
+	 */ 
 	struct __attribute__((packed)) {
 		uint8_t  stepper_number;	// min=0	max=15
 	} * args = (void*)(command_buffer+1);
@@ -176,13 +209,33 @@ void mk_tx_stepper_report(uint8_t n)
 }
 
 void stepper_move() {
+    /* Starts stepping motor movement from current position towards the new position given by "to". The 
+     * motor has to be initialized by stepper_init first (please refer to this command for more details on 
+     * stepper control). 
+     *
+     * The units of position are nanosteps, i.e., 1/256 of a microstep. So typically if you have a motor
+     * with 1.8 degree/step and your A4988-compatible driver uses 16 microsteps/step, it takes 
+     * 360/1.8*256*16 = 819200 nanosteps per turn.
+     *
+     * The "speed" is in nanosteps per 0.1 ms update cycle; thus setting the speed to 82 turns the motor in 
+     * the above example once in second. Note most stepper motors won't turn much faster than 600 RPM.
+     *
+     * When no callback is provided, this command blocks your program until the movement is finished. 
+     * Using asychronous commands one can easily make multiple steppers move at once.
+     *
+     * The initial and terminal part of the movement are smoothly ac-/de-celerated, however issuing
+     * this command to an already moving stepper results in its immediate stopping before it starts 
+     * moving smoothly again.
+     *
+     * __This command results one report after the movement is finished. Thus it may be immediate 
+     * or delayed by seconds, minutes or hours, depending on distance and speed. __
+     */ 
 	struct __attribute__((packed))  {
 		uint8_t  stepper_number;		// min=0 max=15
 		uint32_t to;					
 		uint32_t speed;					// min=1 max=10000
 		int8_t  endswitch_ignore;		// min=-1 max=1		default=-1
 		int8_t  endswitch_expect;		// min=-1 max=1		default=-1
-
 		int8_t  reset_nanopos;			// min=0 max=1		default=0
 	} * args = (void*)(command_buffer+1);
 
