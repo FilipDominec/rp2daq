@@ -17,16 +17,13 @@ def remove_c_comments(f):
 def get_next_code_block(s, lbrace="{", rbrace="}"):
     """
     Returns the content of a first brace-delimited block, properly handling nested 
-    sub-blocks. 
-    Todo: Braces in comments, nor preprocessor tricks are NOT handled.
+    sub-blocks. Does NOT ignore parentheses in strings, comments etc.
     >>> get_next_code_block("aaaaaaa{bbb{ccc{dd}cc}b{ccccc}b}a{bb}a")
     bbb{ccc{dd}cc}b{ccccc}b
     """
-    s = s.split(lbrace,1)[1]
-    #print(s)
-
+    s = s.split(lbrace,1)[1] # strip everything before the opening parenthesis
     found_block, nest_level = "", 1
-    for new_chunk in s.split(rbrace):
+    for new_chunk in s.split(rbrace): 
         nest_level += new_chunk.count(lbrace) - 1 
         found_block += new_chunk 
         if nest_level == 0: 
@@ -51,7 +48,8 @@ def generate_command_binary_interface():
     message specification in the C code. For convenience, these functions have properly named 
     parameters, possibly with default values, and with checks for their minimum/maximum 
     allowed values. """
-    # Fixme: error-prone assumption that args are always the 1st block
+    # Fixme: error-prone assumption that args are always the 1st parentheses block in every 
+    # command/function body
 
     proj_path = pathlib.Path(__file__).resolve().parent
     C_code = gather_C_code(proj_path)

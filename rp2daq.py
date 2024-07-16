@@ -204,7 +204,7 @@ class Rp2daq_internals(threading.Thread):
                     elif cb is None: # expected report from blocking command
                         self.sync_report_cb_queues[report_type].put(cb_kwargs) # unblock default callback (& send it data)
                     elif cb is False: # unexpected report, from command that was not yet called in this script instance
-                        logging.warning(f"Warning: Got callback that was not asked for\n\tDebug info: {cb_kwargs}")
+                        logging.warning(f"Warning: Got report type that was not asked for\n\tDebug info: {cb_kwargs}")
                         pass 
                 #else:
                     #time.sleep(self.sleep_tune)

@@ -46,6 +46,8 @@ message_descriptor message_table[] = // #new_features: add your command to this 
                 {&stepper_move,		&stepper_move_report},
                 {&gpio_pull,		&gpio_pull_report},
                 {&gpio_highz,		&gpio_highz_report},
+                {&adc_stop,		    &adc_stop_report},
+                //
 			 // {handler fn ref,	report struct instance ref}
         };  
 
@@ -180,10 +182,6 @@ int main() {  // CPU core0 can be fully occupied with USB communication
 	add_repeating_timer_us(usPeriod, timer10khz_update_routine, NULL, &timer);
 
 	iADC_DMA_init();
-
-	BLINK_LED_US(5000);
-	busy_wait_us_32(100000); 
-	BLINK_LED_US(5000);
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 

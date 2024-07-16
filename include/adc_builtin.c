@@ -25,8 +25,6 @@ struct {
 } iADC_config;
 
 
-// TODO rp.adc(blocks_to_send=1, blocksize=10, trigger_gpio=-1) ## freezes ? 
-//rp.adc(blocks_to_send=3, trigger_gpio=2) ## IS OK? 
 // =============================================================================
 
 struct __attribute__((packed)) {
@@ -42,54 +40,73 @@ struct __attribute__((packed)) {
 
 void adc() {
     /* Initiates analog-to-digital conversion (ADC), using the RP2040 built-in feature.
+     *
+     * When ADC is already active, this takes no action. Use adc_stop() first in such a case.  
      * 
      * __This command can result in one, several or infinitely many report(s). They can be 
-     * almost immediate or delayed, depending on block size and timing. __
+     * almost immediate or delayed, depending on block size and timing.__
      */ 
 	struct __attribute__((packed)) {
 		uint8_t channel_mask;		// default=1		min=0		max=31 Masks 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor
 		uint16_t blocksize;			// default=1000		min=1		max=8192 Number of sample points until a report is sent
-		uint8_t infinite;			// default=0		min=0		max=1  Disables blocks_to_send countdown (reports keep coming until explicitly stopped)
-		uint32_t blocks_to_send;	// default=1		min=0		         Number of reports to be sent (if not infinite)
+		uint8_t infinite;			// default=0		min=0		max=1  Disables blocks_to_send countdown; reports will keep coming until stopped by adc(blocks_to_send=0)
+		uint32_t blocks_to_send;	// default=1		min=1		         Limits the number of reports to be sent (if the 'infinite' option is not set)
 		uint16_t clkdiv;			// default=96		min=96		max=65535 Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.)
-		int8_t trigger_gpio;		// default=-1		min=-1		max=24 GPIO number for start trigger (set to -1 to make ADC start w/o trigger)
+		int8_t trigger_gpio;		// default=-1		min=-1		max=24 GPIO number for start trigger (leave -1 to make ADC start immediately)
 		uint8_t trigger_on_falling_edge;	// default=0		min=0		max=1 If set to 1, triggers on falling edge instead of rising edge.
 	} * command = (void*)(command_buffer+1);
+    // TODO implement send_data and send_statistics options
 
-	iADC_config.channel_mask = command->channel_mask; 
-	iADC_config.infinite = command->infinite; 
-	iADC_config.blocksize = command->blocksize; 
-	iADC_config.clkdiv = command->clkdiv; 
-	iADC_config.blocks_to_send = command->blocks_to_send; 
+    if !(iADC_config.blocks_to_send || iADC_config.infinite) { // re-init of running ADC makes trouble
+        iADC_config.channel_mask = command->channel_mask; 
+        iADC_config.infinite = command->infinite; 
+        iADC_config.blocksize = command->blocksize; 
+        iADC_config.clkdiv = command->clkdiv; 
+        iADC_config.blocks_to_send = command->blocks_to_send; 
 
-	iADC_config.trigger_gpio = command->trigger_gpio;
-	iADC_config.trigger_on_falling_edge = command->trigger_on_falling_edge;
+        iADC_config.trigger_gpio = command->trigger_gpio;
+        iADC_config.trigger_on_falling_edge = command->trigger_on_falling_edge;
 
 
-	 if (iADC_config.trigger_gpio > -1)
-		 gpio_set_irq_enabled_with_callback(
-				 1, 
-				 iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, //GPIO_IRQ_EDGE_FALL ,
-				 true, 
-				 &iADC_trigger_IRQ);
-
-	// TODO may need to reimplement GPIO IRQ globally like
-	//void irqhandler1() {
-		//from https://forums.raspberrypi.com/viewtopic.php?t=339696
-		//if (gpio_get_irq_event_mask(1) & GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL) {
-			//gpio_acknowledge_irq(1, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL);
-			//gpio_xor_mask(0b100);
-		//}
-	//}
-	//gpio_set_irq_enabled(1, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true); //monitor pin 1 connected to pin 0
-    //gpio_add_raw_irq_handler(1,irqhandler1);
-    //irq_set_enabled(IO_IRQ_BANK0, true);
-
-	iADC_start_or_schedule_after_trigger(); 
+        if (iADC_config.trigger_gpio > -1)
+             gpio_set_irq_enabled_with_callback(
+                     1, 
+                     iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, //GPIO_IRQ_EDGE_FALL ,
+                     true, 
+                     &iADC_trigger_IRQ);
+        iADC_start_or_schedule_after_trigger(); 
+    };
 }
 
 
+struct __attribute__((packed)) {
+    uint8_t report_code;
+    uint32_t aborted_blocks_to_send;
+} adc_stop_report;
 
+void adc_stop() {
+    /* Manually sets the analog-to-digital conversion not to start another ADC block after the active block is 
+     * finished. This means that later onwards, one or more ADC report(s) may still arrive if they were active 
+     * ADC and/or USB buffer. But if an ADC block was waited for a trigger to start, it won't be started.
+     *
+     * Adc_stop() is most useful when adc(infinite=True) was previously called. If you know the number of blocks
+     * you will need, it is advisable to call adc(blocks_to_send=X) instead.
+     *
+     * If ADC is not running, this takes no action. 
+     * 
+     * __This command will result in one immediate report.  __
+     */ 
+	struct __attribute__((packed)) {
+        uint8_t finish_last_adc_packet;    // min=1 max=1 default=1  Hard stopping of ADC in the middle of a block not implemented yet.
+	} * command = (void*)(command_buffer+1);
+
+    adc_stop_report.aborted_blocks_to_send = iADC_config.blocks_to_send;
+    iADC_config.infinite = 0;
+    iADC_config.blocks_to_send = 0; 
+	iADC_config.waits_for_usb = 0;	
+	iADC_config.waits_for_trigger = 0;	
+    prepare_report(&adc_stop_report, sizeof(adc_stop_report), 0,0,0);
+}
 
 
 
@@ -219,7 +236,7 @@ void iADC_start_or_schedule_after_usb() {
 	};
 }
 
-uint8_t iADC_on_buffer_transmitted() {
+uint8_t iADC_on_buffer_transmitted() { // note this is called from main USB communication loop in rp2daq.c
 	if (iADC_config.waits_for_usb && !(iADC_buffers[iADC_active_buffer].write_lock)) {
 		iADC_DMA_start();
 	}
@@ -238,7 +255,7 @@ void iADC_DMA_IRQ_handler() {
     adc_report.start_time_us = iADC_config.start_time_us;
 
     // If possible start the next ADC acquisition block non-delayed (i.e. within <4 us)
-	iADC_config.blocks_to_send--;
+	if (iADC_config.blocks_to_send) iADC_config.blocks_to_send--;
 
     //if ((iADC_config.infinite) || (iADC_config.blocks_to_send > 0)) { 
 		//iADC_DMA_start();
@@ -280,4 +297,34 @@ void adc_set_trigger()
 
 	//gpio_set_irq_enabled_with_callback(args->trigger_gpio, edge_mask, true, &iADC_trigger_IRQ);
 }
+ *
+ *
+ *
+
+    //if (command->infinite || command->blocks_to_send) {
+    //} 
+    //else 
+    //{ // will stop ADC after this block is finished
+        //iADC_config.infinite = 0;
+        //iADC_config.blocks_to_send = 0; 
+    //}
+
+
+	// TODO may need to reimplement GPIO IRQ globally like
+	//void irqhandler1() {
+		//from https://forums.raspberrypi.com/viewtopic.php?t=339696
+		//if (gpio_get_irq_event_mask(1) & GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL) {
+			//gpio_acknowledge_irq(1, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL);
+			//gpio_xor_mask(0b100);
+		//}
+	//}
+	//gpio_set_irq_enabled(1, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true); //monitor pin 1 connected to pin 0
+    //gpio_add_raw_irq_handler(1,irqhandler1);
+    //irq_set_enabled(IO_IRQ_BANK0, true);
+ *
+ *
+ *
+ *
+// TODO rp.adc(blocks_to_send=1, blocksize=10, trigger_gpio=-1) ## freezes ? 
+//rp.adc(blocks_to_send=3, trigger_gpio=2) ## IS OK? 
 */
