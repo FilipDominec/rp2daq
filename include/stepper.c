@@ -141,9 +141,10 @@ struct __attribute__((packed)) {
     uint64_t end_time_us; 
 } stepper_move_report;  // (transmitted when a stepper actually finishes its move)
 
-// Auxiliary function called from different occassions
 void mk_tx_stepper_report(uint8_t n)
 {
+    // Reporting function called when 1) stepper reaches target nanoposition, or 2) endswitch,
+    // or when target is current nanopos. 
 	stepper_move_report.stepper_number = n;
 	stepper_move_report.nanopos = stepper[n].nanopos;
 	stepper_move_report.endswitch_ignored = stepper[n].endswitch_ignore;
