@@ -22,7 +22,8 @@ matplotlib's interactive plot.
 ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
 channels = [1,2]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
-kSPS_total = 500    # note there is only one multiplexed ADC
+#kSPS_total = 500    # note there is only one multiplexed ADC
+kSPS_total = 50    # note there is only one multiplexed ADC
 
 
 
@@ -75,7 +76,7 @@ def ADC_callback(**kwargs):
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
         blocksize=1000*len(channels), 
-        blocks_to_send=300, 
+        blocks_to_send=100, 
         #trigger_gpio=1,
         trigger_on_falling_edge=1,
         clkdiv=int(48000//kSPS_total), 
@@ -93,14 +94,30 @@ rp.adc(channel_mask=sum(2**ch for ch in channels),
 #while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
     #time.sleep(.000005)
     
+
+tt = time.time()
 def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
     t0 = time.time()
     while time.time() < t0+t: pass
 while not all_ADC_done.is_set():
-    rp.gpio_out(25,1)
-    busy_wait(.01)
-    rp.gpio_out(25,0)
-    busy_wait(.01)
+    #rp.gpio_out(25,1)
+    busy_wait(.05)
+    if time.time() > tt+.31:
+        pass
+        #print(rp.adc(blocks_to_send=0))
+        print(rp.adc_stop())
+    #rp.gpio_out(25,0)
+    busy_wait(.05)
+
+# FIXME! 
+# stopping ADC batch in the middle results in:
+# ... 
+#Packet received 452000 2000 4044 3 0 
+#Packet received 454000 2000 4044 4 0 
+#Packet received 456000 2000 4044 1469 0 
+#2024-07-15 19:46:20,603 (Thread-2 ) Warning: Got callback that was not asked for
+	#Debug info: {'report_code': 0, '_data_count': 30, '_data_bitwidth': 8, 'data': b'rp2daq_240715_E66118604B52522A'}
+
 
 #rp.gpio_out(25,1) # Waiting option 4: stress test with single busy loop
 #while not all_ADC_done.is_set(): pass

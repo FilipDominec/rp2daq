@@ -46,6 +46,8 @@ message_descriptor message_table[] = // #new_features: add your command to this 
                 {&stepper_move,		&stepper_move_report},
                 {&gpio_pull,		&gpio_pull_report},
                 {&gpio_highz,		&gpio_highz_report},
+                {&adc_stop,		    &adc_stop_report},
+                //
 			 // {handler fn ref,	report struct instance ref}
         };  
 
@@ -66,7 +68,7 @@ inline void rx_next_command() {
         // (small todo: allow 16bit packet_size e.g. for DAC output)
         for (int i = 0; i < packet_size; i++) {
             while ((packet_data = (uint8_t) getchar_timeout_us(0)) == PICO_ERROR_TIMEOUT) 
-                busy_wait_us_32(1);
+                busy_wait_us_32(1); // todo-optimization: avoid busy loop entirely?
             command_buffer[i] = packet_data;
         }
 
@@ -88,7 +90,7 @@ inline void tx_next_report() {
     if (txbuf_data_write_lock_ptr[txbuf_tosend]) {
         *txbuf_data_write_lock_ptr[txbuf_tosend] = 0; // clear buffer lock to allow writing
     }
-    fflush(stdout); // TODO check real timing of this; could be left out for higher data rate?
+    fflush(stdout); // todo-optimization: check real timing of this; could be left out for higher data rate?
 }
 
 
@@ -96,9 +98,12 @@ inline void tx_next_report() {
 // for being transmitted as soon as possible. When make_copy_of_data=0, it is done within 1 us. 
 void prepare_report(void* headerptr, uint16_t headersize, void* dataptr, 
 		uint16_t datasize, uint8_t make_copy_of_data) {
+    // Just a wrapper for the function `prepare_report_wrl` below, with null writelock pointer:
     prepare_report_wrl(headerptr, headersize, dataptr, datasize, make_copy_of_data, 0x0000); 
 }
 
+// Call this longer alternative if WRite Lock byte is to be cleared once the report is actually
+// transmitted. This helps keep data flow uninterrupted with double buffering under high USB load.
 void prepare_report_wrl(void* headerptr, uint16_t headersize, void* dataptr, 
 		uint16_t datasize, uint8_t make_copy_of_data, uint8_t* data_write_lock_ptr) {
 	while (txbuf_lock); txbuf_lock=1;
@@ -177,10 +182,6 @@ int main() {  // CPU core0 can be fully occupied with USB communication
 	add_repeating_timer_us(usPeriod, timer10khz_update_routine, NULL, &timer);
 
 	iADC_DMA_init();
-
-	BLINK_LED_US(5000);
-	busy_wait_us_32(100000); 
-	BLINK_LED_US(5000);
 
 	while (true)  // busy loop on core0 handles mostly communication
 	{ 

@@ -16,9 +16,14 @@ void identify() {
         uint8_t flush_buffer;    // min=0 max=1 default=1 Avoid possible pending messages from previous session
 	} * args = (void*)(command_buffer+1);
 
-    // This ditches all pending messages, which can make a python script in computer wait
+	BLINK_LED_US(5000);
+	busy_wait_us_32(100000); 
+	BLINK_LED_US(5000);
+
+    //
+    // This ditches all pending messages, which can make a previous python script in computer wait
     // for a callback that never comes. 
-    // But it ensures the device is correctly detected upon re-connect.
+    // But it ensures an already active device is correctly detected upon re-connect.
     if (args->flush_buffer)
         txbuf_tosend = txbuf_tofill; 
 

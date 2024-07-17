@@ -17,16 +17,13 @@ def remove_c_comments(f):
 def get_next_code_block(s, lbrace="{", rbrace="}"):
     """
     Returns the content of a first brace-delimited block, properly handling nested 
-    sub-blocks. 
-    Todo: Braces in comments, nor preprocessor tricks are NOT handled.
+    sub-blocks. Does NOT ignore parentheses in strings, comments etc.
     >>> get_next_code_block("aaaaaaa{bbb{ccc{dd}cc}b{ccccc}b}a{bb}a")
     bbb{ccc{dd}cc}b{ccccc}b
     """
-    s = s.split(lbrace,1)[1]
-    #print(s)
-
+    s = s.split(lbrace,1)[1] # strip everything before the opening parenthesis
     found_block, nest_level = "", 1
-    for new_chunk in s.split(rbrace):
+    for new_chunk in s.split(rbrace): 
         nest_level += new_chunk.count(lbrace) - 1 
         found_block += new_chunk 
         if nest_level == 0: 
@@ -51,8 +48,11 @@ def generate_command_binary_interface():
     message specification in the C code. For convenience, these functions have properly named 
     parameters, possibly with default values, and with checks for their minimum/maximum 
     allowed values. """
-    # Fixme: error-prone assumption that args are always the 1st block
+    # Fixme: error-prone assumption that args are always the 1st parentheses block in every 
+    # command/function body
 
+    print(__file__)
+    print(pathlib.Path(__file__).resolve().parent)
     proj_path = pathlib.Path(__file__).resolve().parent
     C_code = gather_C_code(proj_path)
     command_codes = generate_command_codes(C_code)
@@ -123,7 +123,7 @@ def generate_command_binary_interface():
                 param_docstring += f"  * {arg_name} {':' if comment else ''} {comment} \n" #  TODO print range  (min=0 max= 2³²-1)
             #print(command_name, command_code, ":", exec_header)
 
-        param_docstring += f"  * _callback : optional report handling function; if set, this command becomes asynchronous (does not wait for report) \n\n"
+        param_docstring += f"  * _callback: optional report handling function; if set, makes this command asynchronous so it does not wait for report \n\n"
 
         #exec_docstring += "Returns:\n\n" # TODO analyze report structure (and comments therein)
 
@@ -138,6 +138,7 @@ def generate_command_binary_interface():
         code = f"def {command_name}(self,{exec_header} _callback=None):\n" +\
                 f'\t"""{raw_docstring}\n\nParameters:\n{param_docstring}"""\n' +\
                 exec_prepro +\
+                f"\tif not self.run_event.is_set(): raise RuntimeError('Sending commands when device disconnected')\n" +\
                 f"\tif {command_code} not in self.sync_report_cb_queues.keys():\n" +\
                 f"\t\tself.sync_report_cb_queues[{command_code}] = queue.Queue()\n" +\
                 f"\tself.report_callbacks[{command_code}] = _callback\n" +\
