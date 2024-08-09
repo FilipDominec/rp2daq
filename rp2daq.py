@@ -186,6 +186,8 @@ class Rp2daq_internals(threading.Thread):
                     report_header_bytes = queue_recv_bytes(packet_length)
                     report_args = struct.unpack(self.report_header_formats[report_type], 
                             report_type_b+report_header_bytes)
+                     
+                    ## TODO: should switch to making an object, and setting object.__dict__ = dict(...) ?
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
                     logging.debug(f"received packet header {report_type=} {bytes(report_header_bytes)=}")
 
@@ -215,7 +217,7 @@ class Rp2daq_internals(threading.Thread):
                 #cb(**cb_kwargs)
 
             except EOFError:
-                logging.debug("Got EOF from the receiver process, quitting")
+                logging.warning("Got EOF from the receiver process, quitting")
                 self._e.quit()
 
     def _callback_dispatcher(self):
