@@ -25,26 +25,26 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
     * [ ] [C programming: adding new commands to rp2daq's firmware](docs/DEVELOPERS.md)
     * [x] [PAQ - Presumably asked questions](#paq-presumably-asked-questions)
 
-# No programming: first steps
+# First steps with no programming
 
 ### Getting things ready
 
-1. You will need a Raspberry Pi Pico (RP2) with a USB cable. And a computer.
-1. Make sure your computer has [Python (3.6+)](https://realpython.com/installing-python/)
-	* On Windows, use a recent [Python installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line.
+1. You will need a Raspberry Pi Pico (RP2) board with a USB cable.
+1. You will also need a computer with [Python (3.6+)](https://realpython.com/installing-python/) interpreter and the ```serial``` module
+	* On Windows, use a recent [Python installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line. 
 	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
     * On Mac, follow a similar approach; [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
-1. Download the [binary firmware](https://github.com/FilipDominec/rp2daq/releases/latest/download/rp2daq.uf2) from the latest release. No compilation is necessary.
+1. Download the stable [binary firmware](https://github.com/FilipDominec/rp2daq/releases/latest/download/rp2daq.uf2) from the latest release. No compilation is necessary.
 1. Holding the white "BOOTSEL" button on your RP2, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
     * *In few seconds the RP2 should appear as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
-1. Copy the ```rp2daq.uf2``` firmware file directly to RP2. 
+1. Copy the ```rp2daq.uf2``` firmware file directly to RP2 along these two files. 
     * *The flashdrive should disconnect in a second.* 
     * *The green diode on RP2 then flashes twice, indicating the firmware is running and awaiting commands.*
-1. Download and unpack [the stable Python+C source](https://github.com/FilipDominec/rp2daq/releases/latest/) from the latest release. 
+1. Download [the stable Python+C source](https://github.com/FilipDominec/rp2daq/releases/latest/) from the latest release. Unpack it in a working directory of your choice.
 
 If you have problems, please [describe them in a new issue](https://github.com/FilipDominec/rp2daq/issues).
 
-If don't fear having problems, you can get fresh code from this repository and compile the firmware according to [Developer notes](docs/DEVELOPERS.md).
+If you don't fear having problems, you can get fresh development code from this repository and compile the  firmware according to [Developer notes](docs/DEVELOPERS.md).
 
 ### Run hello_world.py
 
@@ -52,8 +52,8 @@ Launch the ```hello_world.py``` script in the main project folder.
 
 ![Two possible outcomes of the script](docs/hello_world_screens.png)
 
-* If a window like the one depicted left appears, rp2daq device is ready to be used! You can interactively control the onboard LED with the buttons.  
-* If an error message appears (like depicted right) the device does not respond correctly. Check it your RP2 blinks twice when USB is re-connected, and make sure you uploaded fresh firmware. On Linux, Python may need [to adjust permissions](https://askubuntu.com/a/522776) to access the USB port.
+* If a window like the one depicted left appears, rp2daq is ready to be used! You can interactively control the onboard LED with the buttons.  
+* If an error message appears (like depicted right) the device does not respond correctly. Check if your RP2 blinks twice when USB is re-connected, and make sure you uploaded fresh firmware. On Linux, Python may need [to adjust permissions](https://askubuntu.com/a/522776) to access the USB port.
 * If no window appears, there is some deeper error with your Python installation. 
 
 
@@ -96,7 +96,7 @@ The docstring for any command is printed out when one adds ```?``` and hits ente
 
 ![ipython console printout for rp.adc?](docs/ipython_command_info.png)
 
-Alternately, you can find the same information extracted in the [Python API reference](docs/PYTHON_REFERENCE.md). In contrast, none of the commands can be found in the python code, as they are generated dynamically by parsing the C code on startup. This eliminates redundancy between the C firmware and the Python module, and always guarantees their perfect binary compatibility.
+Alternately, you can find the same information extracted in the ```docs/PYTHON_REFERENCE.md``` file. Note that none of these commands are explicitly listed in the python code, as they are generated dynamically by parsing the C code on startup. This eliminates redundancy between the C firmware and the Python module, and always guarantees their perfect binary compatibility.
 
 ### Asynchronous commands
 

@@ -1,6 +1,8 @@
 # Developer information
 
-## Don't write C code, unless you are sure you want to
+## Don't write and compile C code, unless you are sure you want to
+
+It is very likely you *don't need to read this document*.
 
 In most expected use cases, pre-compiled rp2daq firmware only needs to be downloaded and flashed once, as described in the [main README document](README.md). All its functions will then be activated at runtime by the Python script in your computer.
 
@@ -22,8 +24,16 @@ Note that this procedure, with obvious minor changes, can be perused for uploadi
 
 Linux is the primary development OS for rp2daq; development of firmware on other OS is not covered here yet.
 
+#### Getting things ready - for development
+1. You will need a Raspberry Pi Pico (RP2) board with a USB cable, a computer with [Python (3.6+)](https://realpython.com/installing-python/) interpreter and the ```serial``` module
+	* On Windows, use a recent [Python installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line. 
+	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
+    * On Mac, follow a similar approach; [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
+1. In contrast to the guide on the main [../README.md] file, don't upload firmware yet. 
+1. According to your choice, you can get the fresh Python+C source codes using e.g. ```git clone https://github.com/FilipDominec/rp2daq```, or download the [latest stable release](https://github.com/FilipDominec/rp2daq/releases/latest/) from the latest release. 
 
-#### Setup development dependencies (once)
+
+#### Setup the firmware compilation dependencies
 
 Please note once again that compilation is *not* necessary to use rp2daq from Python. 
 Only if you made some changes in the rp2daq firmware's, follow these steps. 
@@ -38,7 +48,7 @@ The `pico_setup.sh` script will help you to download and compile the *Standard D
 ```
 
 
-#### Fresh compilation (once)
+#### Fresh compilation
 
 Now go to the folder where you downloaded rp2daq, e.g.:
 
@@ -59,20 +69,21 @@ Fresh compilation (or re-compilation if Cmake options changed):
 A new ```build/rp2daq.uf2``` file should appear. It can be uploaded by drag&drop as described in [README.md], or a following trick can be used that saves a bit of clicking.
 
 
-#### Setting UDEV rules for user-space access (once)
+#### Linux: Setting UDEV rules for user-space access (to be done once)
 
-Normally, the ```BOOTSEL``` button [has to be mechanically pressed](https://gist.github.com/Hermann-SW/ca07f46b7f9456de41f0956d81de01a7), and the device has to be restarted for a fresh upload. There is a trick to avoid it. 
+Normally, the ```BOOTSEL``` button [has to be mechanically pressed](https://gist.github.com/Hermann-SW/ca07f46b7f9456de41f0956d81de01a7), and the device has to be restarted for every firmware upload. There is a trick to control it full in software.
 
-As a first step, [it is preferable to switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) udev rules so that `picotool` works without root privileges:
+As a first step, [it is preferable to switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) Linux udev rules so that `picotool` works without root privileges:
 
 ```bash
     echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="0003", MODE="0666"' | sudo tee /etc/udev/rules.d/99-pico.rules
 ```
 
+Once again, disconnect RP2 & reconnect it. 
 
-#### Re-compilation & quick upload (routine)
+#### Routine re-compilation and re-upload
 
-Disconnect it & reconnect it the last time. From this point on, the upload procedure takes few seconds and can be entirely handled by software:
+With the above trick, re-compilation and upload procedure takes few seconds and can be entirely handled by software:
 
 ```bash
     pushd build ; stty -F /dev/ttyACM0 1200; sleep 0.5; make rp2daq && ~/pico/picotool/build/picotool load *.uf2 && ~/pico/picotool/build/picotool reboot; popd
@@ -176,7 +187,7 @@ void XYZ() {
 
 ## Resources used
 
-* Concepts and parts of code
+* Concepts and coding inspiration 
     * https://github.com/MrYsLab/Telemetrix4RpiPico
     * https://docs.tinyusb.org/en/latest/reference/index.html
 * Official documentation & examples
