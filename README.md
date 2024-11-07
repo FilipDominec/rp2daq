@@ -244,7 +244,7 @@ A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A498
 <details>
   <summary><ins>Q: Running my script in Spyder IDE results in device not reporting </ins></summary>
 
-A: Spyder and probably some other IDEs run a persistent process which blocks the USB port even after your script apparently finishes; you have to explicitly release the port using ```rp.quit()``` at the end. 
+A: Spyder and probably some other IDEs run a persistent process which blocks the USB port even after your script apparently finishes. Your script has to explicitly release the port using ```rp.quit()``` at the end. Or you can manually reset the kernel in the Spyder's Python console, for which there is also an option in the Spyder's Preferences: see tab "Python configuration", uncheck the option "User Modules Reloader".
 </details>
 
 
