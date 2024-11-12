@@ -132,11 +132,14 @@ int iADC_DMA_chan;
 
 
 void iADC_DMA_init() { 
+    adc_init();
 	for (uint8_t ch=0; ch<4; ch++) {
         if (iADC_config.channel_mask & (1<<ch)) 
             adc_gpio_init(26+ch); 
+			gpio_set_dir(26+ch, GPIO_IN); // not necessary here?
+			gpio_disable_pulls(26+ch); // sets the input into high-z state again 
     }
-    adc_init();
+
     adc_set_temp_sensor_enabled(true);
 
     adc_fifo_setup(
