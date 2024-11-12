@@ -258,11 +258,32 @@ motor has to be initialized by stepper_init first (please refer to this command 
 stepper control). 
 
 The units of position are nanosteps, i.e., 1/256 of a microstep. So typically if you have a motor
-with 1.8 degree/step and your A4988-compatible driver uses 16 microsteps/step, it takes 
-360/1.8*256*16 = 819200 nanosteps per turn.
+with 200 steps per turn and your A4988-compatible driver is hard-wired for 16 microsteps/step, it takes 
+about a million (200x256x16 = 819200) nanosteps per turn.
 
-The "speed" is in nanosteps per 0.1 ms update cycle; thus setting the speed to 82 turns the motor in 
-the above example once in second. Note most stepper motors won't turn much faster than 600 RPM.
+The "speed" is in nanosteps per 0.1 ms update cycle; thus setting speed=82 turns the motor in 
+the above example once in second. Setting minimal speed=1 gives 0.732 RPM. Note most stepper motors 
+won't be able to turn much faster than 600 RPM.
+
+The "endswitch_sensitive_down" option is by default set to 1, i.e., the motor will immediately stop its 
+movement towards more negative target positions when the end switch pin gets connected to zero. 
+
+On the contrary, "endswitch_sensitive_up" is by default set to 0, i.e. the motor will move towards 
+more positive target positions independent of the end switch pin.
+
+Note: The defaults for the two above endswitch-related options assume you installed the endswitch at the 
+lowest end of the stepper range. Upon reaching the endswitch, the stepper position is typically 
+calibrated and it is straightforward to move upwards from the endswitch, without any change to the defaults.
+Alternately, one can swap these two options if the endswitch is mounted on the highest end 
+of the range. Or one can use different settings before/after the first calibration to allow the motor 
+going beyond the end-switch(es) - if this is safe.
+
+"reset_nanopos_at_endswitch" will reset the position only if endswitch triggers the end of the 
+movement. This is the recommended option for easy calibration of position at the endswitch. 
+
+"reset_nanopos_first" will reset the position before movement, so the target nanopos value given is 
+taken as relative to the actual position.
+
 
 When no callback is provided, this command blocks your program until the movement is finished. 
 Using asychronous commands one can easily make multiple steppers move at once.
@@ -276,16 +297,17 @@ or delayed by seconds, minutes or hours, depending on distance and speed. __
 
 __Call signature:__
 
-`stepper_move(stepper_number, to, speed, endswitch_ignore=-1, endswitch_expect=-1, reset_nanopos=0,  _callback=None)`
+`stepper_move(stepper_number, to, speed, endswitch_sensitive_up=0, endswitch_sensitive_down=1, reset_nanopos_first=0, reset_nanopos_at_endswitch=0,  _callback=None)`
 
 __Parameters__:
 
   * stepper_number   
   * to   
   * speed   
-  * endswitch_ignore   
-  * endswitch_expect   
-  * reset_nanopos   
+  * endswitch_sensitive_up   
+  * endswitch_sensitive_down   
+  * reset_nanopos_first   
+  * reset_nanopos_at_endswitch   
   * _callback: optional report handling function; if set, makes this command asynchronous so it does not wait for report 
 
 
@@ -340,12 +362,15 @@ __Parameters__:
 
 ## adc_stop
 
-Manually sets the analog-to-digital conversion not to start another ADC block after the active block is 
-finished. This means that later onwards, one or more ADC report(s) may still arrive if they were active 
-ADC and/or USB buffer. But if an ADC block was waited for a trigger to start, it won't be started.
+Manually sets the analog-to-digital conversion not to start another sampling ADC block after the active block is 
+finished. Also an ADC block won't be started if it is waiting for a trigger event to start. 
 
-Adc_stop() is most useful when adc(infinite=True) was previously called. If you know the number of blocks
-you will need, it is advisable to call adc(blocks_to_send=X) instead.
+Still, one or more ADC report(s) may still arrive after adc_stop() being issued; these were either actively 
+sampled at the moment, or were stored in the USB transmit queue. 
+
+Adc_stop() is most useful when adc(infinite=True) was previously called. Stopping ADC is also necessary to re-run 
+it with different configuration. But if you want to sample exactly X blocks it may be easier to specify their number
+by calling adc(blocks_to_send=X) instead.
 
 If ADC is not running, this takes no action. 
 

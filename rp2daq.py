@@ -12,7 +12,7 @@ More information and examples on https://github.com/FilipDominec/rp2daq or in RE
 """
 
 
-MIN_FW_VER = 240715
+MIN_FW_VER = 241112    # FIRMWARE_ABI_VERSION should be auto-loaded from rp2daq.h
 
 import atexit
 from collections import deque

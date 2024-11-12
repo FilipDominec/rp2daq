@@ -85,12 +85,15 @@ struct __attribute__((packed)) {
 } adc_stop_report;
 
 void adc_stop() {
-    /* Manually sets the analog-to-digital conversion not to start another ADC block after the active block is 
-     * finished. This means that later onwards, one or more ADC report(s) may still arrive if they were active 
-     * ADC and/or USB buffer. But if an ADC block was waited for a trigger to start, it won't be started.
+    /* Manually sets the analog-to-digital conversion not to start another sampling ADC block after the active block is 
+     * finished. Also an ADC block won't be started if it is waiting for a trigger event to start. 
      *
-     * Adc_stop() is most useful when adc(infinite=True) was previously called. If you know the number of blocks
-     * you will need, it is advisable to call adc(blocks_to_send=X) instead.
+     * Still, one or more ADC report(s) may still arrive after adc_stop() being issued; these were either actively 
+     * sampled at the moment, or were stored in the USB transmit queue. 
+     *
+     * Adc_stop() is most useful when adc(infinite=True) was previously called. Stopping ADC is also necessary to re-run 
+     * it with different configuration. But if you want to sample exactly X blocks it may be easier to specify their number
+     * by calling adc(blocks_to_send=X) instead.
      *
      * If ADC is not running, this takes no action. 
      * 

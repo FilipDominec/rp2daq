@@ -1,4 +1,7 @@
 
+#define FIRMWARE_VERSION {"rp2daq_241112_"}
+
+
 #define TUD_OPT_HIGH_SPEED (1)
 //#define CFG_TUD_CDC_EP_BUFSIZE 256 // legacy; needs to go into tusb_config.h that is being used
 
@@ -7,9 +10,6 @@
 // Following two lines did not help, and we decided to abandon RP2040-Zero board support.
 //#define XOSC_STARTUP_DELAY_MULTIPLIER  64
 //#define PICO_FLASH_SPI_CLKDIV 4
-
-
-#define FIRMWARE_VERSION {"rp2daq_240715_"}
 
 #define DATA_BY_REF 0
 #define DATA_BY_COPY 1

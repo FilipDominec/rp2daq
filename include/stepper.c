@@ -7,8 +7,8 @@
 #define NANOSTEP_PER_MICROSTEP  256             // for fine-grained speed and position control
 #define MAX_STEPPER_COUNT 16
 #define STEPPER_IS_MOVING(m)	(stepper[m].max_nanospeed > 0)
-#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_gpio >= 0) && \
-			(!stepper[m].endswitch_ignore) && (!gpio_get(stepper[m].endswitch_gpio)))
+#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_sensitive) && (stepper[m].endswitch_gpio >= 0) && \
+			 (!gpio_get(stepper[m].endswitch_gpio)))
 
 
 typedef struct __attribute__((packed)) {
@@ -17,14 +17,14 @@ typedef struct __attribute__((packed)) {
     uint8_t  step_gpio;
     uint8_t  endswitch_gpio;
     uint8_t  disable_gpio;
-    uint8_t  endswitch_ignore;
-	uint8_t  endswitch_expected;
+    uint8_t  endswitch_sensitive;
+    uint8_t  reset_nanopos_at_endswitch;
     uint32_t nanopos;
     uint32_t target_nanopos;
     uint32_t max_nanospeed;
     uint32_t inertia_coef;
     uint32_t previous_nanopos;
-    uint8_t  previous_endswitch;
+    uint8_t  move_reached_endswitch;
     uint64_t start_time_us; 
 } stepper_config_t;
 volatile stepper_config_t stepper[MAX_STEPPER_COUNT];
@@ -74,9 +74,9 @@ void stepper_init() {
 		stepper[m].endswitch_gpio = args->endswitch_gpio;
 		stepper[m].disable_gpio = args->disable_gpio;
 		stepper[m].inertia_coef  = max(args->inertia, 1); // prevent div/0 error
-		stepper[m].endswitch_ignore = 0;
-		stepper[m].previous_endswitch = 0;
-		stepper[m].endswitch_expected = 1;
+		stepper[m].endswitch_sensitive = 0;
+		stepper[m].reset_nanopos_at_endswitch = 0;
+		stepper[m].move_reached_endswitch = 0;
 
 		gpio_init(stepper[m].dir_gpio); gpio_set_dir(stepper[m].dir_gpio, GPIO_OUT);
 		gpio_init(stepper[m].step_gpio); gpio_set_dir(stepper[m].step_gpio, GPIO_OUT);
@@ -164,9 +164,8 @@ struct __attribute__((packed)) {
     uint8_t report_code;
     uint8_t stepper_number;
     uint32_t nanopos;
-    uint8_t endswitch_ignored;
+    uint8_t endswitch_was_sensitive;
     uint8_t endswitch_triggered;
-    uint8_t endswitch_expected;
     uint16_t steppers_init_bitmask;		
     uint16_t steppers_moving_bitmask;	
     uint16_t steppers_endswitch_bitmask;
@@ -180,9 +179,8 @@ void mk_tx_stepper_report(uint8_t n)
     // or when target is current nanopos. 
 	stepper_move_report.stepper_number = n;
 	stepper_move_report.nanopos = stepper[n].nanopos;
-	stepper_move_report.endswitch_ignored = stepper[n].endswitch_ignore;
-	stepper_move_report.endswitch_triggered = stepper[n].previous_endswitch;
-	stepper_move_report.endswitch_expected = stepper[n].endswitch_expected;
+	stepper_move_report.endswitch_was_sensitive = stepper[n].endswitch_sensitive;
+	stepper_move_report.endswitch_triggered = stepper[n].move_reached_endswitch;
 
 	stepper_move_report.steppers_init_bitmask = 0;
 	stepper_move_report.steppers_moving_bitmask = 0;
@@ -197,7 +195,7 @@ void mk_tx_stepper_report(uint8_t n)
 			stepper_move_report.steppers_moving_bitmask |= (1<<m);
 
 		if (n==m) {
-			if (stepper[n].previous_endswitch) // better copy recent value here (eliminates glitches)
+			if (stepper[n].move_reached_endswitch) // better copy recent value here (eliminates glitches)
 				stepper_move_report.steppers_endswitch_bitmask |= (1<<m);
 			// note that endswitch_ignore zeroes this bit, too
 		} else {
@@ -214,11 +212,32 @@ void stepper_move() {
      * stepper control). 
      *
      * The units of position are nanosteps, i.e., 1/256 of a microstep. So typically if you have a motor
-     * with 1.8 degree/step and your A4988-compatible driver uses 16 microsteps/step, it takes 
-     * 360/1.8*256*16 = 819200 nanosteps per turn.
+     * with 200 steps per turn and your A4988-compatible driver is hard-wired for 16 microsteps/step, it takes 
+     * about a million (200x256x16 = 819200) nanosteps per turn.
      *
-     * The "speed" is in nanosteps per 0.1 ms update cycle; thus setting the speed to 82 turns the motor in 
-     * the above example once in second. Note most stepper motors won't turn much faster than 600 RPM.
+     * The "speed" is in nanosteps per 0.1 ms update cycle; thus setting speed=82 turns the motor in 
+     * the above example once in second. Setting minimal speed=1 gives 0.732 RPM. Note most stepper motors 
+     * won't be able to turn much faster than 600 RPM.
+     *
+     * The "endswitch_sensitive_down" option is by default set to 1, i.e., the motor will immediately stop its 
+     * movement towards more negative target positions when the end switch pin gets connected to zero. 
+     *
+     * On the contrary, "endswitch_sensitive_up" is by default set to 0, i.e. the motor will move towards 
+     * more positive target positions independent of the end switch pin.
+     *
+     * Note: The defaults for the two above endswitch-related options assume you installed the endswitch at the 
+     * lowest end of the stepper range. Upon reaching the endswitch, the stepper position is typically 
+     * calibrated and it is straightforward to move upwards from the endswitch, without any change to the defaults.
+     * Alternately, one can swap these two options if the endswitch is mounted on the highest end 
+     * of the range. Or one can use different settings before/after the first calibration to allow the motor 
+     * going beyond the end-switch(es) - if this is safe.
+     *
+     * "reset_nanopos_at_endswitch" will reset the position only if endswitch triggers the end of the 
+     * movement. This is the recommended option for easy calibration of position at the endswitch. 
+     *
+     * "reset_nanopos_first" will reset the position before movement, so the target nanopos value given is 
+     * taken as relative to the actual position.
+     *
      *
      * When no callback is provided, this command blocks your program until the movement is finished. 
      * Using asychronous commands one can easily make multiple steppers move at once.
@@ -234,25 +253,23 @@ void stepper_move() {
 		uint8_t  stepper_number;		// min=0 max=15
 		uint32_t to;					
 		uint32_t speed;					// min=1 max=10000
-		int8_t  endswitch_ignore;		// min=-1 max=1		default=-1
-		int8_t  endswitch_expect;		// min=-1 max=1		default=-1
-		int8_t  reset_nanopos;			// min=0 max=1		default=0
+		int8_t  endswitch_sensitive_up;		// min=0 max=1	default=0
+		int8_t  endswitch_sensitive_down;	// min=0 max=1	default=1
+		int8_t  reset_nanopos_first;		// min=0 max=1	default=0
+		int8_t  reset_nanopos_at_endswitch;	// min=0 max=1	default=0
 	} * args = (void*)(command_buffer+1);
 
     uint8_t m = args->stepper_number; 
 	stepper[m].start_time_us = time_us_64();
-	if (args->reset_nanopos) {stepper[m].nanopos = NANOPOS_AT_ENDSWITCH;} // a.k.a. relative movement
+	if (args->reset_nanopos_first) {stepper[m].nanopos = NANOPOS_AT_ENDSWITCH;} // i.e. relative movement
+	stepper[m].reset_nanopos_at_endswitch = args->reset_nanopos_at_endswitch; // i.e. calibration
 
-	if (args->endswitch_ignore == -1) { // auto-set value
-		stepper[m].endswitch_ignore = stepper[m].previous_endswitch;
-	} else {		// user-set value
-		stepper[m].endswitch_ignore = args->endswitch_ignore;
-	}
+    stepper[m].endswitch_sensitive = (
+            (args->endswitch_sensitive_up   && (stepper[m].nanopos < args->to)) ||
+            (args->endswitch_sensitive_down && (stepper[m].nanopos > args->to)));
 
-	if (args->endswitch_expect != -1) 
-		stepper[m].endswitch_expected = args->endswitch_expect;
 
-	stepper[m].previous_nanopos      = stepper[m].nanopos; // remember the starting position (for smooth start)
+	stepper[m].previous_nanopos     = stepper[m].nanopos; // remember the starting position (for smooth start)
 	stepper[m].target_nanopos       = args->to;
 	stepper[m].max_nanospeed        = max(args->speed, 1); // if zero, it means motor is idle
    
@@ -306,13 +323,16 @@ void stepper_update() {
 				if (ENDSWITCH_TEST(m)) { // if the stepper triggers end-stop switch
 					stepper[m].max_nanospeed = 0; 
 					stepper[m].target_nanopos = new_nanopos;  // immediate stop
-					stepper[m].previous_endswitch = 1; // remember reason for stopping
+					stepper[m].move_reached_endswitch = 1; // remember reason for stopping
 					mk_tx_stepper_report(m);
-					stepper[m].endswitch_expected = 0;
+                    if ((stepper[m].move_reached_endswitch) && (stepper[m].reset_nanopos_at_endswitch)) {
+                        stepper[m].nanopos = NANOPOS_AT_ENDSWITCH; 
+                        new_nanopos = NANOPOS_AT_ENDSWITCH;
+                        stepper[m].target_nanopos = NANOPOS_AT_ENDSWITCH;} // useful for end switch calibration
 				} else if (new_nanopos == stepper[m].target_nanopos) { // if the move finishes successfully
 					stepper[m].max_nanospeed = 0;
 					//stepper[m].target_nanopos = new_nanopos;  // TODO rm?
-					stepper[m].previous_endswitch = 0;
+					stepper[m].move_reached_endswitch = 0;
 					mk_tx_stepper_report(m);
 				}
 
