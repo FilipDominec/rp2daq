@@ -36,8 +36,8 @@ struct __attribute__((packed)) {
 	uint64_t end_time_us;
 	uint32_t start_sync_value;
 	uint32_t end_sync_value;
-    uint8_t channel_mask;
-    uint32_t blocks_to_send;
+    uint8_t channel_mask;         // The channel_mask value that was used (see invocation).
+    uint32_t blocks_to_send;	  // How many blocks remain to be sent. Does not change if adc set to infinite.
     uint8_t block_delayed_by_usb;
 } adc_report;
 

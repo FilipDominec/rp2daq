@@ -17,20 +17,26 @@ void stepper_init() {
 	 * the direction and speed of rotation, respectively. The GPIO numbers of these
 	 * signals are mandatory parameters.
 	 *
+	 * This command only defines constants and initializes GPIO states, but does not 
+	 * move the stepper; for this one uses the stepper_move() command. 
+	 *
 	 * Optionally one can provide the "disable" GPIO number which, when connected to 
 	 * the "!enable" pin on A4988 will automatically turn off current to save energy.
 	 *
 	 * Independent of the A4988, rp2daq accepts the "endswitch" GPIO which 
 	 * automatically stops the stepper whenever it reaches the minimum or maximum 
 	 * position. Having a dedicated end stop is both safety and convenience measure, 
-	 * allowing one to easily calibrate the stepper position upon restart. 
+	 * allowing one to easily calibrate the stepper position upon restart. More details
+	 * are with the stepper_move() command.
 	 *
 	 * The "inertia" parameter allows for smooth ac-/de-celeration of the stepper, 
 	 * preventing it from losing steps at startup even at high rotation speeds. The 
 	 * default value is usually OK unless the stepper moves some heavy mass.
 	 *
-	 * This command only defines constants and initializes GPIO states, but does not 
-	 * move the stepper; for this one uses the stepper_move() command. 
+	 * > [!WARNING]
+	 * > Never disconnect a stepper from its driver when powered; this results in burning 
+	 * > the A4988 chip.
+	 *
 	 */
 	struct __attribute__((packed)) {
 		uint8_t  stepper_number;	// min=0	max=15 
