@@ -10,14 +10,14 @@
 #include <pico/stdlib.h>
 #include <pico/unique_id.h>
 
-
 #include "rp2daq.h"
+#include "include/stepper.h"
+
 #include "include/identify.c"
 #include "include/gpio.c"
 #include "include/adc_builtin.c"
 #include "include/pwm.c"
 #include "include/stepper.c"
-//#include "include/"
 
 // === I/O MESSAGING INFRASTRUCTURE ===
 // Note the commands & reports here will be auto-assigned unique numbers according to their 
