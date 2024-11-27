@@ -32,13 +32,13 @@ struct __attribute__((packed)) {
     uint8_t report_code;
     uint16_t _data_count; 
     uint8_t _data_bitwidth;
-	uint64_t start_time_us;
-	uint64_t end_time_us;
-	uint32_t start_sync_value;
-	uint32_t end_sync_value;
-    uint8_t channel_mask;         // The channel_mask value that was used (see invocation).
+	uint64_t start_time_us;       // Microsecond timestamp when ADC started this block acquisition.
+	uint64_t end_time_us;         // Microsecond timestamp when ADC finished this block acquisition.
+	uint32_t start_sync_value;    // Stepper[0] nanoposition when ADC started this block acquisition. (Subject to future change.)
+	uint32_t end_sync_value;      // Stepper[0] nanoposition when ADC finished this block acquisition. (Subject to future change.)
+    uint8_t channel_mask;         // The channel_mask value that was used (see adc() call parameters for details).
     uint32_t blocks_to_send;	  // How many blocks remain to be sent. Does not change if adc set to infinite.
-    uint8_t block_delayed_by_usb;
+    uint8_t block_delayed_by_usb; // Normally should be 0, except USB is overloaded and ADC blocks have to wait for USB buffer to accept new data.
 } adc_report;
 
 void adc() {
@@ -50,7 +50,7 @@ void adc() {
      * almost immediate or delayed, depending on block size and timing.__
      */ 
 	struct __attribute__((packed)) {
-		uint8_t channel_mask;		// default=1		min=0		max=31 Masks 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor
+		uint8_t channel_mask;		// default=1		min=1		max=31 Bits 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor
 		uint16_t blocksize;			// default=1000		min=1		max=8192 Number of sample points until a report is sent
 		uint8_t infinite;			// default=0		min=0		max=1  Disables blocks_to_send countdown; reports will keep coming until stopped by adc(blocks_to_send=0)
 		uint32_t blocks_to_send;	// default=1		min=1		         Limits the number of reports to be sent (if the 'infinite' option is not set)
