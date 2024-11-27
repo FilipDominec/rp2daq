@@ -96,6 +96,9 @@ void gpio_in() {
      *
      * Typically used when the pin is set to high-z or pull-up/down.
      * 
+	 * > [!CAUTION]
+	 * > The maximum allowed voltage at any pin is 3.3V.
+	 *
      * __This command results in single near-immediate report.__
      */
 	struct  __attribute__((packed)) {

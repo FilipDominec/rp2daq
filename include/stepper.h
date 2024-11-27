@@ -1,6 +1,6 @@
 
 // Stepper support using Stepstick
-#define NANOPOS_AT_ENDSWITCH  (uint32_t)(1<<31)   // so that motor can move symmetrically from origin
+#define NANOPOS_DEFAULT 0 // (uint32_t)(1<<31)   // so that motor can move symmetrically from origin
 #define NANOSTEP_PER_MICROSTEP  256             // for fine-grained speed and position control
 #define MAX_STEPPER_COUNT 16
 #define STEPPER_IS_MOVING(m)	(stepper[m].max_nanospeed > 0)
@@ -16,8 +16,8 @@ typedef struct __attribute__((packed)) {
     uint8_t  disable_gpio;
     uint8_t  endswitch_sensitive;
     uint8_t  reset_nanopos_at_endswitch;
-    uint32_t nanopos;
-    uint32_t target_nanopos;
+    int32_t nanopos;
+    int32_t target_nanopos;
     uint32_t max_nanospeed;
     uint32_t inertia_coef;
     uint32_t previous_nanopos;

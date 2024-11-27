@@ -1,4 +1,3 @@
-// TODO Measure timing if NANOPOS_AT_ENDSWITCH is int32 instead; what was a trouble on atmega8 may be fine
 // TODO Try how many steppers can really be controlled (e.g. when ADC runs at 500 kSps...)
 // TODO Disperse motor service routines consecutively in time (e.g. change 10kHz timer to 80kHz ?)
 
@@ -7,7 +6,7 @@
 
 struct __attribute__((packed)) {
     uint8_t report_code;
-    uint32_t initial_nanopos;
+    int32_t initial_nanopos;
 } stepper_init_report;
 
 void stepper_init() {
@@ -33,9 +32,9 @@ void stepper_init() {
 	 * preventing it from losing steps at startup even at high rotation speeds. The 
 	 * default value is usually OK unless the stepper moves some heavy mass.
 	 *
-	 * > [!WARNING]
-	 * > Never disconnect a stepper from its driver when powered; this results in burning 
-	 * > the A4988 chip.
+	 * > [!CAUTION]
+	 * > Never disconnect a stepper from Stepstick when powered. Interrupting the 
+	 * > current in its coils results in a voltage spike that may burn the driver chip.
 	 *
 	 */
 	struct __attribute__((packed)) {
@@ -69,8 +68,8 @@ void stepper_init() {
 			gpio_set_dir(stepper[m].disable_gpio, GPIO_OUT);
         }
 
-		stepper[m].nanopos = NANOPOS_AT_ENDSWITCH; // default position !=0 to allow going back
-		stepper[m].target_nanopos = stepper[m].nanopos;  // motor stands still when (re)defined
+		stepper[m].nanopos = NANOPOS_DEFAULT; 
+		stepper[m].target_nanopos = stepper[m].nanopos;  // motor stands still when (re)defined, (todo) is it useful?
 		//if (!stepper[m].initialized) { // nanopos==0 means motor has not been initialized yet
 		//}
 
@@ -89,7 +88,7 @@ struct __attribute__((packed)) {
 	uint64_t timestamp_us;
     uint8_t stepper_number;
     uint8_t endswitch;
-    uint32_t nanopos;
+    int32_t nanopos;
     uint16_t steppers_init_bitmask;
     uint16_t steppers_moving_bitmask;
     uint16_t steppers_endswitch_bitmask;
@@ -143,7 +142,7 @@ void stepper_status() {
 struct __attribute__((packed)) {
     uint8_t report_code;
     uint8_t stepper_number;
-    uint32_t nanopos;
+    int32_t nanopos;
     uint8_t endswitch_was_sensitive;
     uint8_t endswitch_triggered;
     uint16_t steppers_init_bitmask;		
@@ -191,13 +190,14 @@ void stepper_move() {
      * motor has to be initialized by stepper_init first (please refer to this command for more details on 
      * stepper control). 
      *
-     * The units of position are nanosteps, i.e., 1/256 of a microstep. So typically if you have a motor
-     * with 200 steps per turn and your A4988-compatible driver is hard-wired for 16 microsteps/step, it takes 
-     * about a million (200x256x16 = 819200) nanosteps per turn.
-     *
-     * The "speed" is in nanosteps per 0.1 ms update cycle; thus setting speed=82 turns the motor in 
-     * the above example once in second. Setting minimal speed=1 gives 0.732 RPM. Note most stepper motors 
-     * won't be able to turn much faster than 600 RPM.
+	 * > [!TIP]
+     * > The units of position are nanosteps, i.e., 1/256 of a microstep. So typically if you have a motor
+     * > with 200 steps per turn and your A4988-compatible driver is hard-wired for 16 microsteps/step, it takes 
+     * > about a million (200x256x16 = 819200) nanosteps per turn.
+     * >
+     * > The "speed" is in nanosteps per 0.1 ms update cycle; thus setting speed=82 turns the motor in 
+     * > the above example once in second. Setting minimal speed=1 gives 0.732 RPM. Note most stepper motors 
+     * > won't be able to turn much faster than 600 RPM.
      *
      * The "endswitch_sensitive_down" option is by default set to 1, i.e., the motor will immediately stop its 
      * movement towards more negative target positions when the end switch pin gets connected to zero. 
@@ -212,12 +212,12 @@ void stepper_move() {
      * of the range. Or one can use different settings before/after the first calibration to allow the motor 
      * going beyond the end-switch(es) - if this is safe.
      *
-     * "reset_nanopos_at_endswitch" will reset the position only if endswitch triggers the end of the 
-     * movement. This is the recommended option for easy calibration of position at the endswitch. 
+     * "reset_nanopos_at_endswitch" will reset the position if endswitch triggers the end of the 
+     * movement. This is a convenience option for easy calibration of position using the endswitch. 
+	 * Note that the nanopos can also be manually reset by re-issuing the `stepper_init()` function. 
      *
-     * "reset_nanopos_first" will reset the position before movement, so the target nanopos value given is 
-     * taken as relative to the actual position.
-     *
+     * "relative" if set to true, rp2daq will add the `to` value to current nanopos; movement  
+	 * then becomes relative to the position of the motor when the command is issued. 
      *
      * When no callback is provided, this command blocks your program until the movement is finished. 
      * Using asychronous commands one can easily make multiple steppers move at once.
@@ -231,17 +231,20 @@ void stepper_move() {
      */ 
 	struct __attribute__((packed))  {
 		uint8_t  stepper_number;		// min=0 max=15
-		uint32_t to;					
+		int32_t to;					
 		uint32_t speed;					// min=1 max=10000
 		int8_t  endswitch_sensitive_up;		// min=0 max=1	default=0
 		int8_t  endswitch_sensitive_down;	// min=0 max=1	default=1
-		int8_t  reset_nanopos_first;		// min=0 max=1	default=0
+		int8_t  relative;		        // min=0 max=1	default=0
 		int8_t  reset_nanopos_at_endswitch;	// min=0 max=1	default=0
 	} * args = (void*)(command_buffer+1);
 
     uint8_t m = args->stepper_number; 
 	stepper[m].start_time_us = time_us_64();
-	if (args->reset_nanopos_first) {stepper[m].nanopos = NANOPOS_AT_ENDSWITCH;} // i.e. relative movement
+	if (args->relative) 
+		stepper[m].target_nanopos += args->to;  // i.e. relative movement
+	else 	
+		stepper[m].target_nanopos = args->to;  // i.e. movement w.r.t. initial zero position
 	stepper[m].reset_nanopos_at_endswitch = args->reset_nanopos_at_endswitch; // i.e. calibration
 
     stepper[m].endswitch_sensitive = (
@@ -250,7 +253,6 @@ void stepper_move() {
 
 
 	stepper[m].previous_nanopos     = stepper[m].nanopos; // remember the starting position (for smooth start)
-	stepper[m].target_nanopos       = args->to;
 	stepper[m].max_nanospeed        = max(args->speed, 1); // if zero, it means motor is idle
    
 	// Normally will not report until stepper finishes, which may take some seconds or minutes.
@@ -274,14 +276,14 @@ inline uint32_t usqrt(uint32_t val) { // fast and terribly inaccurate uint32 squ
     return a<<USQRTBOOST;
 }
 
-inline uint32_t udiff(uint32_t a, uint32_t b) {  // absolute value of difference
+inline uint32_t udiff(int32_t a, int32_t b) {  // absolute value of difference
 	return (max(a,b)-min(a,b));
 }
 
 void stepper_update() {
 	for (uint8_t m=0; m<MAX_STEPPER_COUNT; m++) {
 		if (stepper[m].initialized) {  // one moving stepper takes ca. 450 CPU cycles (if not messaging) // TODO rm CHECK
-			uint32_t new_nanopos, actual_nanospeed;
+			int32_t new_nanopos, actual_nanospeed;
 
 			//TODO if (STEPPER_IS_MOVING(m))  { // i.e. when stepper is moving
 			if (stepper[m].nanopos != stepper[m].target_nanopos)  { // i.e. when stepper is moving
@@ -306,9 +308,9 @@ void stepper_update() {
 					stepper[m].move_reached_endswitch = 1; // remember reason for stopping
 					mk_tx_stepper_report(m);
                     if ((stepper[m].move_reached_endswitch) && (stepper[m].reset_nanopos_at_endswitch)) {
-                        stepper[m].nanopos = NANOPOS_AT_ENDSWITCH; 
-                        new_nanopos = NANOPOS_AT_ENDSWITCH;
-                        stepper[m].target_nanopos = NANOPOS_AT_ENDSWITCH;} // useful for end switch calibration
+                        stepper[m].nanopos = NANOPOS_DEFAULT; 
+                        new_nanopos = NANOPOS_DEFAULT;
+                        stepper[m].target_nanopos = NANOPOS_DEFAULT;} // useful for end switch calibration
 				} else if (new_nanopos == stepper[m].target_nanopos) { // if the move finishes successfully
 					stepper[m].max_nanospeed = 0;
 					//stepper[m].target_nanopos = new_nanopos;  // TODO rm?
