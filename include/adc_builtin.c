@@ -12,11 +12,12 @@ struct {
 	uint16_t blocksize;		
     uint32_t blocks_to_send;	
 	uint16_t clkdiv;		
-    uint64_t start_time_us;	
-    uint64_t end_time_us;	
+    uint64_t start_time_us;	  // todo: should be stored in adc-buffer header (i.e. is relevant to each block)
+    // uint64_t end_time_us;	// todo: pointless, rm!
+	uint32_t start_sync_value;  // todo: should be stored in adc-buffer header
 	uint8_t waits_for_usb;		
 	uint8_t waits_for_trigger;		
-	uint8_t block_delayed_by_usb;		
+	uint8_t block_delayed_by_usb;  // todo: should be stored in adc-buffer header		
 	int8_t  trigger_gpio;		
 	uint8_t trigger_on_falling_edge;
 	//uint8_t trigger_timeout_max;		// TODO
@@ -33,6 +34,8 @@ struct __attribute__((packed)) {
     uint8_t _data_bitwidth;
 	uint64_t start_time_us;
 	uint64_t end_time_us;
+	uint32_t start_sync_value;
+	uint32_t end_sync_value;
     uint8_t channel_mask;
     uint32_t blocks_to_send;
     uint8_t block_delayed_by_usb;
@@ -71,7 +74,7 @@ void adc() {
         if (iADC_config.trigger_gpio > -1)
              gpio_set_irq_enabled_with_callback(
                      1, 
-                     iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE, //GPIO_IRQ_EDGE_FALL ,
+                     iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE,
                      true, 
                      &iADC_trigger_IRQ);
         iADC_start_or_schedule_after_trigger(); 
@@ -165,6 +168,12 @@ void iADC_DMA_init() {
 	adc_run(true);
 }
 
+int32_t get_sync_value() {
+	return stepper[0].nanopos;  // this is hardwired as of now, 
+	// (todo) should be user-configurable by a separate message for other stepper(s), adcvalues
+	//  or other dynamical variables
+}
+
 void iADC_DMA_start() {
     iADC_config.block_delayed_by_usb = iADC_config.waits_for_usb;
     iADC_config.waits_for_usb = 0;
@@ -179,6 +188,7 @@ void iADC_DMA_start() {
 	// Prepare a new non-blocking ADC acquisition using DMA in background
     //iADC_buffers[iADC_active_buffer].start_time_us = time_us_64();
     iADC_config.start_time_us = time_us_64();
+	iADC_config.start_sync_value = get_sync_value();
 
 	iADC_buffers[iADC_active_buffer].write_lock = 1; // will be released upon transmit
 	dma_channel_configure(iADC_DMA_chan, &iADC_DMA_cfg,
@@ -259,6 +269,8 @@ void iADC_DMA_IRQ_handler() {
 	// First remember ADC config that will get overwritten 
     adc_report.end_time_us = time_us_64(); 
     adc_report.start_time_us = iADC_config.start_time_us;
+    adc_report.start_sync_value = iADC_config.start_sync_value;
+    adc_report.end_sync_value = get_sync_value();
 
     // If possible start the next ADC acquisition block non-delayed (i.e. within <4 us)
 	if (iADC_config.blocks_to_send) iADC_config.blocks_to_send--;

@@ -2,32 +2,6 @@
 // TODO Try how many steppers can really be controlled (e.g. when ADC runs at 500 kSps...)
 // TODO Disperse motor service routines consecutively in time (e.g. change 10kHz timer to 80kHz ?)
 
-// Stepper support using Stepstick
-#define NANOPOS_AT_ENDSWITCH  (uint32_t)(1<<31)   // so that motor can move symmetrically from origin
-#define NANOSTEP_PER_MICROSTEP  256             // for fine-grained speed and position control
-#define MAX_STEPPER_COUNT 16
-#define STEPPER_IS_MOVING(m)	(stepper[m].max_nanospeed > 0)
-#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_sensitive) && (stepper[m].endswitch_gpio >= 0) && \
-			 (!gpio_get(stepper[m].endswitch_gpio)))
-
-
-typedef struct __attribute__((packed)) {
-    uint8_t  initialized;      
-    uint8_t  dir_gpio;
-    uint8_t  step_gpio;
-    uint8_t  endswitch_gpio;
-    uint8_t  disable_gpio;
-    uint8_t  endswitch_sensitive;
-    uint8_t  reset_nanopos_at_endswitch;
-    uint32_t nanopos;
-    uint32_t target_nanopos;
-    uint32_t max_nanospeed;
-    uint32_t inertia_coef;
-    uint32_t previous_nanopos;
-    uint8_t  move_reached_endswitch;
-    uint64_t start_time_us; 
-} stepper_config_t;
-volatile stepper_config_t stepper[MAX_STEPPER_COUNT];
 
 
 
@@ -109,10 +83,10 @@ struct __attribute__((packed)) {
 	uint64_t timestamp_us;
     uint8_t stepper_number;
     uint8_t endswitch;
-    uint32_t nanopos; // TODO
-    uint16_t steppers_init_bitmask; // TODO
-    uint16_t steppers_moving_bitmask; // TODO
-    uint16_t steppers_endswitch_bitmask; // TODO
+    uint32_t nanopos;
+    uint16_t steppers_init_bitmask;
+    uint16_t steppers_moving_bitmask;
+    uint16_t steppers_endswitch_bitmask;
 } stepper_status_report;
 
 void stepper_status() {
@@ -131,9 +105,10 @@ void stepper_status() {
 	struct __attribute__((packed)) {
 		uint8_t  stepper_number;	// min=0	max=15
 	} * args = (void*)(command_buffer+1);
+
 	uint8_t m = args->stepper_number;
 	stepper_status_report.stepper_number = m;
-	stepper_status_report.endswitch = (ENDSWITCH_TEST(m)); // ? 1 : 0 TODO 
+	stepper_status_report.endswitch = (ENDSWITCH_TEST(m)); 
 	stepper_status_report.nanopos = stepper[m].nanopos;
 
 	stepper_status_report.steppers_init_bitmask = 0;
@@ -149,7 +124,6 @@ void stepper_status() {
 			stepper_status_report.steppers_endswitch_bitmask |= (1<<n);
 	}
 
-	//uint64_t ts = (uint64_t)to_us_since_boot(get_absolute_time()); TODO
     stepper_status_report.timestamp_us = time_us_64(); 
 	prepare_report(&stepper_status_report, sizeof(stepper_status_report), 0, 0, 0);
 }

@@ -36,7 +36,8 @@ stupidplot = StupidPlot()
 ADC_data = rp.adc(
         channel_mask=sum(2**ch for ch in channels),
         blocksize=width*len(channels),  # one ADC sample per ?????, per channel
-        clkdiv=48000//kSPS_per_ch)['data']
+        clkdiv=48000//kSPS_per_ch)
+print(ADC_data)
 channel_data = [ADC_data[ofs::len(channels)] for ofs,name in enumerate(channels)]
 stupidplot.plot(channel_data)
 

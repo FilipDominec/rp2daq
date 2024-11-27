@@ -1,5 +1,5 @@
 
-#define FIRMWARE_VERSION {"rp2daq_241112_"}
+#define FIRMWARE_VERSION {"rp2daq_241127_"}
 
 
 #define TUD_OPT_HIGH_SPEED (1)
