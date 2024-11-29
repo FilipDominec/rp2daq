@@ -157,10 +157,8 @@ def analyze_c_firmware():
 
         #for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)([; \t\w=\/]*)",  report_struct_code):
         report_struct_code = re.sub(r'\n\s*\/\/', '', report_struct_code) # allow multi-line comments for report comments
-        print(command_name, command_code)
         for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)(.*)",  report_struct_code):
             unsigned, bits, arg_name_multi, line_comments = line.groups()
-            print(line, '    -- ', unsigned, bits, arg_name_multi, line_comments)
             bit_width_code = {8:'b', 16:'h', 32:'i', 64:'q'}[int(bits)]
 
             arg_comment = ""
