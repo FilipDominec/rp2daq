@@ -125,7 +125,7 @@ def analyze_c_firmware():
                 if param_maxmindef: param_docstring += f" _({param_maxmindef.strip(', ')})_ "
                 param_docstring += f"\n"
 
-        param_docstring += f"  * **_callback** : Optionally, a function to handle future report(s)."
+        param_docstring += f"  * **_callback** : Optionally, a function to handle future report(s). "
         param_docstring += f"If set, makes this command asynchronous so it does not wait for the command being finished. \n\n"
 
 
@@ -170,11 +170,16 @@ def analyze_c_firmware():
             if arg_name_multi == 'report_code': 
                 arg_comment = f'{command_code} {arg_comment}'
 
+
             for arg_name in arg_name_multi.split(","):
                 report_length += int(bits)//8
                 report_header_signature += bit_width_code.upper() if unsigned else bit_width_code
                 arg_names.append(arg_name)
-                report_docstring += f"  * **{arg_name}** {':' if arg_comment else ''} {arg_comment.strip()} \n"
+
+                if arg_name not in ('_data_count', '_data_bitwidth'):
+                    report_docstring += f"  * **{arg_name}** {':' if arg_comment else ''} {arg_comment.strip()} \n"
+                elif arg_name == '_data_count':
+                    report_docstring += f"  * **data** : as a list of integers. \n"
 
         report_lengths[command_code] = report_length
         assert report_length > 0, "every report has to contain at least 1 byte, troubles ahead"
@@ -185,8 +190,8 @@ def analyze_c_firmware():
         markdown_docs += f"\n\n## {command_name}\n\n"
         markdown_docs += f"```Python\n{command_name}({exec_header} _callback=None)\n```\n\n"
         markdown_docs += f"{raw_docstring}\n\n"
-        markdown_docs += f"##### Command parameters:\n\n{param_docstring}\n"
-        markdown_docs += f"##### Report returns:\n\n{report_docstring}\n"
+        markdown_docs += f"***Command parameters:***\n\n{param_docstring}\n"
+        markdown_docs += f"***Report returns:***\n\n{report_docstring}\n"
 
     #print(report_header_signatures)
     #print(arg_names_for_reports)

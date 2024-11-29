@@ -10,7 +10,7 @@ struct __attribute__((packed)) {
 void identify() {   
     /* Mostly for internal use: confirms the RP2DAQ device is up and has matching firmware version
      * 
-     * __This command results in single near-immediate report.__
+     * *This command results in single near-immediate report.*
      */ 
 	struct  __attribute__((packed)) { 
         uint8_t flush_buffer;    // min=0 max=1 default=1 Avoid possible pending messages from previous session

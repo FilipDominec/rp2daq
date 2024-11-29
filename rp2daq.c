@@ -38,15 +38,15 @@ message_descriptor message_table[] = // #new_features: add your command to this 
                 {&gpio_out,			&gpio_out_report},
                 {&gpio_in,			&gpio_in_report},
                 {&gpio_on_change,	&gpio_on_change_report},
+                {&gpio_highz,		&gpio_highz_report},
+                {&gpio_pull,		&gpio_pull_report},
                 {&adc,				&adc_report},
+                {&adc_stop,		    &adc_stop_report},
                 {&pwm_configure_pair, &pwm_configure_pair_report},
                 {&pwm_set_value,	&pwm_set_value_report},
                 {&stepper_init,		&stepper_init_report},
-                {&stepper_status,	&stepper_status_report},
                 {&stepper_move,		&stepper_move_report},
-                {&gpio_pull,		&gpio_pull_report},
-                {&gpio_highz,		&gpio_highz_report},
-                {&adc_stop,		    &adc_stop_report},
+                {&stepper_status,	&stepper_status_report},
                 //
 			 // {handler fn ref,	report struct instance ref}
         };  

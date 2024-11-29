@@ -10,7 +10,7 @@ void gpio_out() {
      *
      * This overrides previous high-impedance or pull-up/down state of the pin. 
      *
-     * __This command results in single, meaningless, near-immediate report.__
+     * *This command results in single, meaningless, near-immediate report.*
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
@@ -37,7 +37,7 @@ void gpio_pull() {
      *
      * This overrides previous direct-output or high-impedance state of the pin. 
      *
-     * __This command results in single, meaningless, near-immediate report.__
+     * *This command results in single, meaningless, near-immediate report.*
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
@@ -70,7 +70,7 @@ void gpio_highz() {
      *
      * This overrides previous direct-output or pull-up/down state of the pin. 
      *
-     * __This command results in single, meaningless, near-immediate report.__
+     * *This command results in single, meaningless, near-immediate report.*
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
@@ -99,7 +99,7 @@ void gpio_in() {
 	 * > [!CAUTION]
 	 * > The maximum allowed voltage at any pin is 3.3V.
 	 *
-     * __This command results in single near-immediate report.__
+     * *This command results in single near-immediate report.*
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25
@@ -113,9 +113,9 @@ void gpio_in() {
 
 struct __attribute__((packed)) {
     uint8_t report_code;
-    uint32_t gpio;
-    uint32_t events;
-	uint64_t time_us;
+    uint32_t gpio;   // The pin at which the event was detected. 
+    uint32_t events; // The value of 4 corresponds to falling edge, 8 to rising edge.
+	uint64_t time_us; // Timestamp in microseconds.
 } gpio_on_change_report;
 
 void gpio_on_change_IRQ(uint gpio, uint32_t events) {
@@ -133,7 +133,7 @@ void gpio_on_change() {
      * 
      * __Fixme__: in current firmware, edge events cannot be turned off! 
      * 
-     * __This command potentially results in multiple later reports. Note that input signal over 10kHz may result in some events not being reported.__
+     * *This command potentially results in multiple later reports. Note that input signal of over 10-50kHz may result in some events not being reported.*
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25 gpio specification

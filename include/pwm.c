@@ -21,7 +21,7 @@ void pwm_configure_pair() {
      * > also the same clkdiv, wrap and clkdiv_int_frac values. Changing them for one of these 
      * > pins changes it for other, too.)
      * 
-     * __This command results in one near-immediate report.__
+     * *This command results in one near-immediate report.*
      */ 
 	struct __attribute__((packed)) {
 		uint8_t gpio;				// default=0		min=0		max=25    Selected pin for PWM output. Note not all pins are independent, see above. 
@@ -52,12 +52,13 @@ void pwm_set_value() {
      * 
      * It is assumed this GPIO already was configured by `pwm_configure_pair()`.
      * 
-     * __This command results in one near-immediate report.__
+     * *This command results in one near-immediate report.*
      */ 
 	struct __attribute__((packed)) {
 		uint8_t gpio;				// default=0		min=0		max=25
-		uint16_t value;				// default=0		min=0		max=65535  The counter value at which PWM 
-                // switches from 1 to 0. For example, set it to `wrap_value`//2 to achieve a 50% duty cycle.
+		uint16_t value;				// default=0		min=0		max=65535  The counter value at which PWM pin 
+                // switches from 1 to 0. For example, set `value` to `wrap_value`//2 (defined by `pwm_configure_pair`) 
+                // to achieve a 50% duty cycle.
 	} * args = (void*)(command_buffer+1);
 
 	// TODO remember settings - check if GPIO is defined as pwm, if not, init it here

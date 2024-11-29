@@ -16,12 +16,14 @@ void stepper_init() {
 	 * the direction and speed of rotation, respectively. The GPIO numbers of these
 	 * signals are mandatory parameters.
 	 *
-	 * This command only defines constants and initializes the GPIO states, but does not 
-	 * move the stepper; see `stepper_move()` for getting it moving. 
-	 *
 	 * > [!CAUTION]
 	 * > Never disconnect a stepper from Stepstick when powered. Interrupting the 
 	 * > current in its coils results in a voltage spike that may burn the driver chip.
+	 *
+	 * This command only defines constants and initializes the GPIO states, but does not 
+	 * move the stepper; see `stepper_move()` for getting it moving. 
+     *
+     * *It results in one immediate report.*
 	 *
 	 */
 	struct __attribute__((packed)) {
@@ -98,7 +100,7 @@ void stepper_status() {
 	 * e.g., into a two-dimensional movement. (New set of stepper_move() commands then would 
 	 * be issued only when all relevant bits in steppers_moving_bitmask are cleared.)
 	 *
-     * __Results in one immediate report.__
+     * *This command results in one immediate report.*
 	 */ 
 	struct __attribute__((packed)) {
 		uint8_t  stepper_number;	// min=0	max=15
@@ -207,8 +209,8 @@ void stepper_move() {
      * > As with all other commands taking some time to finish, moving a stepper blocks your program until the movement is finished. 
      * > Using asychronous commands one can easily make multiple steppers move at once.
      *
-     * *This command results one report after the movement is finished. Thus it may be immediate 
-     * or delayed by seconds, minutes or hours, depending on distance and speed.* 
+     * *This command results in one report after the movement is finished. Thus it may be near immediate 
+     * or delayed by seconds, minutes or hours, depending on the distance and speed.* 
      */ 
 	struct __attribute__((packed))  {
 		uint8_t  stepper_number;		// min=0 max=15
