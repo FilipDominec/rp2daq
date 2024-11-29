@@ -34,11 +34,11 @@ struct __attribute__((packed)) {
     uint8_t _data_bitwidth;
 	uint64_t start_time_us;       // Microsecond timestamp when ADC started this block acquisition.
 	uint64_t end_time_us;         // Microsecond timestamp when ADC finished this block acquisition.
-	uint32_t start_sync_value;    // Stepper[0] nanoposition when ADC started this block acquisition. (Subject to future change.)
-	uint32_t end_sync_value;      // Stepper[0] nanoposition when ADC finished this block acquisition. (Subject to future change.)
+	uint32_t start_sync_value;    // Stepper[0] nanoposition when ADC started this block acquisition. (Will be configurable in future.)
+	uint32_t end_sync_value;      // Stepper[0] nanoposition when ADC finished this block acquisition. (dtto)
     uint8_t channel_mask;         // The channel_mask value that was used (see adc() call parameters for details).
     uint32_t blocks_to_send;	  // How many blocks remain to be sent. Does not change if adc set to infinite.
-    uint8_t block_delayed_by_usb; // Normally should be 0, except USB is overloaded and ADC blocks have to wait for USB buffer to accept new data.
+    uint8_t block_delayed_by_usb; // Normally should be 0, except USB was overloaded and the ADC block had to wait for the USB buffer to accept new data.
 } adc_report;
 
 void adc() {

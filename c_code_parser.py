@@ -41,7 +41,7 @@ def generate_command_codes(C_code):
     return {c.group():n//2 for n,c in enumerate(re.finditer(r"\w+", command_table_code, 
         flags=re.M+re.S)) if not c.group().endswith("_report")}
 
-def generate_command_binary_interface():
+def analyze_c_firmware():
     """ Parses the RP2DAQ firmware in C language, searching for the table of commands, and 
     then the binary structures each command is supposed to accept.
     Returns a dict of functions which transmit such binary messages, exactly matching the 
@@ -51,50 +51,45 @@ def generate_command_binary_interface():
     # Fixme: error-prone assumption that args are always the 1st parentheses block in every 
     # command/function body
 
-    print(__file__)
-    print(pathlib.Path(__file__).resolve().parent)
     proj_path = pathlib.Path(__file__).resolve().parent
     C_code = gather_C_code(proj_path)
     command_codes = generate_command_codes(C_code)
 
-    func_dict = {}
-    markdown_docs = ""
-    for command_name in command_codes.keys():
-        command_code = command_codes[command_name]
+    # Results that will be dynamically populated
+    func_dict = {}  # Rp2daq class' methods for calling commands
+    report_lengths, report_header_signatures, arg_names_for_reports = {}, {}, {} # Report formats
+    markdown_docs = ""  # Docs generated from C code and comments therein
+
+    for command_name, command_code in command_codes.items():
+        ## Search for the command handlers in C code
         q = re.search(f"void\\s+{command_name}\\s*\\(\\)", C_code)
         func_body = get_next_code_block(C_code[q.span()[1]:]) # code enclosed by closest brace block
         args_struct = get_next_code_block(func_body) 
 
         struct_signature, cmd_length = "", 0
         arg_names, arg_defaults = [], []
-
-        exec_header = f""
-        exec_prepro = f""
-        exec_struct = f"" 
-        exec_stargs = f""
+        exec_header, exec_prepro, exec_struct,  exec_stargs = ["" for _ in range(4)]
 
         try:
             raw_docstring = get_next_code_block(func_body, lbrace="/*", rbrace="*/").strip()
             raw_docstring = re.sub(r"\n(\s*\*)? ?", "\n", raw_docstring)  # rm leading asterisks, keep indent
         except IndexError: 
             raw_docstring = ""
-        exec_docstring = f"{raw_docstring.replace('__','')}\n\n"
-
-        #print(exec_docstring)
 
 
         param_docstring = ""
-        for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)(.*)",  args_struct):
+        args_struct = re.sub(r'\n\s*\/\/', '', args_struct) # allow multi-line comments for params
+        for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)(.*)", args_struct):
             unsigned, bits, arg_name_multi, line_comments = line.groups()
             bit_width_code = {8:'b', 16:'h', 32:'i', 64:'q'}[int(bits)]
 
             arg_attribs = {}
             arg_comment = ""
-            for commentoid in re.split("\\s+", line_comments):
+            for commentoid in re.split("\\s+", line_comments): # the rest of the line may be ...
                 u = re.match("(\\w*)=(-?\\d*)", commentoid)
-                if u:
+                if u:   # ... either annotation of values (min,max,default) ...
                     arg_attribs[u.groups()[0]] = u.groups()[1]
-                elif not commentoid in ("", "//", ";"):
+                elif not commentoid in ("", "//", ";"): # ... or really just a comment
                     arg_comment += " " + commentoid
                 comment = arg_comment.strip()
 
@@ -104,35 +99,34 @@ def generate_command_binary_interface():
                 exec_stargs += f"\n\t\t\t{arg_name},"
                 arg_names.append(arg_name)
 
-                d = arg_attribs.get("default")
-                if d:
-                    exec_header += f"{arg_name}={d}, "
-                else: 
-                    exec_header += f"{arg_name}, "
-
+                param_maxmindef = ""
                 m = arg_attribs.get("min")
                 if m is not None:
                     exec_prepro += f"\tassert {arg_name} >= {arg_attribs['min']}, "+\
                             f"'Minimum value for {arg_name} is {arg_attribs['min']}'\n"
+                    param_maxmindef += f"min={m}, "
 
                 m = arg_attribs.get("max")
                 if m is not None:
                     exec_prepro += f"\tassert {arg_name} <= {arg_attribs['max']},"+\
                             f"'Maximum value for {arg_name} is {arg_attribs['max']}'\n"
+                    param_maxmindef += f"max={m}, "
 
-                param_docstring += f"  * {arg_name} {':' if comment else ''} {comment} \n" #  TODO print range  (min=0 max= 2³²-1)
-            #print(command_name, command_code, ":", exec_header)
+                d = arg_attribs.get("default")
+                if d: 
+                    exec_header += f"{arg_name}={d}, "
+                    param_maxmindef += f"default={d}, "
+                else: exec_header += f"{arg_name}, "
 
-        param_docstring += f"  * _callback: optional report handling function; if set, makes this command asynchronous so it does not wait for report \n\n"
 
-        #exec_docstring += "Returns:\n\n" # TODO analyze report structure (and comments therein)
+                param_docstring += f"  * __ {arg_name}__ "
+                if param_maxmindef or comment: param_docstring += f" :"
+                if comment: param_docstring += f" {comment} "
+                if param_maxmindef: param_docstring += f" _({param_maxmindef.strip(', ')})_ "
+                param_docstring += f"\n"
 
-        # Append extracted docstring to the overall API reference
-        markdown_docs += f"\n\n## {command_name}\n\n{raw_docstring}\n\n"
-        markdown_docs += f"__Call signature:__\n\n`{command_name}({exec_header} _callback=None)`\n\n"
-        markdown_docs += f"__Command parameters__:\n\n{param_docstring}\n"
-        #markdown_docs += f"__Report object's attributes__:\n\n{param_docstring}\n"
-        #markdown_docs += f"{raw_docstring}\n\n#### Arguments:"
+        param_docstring += f"  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. \n\n"
+
 
         # TODO once 16-bit msglen enabled: cmd_length will go +3, and 1st struct Byte must change to Half-int 
         exec_msghdr = f"', {cmd_length+2}, {command_code}, "
@@ -148,42 +142,62 @@ def generate_command_binary_interface():
                 f"\t\treturn self.default_blocking_callback({command_code})"
 
                 #f"\tself.report_pipe_out.send_bytes(struct.pack('<BB{exec_struct}{exec_msghdr}{exec_stargs}))\n" +\
-
-
-
         func_dict[command_name] = code  # returns Python code
-    return func_dict, markdown_docs
 
-def generate_report_binary_interface():
-    proj_path = pathlib.Path(__file__).resolve().parent
-    C_code = gather_C_code(proj_path)
-    command_codes = generate_command_codes(C_code)
-    report_lengths, report_header_signatures, arg_names_for_reports = {}, {}, {}
-    for report_name, report_number in command_codes.items():
-        q = re.search(f"}}\\s*{report_name}_report", C_code)
-        #print(report_number, report_name,q)
+
+        ## Search for the report structures in C code
+        report_docstring = ""
+        q = re.search(f"}}\\s*{command_name}_report", C_code)
+        #print(command_code, command_name,q)
         report_struct_code = get_prev_code_block(C_code[:q.span()[0]+1]) # code enclosed by closest brace block
-        report_struct_code = remove_c_comments(report_struct_code)
+        #report_struct_code = remove_c_comments(report_struct_code)
 
         report_header_signature, report_length = "<", 0
         arg_names, arg_defaults = [], []
 
-        for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)([; \t\w=\/]*)",  report_struct_code):
+        #for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)([; \t\w=\/]*)",  report_struct_code):
+        report_struct_code = re.sub(r'\n\s*\/\/', '', report_struct_code) # allow multi-line comments for report comments
+        print(command_name, command_code)
+        for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)(.*)",  report_struct_code):
             unsigned, bits, arg_name_multi, line_comments = line.groups()
+            print(line, '    -- ', unsigned, bits, arg_name_multi, line_comments)
             bit_width_code = {8:'b', 16:'h', 32:'i', 64:'q'}[int(bits)]
+
+            arg_comment = ""
+            for commentoid in re.split("\\s+", line_comments): 
+                if commentoid.strip() not in ("", "//", ";"): # filter for real comments only
+                    arg_comment += " " + commentoid
+
+            if arg_name_multi == 'report_code': 
+                arg_comment = f'{command_code} {arg_comment}'
 
             for arg_name in arg_name_multi.split(","):
                 report_length += int(bits)//8
                 report_header_signature += bit_width_code.upper() if unsigned else bit_width_code
                 arg_names.append(arg_name)
-        report_lengths[report_number] = report_length
+                report_docstring += f"  * __ {arg_name}__{':' if arg_comment else ''} {arg_comment.strip()} \n"
+
+        report_lengths[command_code] = report_length
         assert report_length > 0, "every report has to contain at least 1 byte, troubles ahead"
-        report_header_signatures[report_number] = report_header_signature
-        arg_names_for_reports[report_number] = arg_names
+        report_header_signatures[command_code] = report_header_signature
+        arg_names_for_reports[command_code] = arg_names
+
+        # Append extracted docstring to the overall API reference
+        markdown_docs += f"\n\n## {command_name}\n\n"
+        markdown_docs += f"```Python\n{command_name}({exec_header} _callback=None)```\n\n"
+        markdown_docs += f"{raw_docstring}\n\n"
+        markdown_docs += f"####Command parameters:\n\n{param_docstring}\n"
+        markdown_docs += f"####Report returns:\n\n{report_docstring}\n"
 
     #print(report_header_signatures)
     #print(arg_names_for_reports)
-    return report_lengths, report_header_signatures, arg_names_for_reports
+
+
+
+    return report_lengths, report_header_signatures, arg_names_for_reports, func_dict, markdown_docs
+
+def generate_report_binary_interface():
+    pass
 
 def gather_C_code(proj_path):
     C_code = open(proj_path/'rp2daq.c').read()
@@ -196,11 +210,12 @@ if __name__ == "__main__":
     reference_file = "./docs/PYTHON_REFERENCE.md"
     print(f"This module was run as a command. It will parse C code and re-generate {reference_file}")
     
-    command_functions, markdown_docs = generate_command_binary_interface()
+    report_lengths, report_header_signatures, arg_names_for_reports, command_functions, markdown_docs =\
+            analyze_c_firmware()
 
     with open(proj_path / reference_file, "w") as of:
         of.write("# RP2DAQ: Python API reference\n\nThis file was auto-generated by c_code_parser.py, " + 
-            "using comments found in all ```include/*.c``` source files.\n\n Contents:\n\n")
+            "using comments found in all ```include/*.c``` source files.\n\n If not specified otherwise, all data types are integers.\n\n Contents:\n\n")
         # TODO write out a note on the API version (i.e. date in rp2daq.h)
         for cmdname in command_functions.keys():
             of.write(f"   1. [{cmdname}](#{cmdname})\n") # .replace('_','-')
@@ -209,7 +224,7 @@ if __name__ == "__main__":
     #for func_name, func_code in command_functions.items():
         #print(func_code)
 
-    report_lengths, report_header_signatures, arg_names_for_reports = generate_report_binary_interface()
+    #report_lengths, report_header_signatures, arg_names_for_reports = generate_report_binary_interface()
     #print(f"{report_lengths=}")
     #print(f"{report_header_signatures=}")
     #print(f"{arg_names_for_reports=}")

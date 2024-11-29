@@ -122,7 +122,9 @@ class Rp2daq_internals(threading.Thread):
         # #define FIRMWARE_VERSION {"rp2daq_220720_"}
         # self.expected_firmware_v = 
 
-        names_codes, markdown_docs  = c_code_parser.generate_command_binary_interface()
+        self.report_header_lenghts, self.report_header_formats, self.report_header_varnames, \
+                names_codes, markdown_docs = c_code_parser.analyze_c_firmware()
+
         for cmd_name, cmd_code in names_codes.items():
             exec(cmd_code)
             setattr(self._e, cmd_name, types.MethodType(locals()[cmd_name], self))
@@ -130,8 +132,6 @@ class Rp2daq_internals(threading.Thread):
         # Search C code for report structs & generate automatically:
         self.sync_report_cb_queues = {}
         self.async_report_cb_queue = queue.Queue()
-        self.report_header_lenghts, self.report_header_formats, self.report_header_varnames = \
-                c_code_parser.generate_report_binary_interface()
 
         # Register callbacks (to dispatch reports as they arrive)
         self.report_callbacks = {} 

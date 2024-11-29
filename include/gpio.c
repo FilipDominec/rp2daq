@@ -14,7 +14,7 @@ void gpio_out() {
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
-		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V) for high_z = 0
+		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V)
 	} * args = (void*)(command_buffer+1);
 	gpio_init(args->gpio);  // is it necessary to avoid clash e.g. with PWM output
 
@@ -87,8 +87,8 @@ void gpio_highz() {
 
 struct __attribute__((packed)) {
     uint8_t report_code;
-    uint8_t gpio;
-    uint8_t value;
+    uint8_t gpio;  
+    uint8_t value; // 1 if pin connected to >2 V; 0 if connected to <1 V 
 } gpio_in_report;
 
 void gpio_in() {

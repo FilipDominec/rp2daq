@@ -16,21 +16,8 @@ void stepper_init() {
 	 * the direction and speed of rotation, respectively. The GPIO numbers of these
 	 * signals are mandatory parameters.
 	 *
-	 * This command only defines constants and initializes GPIO states, but does not 
-	 * move the stepper; for this one uses the stepper_move() command. 
-	 *
-	 * Optionally one can provide the "disable" GPIO number which, when connected to 
-	 * the "!enable" pin on A4988 will automatically turn off current to save energy.
-	 *
-	 * Independent of the A4988, rp2daq accepts the "endswitch" GPIO which 
-	 * automatically stops the stepper whenever it reaches the minimum or maximum 
-	 * position. Having a dedicated end stop is both safety and convenience measure, 
-	 * allowing one to easily calibrate the stepper position upon restart. More details
-	 * are with the stepper_move() command.
-	 *
-	 * The "inertia" parameter allows for smooth ac-/de-celeration of the stepper, 
-	 * preventing it from losing steps at startup even at high rotation speeds. The 
-	 * default value is usually OK unless the stepper moves some heavy mass.
+	 * This command only defines constants and initializes the GPIO states, but does not 
+	 * move the stepper; see `stepper_move()` for getting it moving. 
 	 *
 	 * > [!CAUTION]
 	 * > Never disconnect a stepper from Stepstick when powered. Interrupting the 
@@ -38,12 +25,18 @@ void stepper_init() {
 	 *
 	 */
 	struct __attribute__((packed)) {
-		uint8_t  stepper_number;	// min=0	max=15    The ID of the stepper to be configured. 
-		uint8_t  dir_gpio;			// min=0	max=24    Direction-controlling output pin. 
-		uint8_t  step_gpio;			// min=0	max=24    Microstep-advancing output pin.
-		int8_t   endswitch_gpio;	// min=-1	max=24		default=-1   Optionally, this pin gets shorted at end switch.
-		int8_t   disable_gpio;		// min=-1	max=25		default=-1
-		uint32_t inertia;			// min=0	max=10000	default=30
+		uint8_t  stepper_number;	// min=0	max=15    The number of the stepper to be configured. 
+		uint8_t  dir_gpio;			// min=0	max=24    Direction-controlling output GPIO pin. 
+		uint8_t  step_gpio;			// min=0	max=24    Microstep-advancing output GPIO pin.
+		int8_t   endswitch_gpio;	// min=-1	max=24	default=-1     GPIO that, once shorted to ground, can 
+            // automatically stop the stepper whenever it reaches the minimum (or maximum) allowed
+            // position. The end stop switch is both safety and convenience measure, 
+            // allowing one to easily calibrate the stepper position upon restart. More details
+            // are with the stepper_move() command.
+		int8_t   disable_gpio;		// min=-1	max=25		default=-1     GPIO number that may be connected to 
+	        // the "!enable" pin on A4988 module - will automatically turn off current to save energy when
+            // the stepper is not moving. Note however it also loses its holding force. 
+		uint32_t inertia;			// min=0	max=10000	default=30  Allows for smooth acc-/deceleration of the stepper, preventing it from losing steps at startup even at high rotation speeds. The default value is usually OK unless the stepper moves some heavy mass.
 	} * args = (void*)(command_buffer+1);
 
 	uint8_t m = args->stepper_number;
