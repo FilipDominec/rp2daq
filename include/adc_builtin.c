@@ -46,8 +46,8 @@ void adc() {
      *
      * When ADC is already active, this takes no action. Use adc_stop() first in such a case.  
      * 
-     * __This command can result in one, several or infinitely many report(s). They can be 
-     * almost immediate or delayed, depending on block size and timing.__
+     * *This command can result in one, several or infinitely many report(s). They can be 
+     * almost immediate or delayed, depending on block size and timing.*
      */ 
 	struct __attribute__((packed)) {
 		uint8_t channel_mask;		// default=1		min=1		max=31 Bits 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor
@@ -94,16 +94,17 @@ void adc_stop() {
      * Still, one or more ADC report(s) may still arrive after adc_stop() being issued; these were either actively 
      * sampled at the moment, or were stored in the USB transmit queue. 
      *
-     * Adc_stop() is most useful when adc(infinite=True) was previously called. Stopping ADC is also necessary to re-run 
-     * it with different configuration. But if you want to sample exactly X blocks it may be easier to specify their number
-     * by calling adc(blocks_to_send=X) instead.
+     * > [!TIP]
+     * > Adc_stop() is most useful when adc(infinite=True) was previously called. Stopping ADC is also necessary to re-run 
+     * > it with different configuration. But if you want to sample exactly X blocks it may be easier to specify their number
+     * > by calling adc(blocks_to_send=X) instead.
      *
      * If ADC is not running, this takes no action. 
      * 
-     * __This command will result in one immediate report.  __
+     * *This command will result in one immediate report.*
      */ 
 	struct __attribute__((packed)) {
-        uint8_t finish_last_adc_packet;    // min=1 max=1 default=1  Hard stopping of ADC in the middle of a block not implemented yet.
+        uint8_t finish_last_adc_packet;    // min=1 max=1 default=1 (No option here - hard stopping of ADC in the middle of a block not implemented yet.)
 	} * command = (void*)(command_buffer+1);
 
     adc_stop_report.aborted_blocks_to_send = iADC_config.blocks_to_send;

@@ -41,7 +41,7 @@ void gpio_pull() {
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
-		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V) for high_z = 0
+		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V), valid if not set to high-impedance mode.
 	} * args = (void*)(command_buffer+1);
 	gpio_init(args->gpio);  // is it necessary to avoid clash e.g. with PWM output
 
@@ -137,8 +137,8 @@ void gpio_on_change() {
      */
 	struct  __attribute__((packed)) {
 		uint8_t gpio;		// min=0 max=25 gpio specification
-		uint8_t on_rising_edge;  // min=0 max=1 default=1 Reports on gpio going from logical 0 to 1
-		uint8_t on_falling_edge; // min=0 max=1 default=1 Reports on gpio going from logical 1 to 0
+		uint8_t on_rising_edge;  // min=0 max=1 default=1 Reports on gpio rising from logical 0 to 1
+		uint8_t on_falling_edge; // min=0 max=1 default=1 Reports on gpio falling from logical 1 to 0
 	} * args = (void*)(command_buffer+1);
 	
 	uint8_t edge_mask = 0;

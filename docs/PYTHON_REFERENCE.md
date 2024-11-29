@@ -31,17 +31,17 @@ Mostly for internal use: confirms the RP2DAQ device is up and has matching firmw
 
 __This command results in single near-immediate report.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ flush_buffer__  : Avoid possible pending messages from previous session  _(min=0, max=1, default=1)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **flush_buffer**  : Avoid possible pending messages from previous session  _(min=0, max=1, default=1)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 0 
-  * __ _data_count__  
-  * __ _data_bitwidth__  
+  * **report_code** : 0 
+  * **_data_count**   
+  * **_data_bitwidth**   
 
 
 
@@ -59,16 +59,16 @@ This overrides previous high-impedance or pull-up/down state of the pin.
 
 __This command results in single, meaningless, near-immediate report.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ gpio__  : The number of the gpio to be configured  _(min=0, max=25)_ 
-  * __ value__  : Output value (i.e. 0 or 3.3 V)  _(min=0, max=1)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **gpio**  : The number of the gpio to be configured  _(min=0, max=25)_ 
+  * **value**  : Output value (i.e. 0 or 3.3 V)  _(min=0, max=1)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 1  identifies command & report type 
+  * **report_code** : 1  identifies command & report type 
 
 
 
@@ -87,17 +87,17 @@ Typically used when the pin is set to high-z or pull-up/down.
 
 __This command results in single near-immediate report.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ gpio__  : _(min=0, max=25)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **gpio**  : _(min=0, max=25)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 2 
-  * __ gpio__  
-  * __ value__: 1 if pin connected to >2 V; 0 if connected to <1 V 
+  * **report_code** : 2 
+  * **gpio**   
+  * **value** : 1 if pin connected to >2 V; 0 if connected to <1 V 
 
 
 
@@ -113,20 +113,20 @@ __Fixme__: in current firmware, edge events cannot be turned off!
 
 __This command potentially results in multiple later reports. Note that input signal over 10kHz may result in some events not being reported.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ gpio__  : gpio specification  _(min=0, max=25)_ 
-  * __ on_rising_edge__  : Reports on gpio going from logical 0 to 1  _(min=0, max=1, default=1)_ 
-  * __ on_falling_edge__  : Reports on gpio going from logical 1 to 0  _(min=0, max=1, default=1)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **gpio**  : gpio specification  _(min=0, max=25)_ 
+  * **on_rising_edge**  : Reports on gpio rising from logical 0 to 1  _(min=0, max=1, default=1)_ 
+  * **on_falling_edge**  : Reports on gpio falling from logical 1 to 0  _(min=0, max=1, default=1)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 3 
-  * __ gpio__  
-  * __ events__  
-  * __ time_us__  
+  * **report_code** : 3 
+  * **gpio**   
+  * **events**   
+  * **time_us**   
 
 
 
@@ -140,33 +140,33 @@ Initiates analog-to-digital conversion (ADC), using the RP2040 built-in feature.
 
 When ADC is already active, this takes no action. Use adc_stop() first in such a case.  
 
-__This command can result in one, several or infinitely many report(s). They can be 
-almost immediate or delayed, depending on block size and timing.__
+*This command can result in one, several or infinitely many report(s). They can be 
+almost immediate or delayed, depending on block size and timing.*
 
-####Command parameters:
+##### Command parameters:
 
-  * __ channel_mask__  : Bits 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor  _(min=1, max=31, default=1)_ 
-  * __ blocksize__  : Number of sample points until a report is sent  _(min=1, max=8192, default=1000)_ 
-  * __ infinite__  : Disables blocks_to_send countdown; reports will keep coming until stopped by adc(blocks_to_send=0)  _(min=0, max=1, default=0)_ 
-  * __ blocks_to_send__  : Limits the number of reports to be sent (if the 'infinite' option is not set)  _(min=1, default=1)_ 
-  * __ clkdiv__  : Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.)  _(min=96, max=65535, default=96)_ 
-  * __ trigger_gpio__  : GPIO number for start trigger (leave -1 to make ADC start immediately)  _(min=-1, max=24, default=-1)_ 
-  * __ trigger_on_falling_edge__  : If set to 1, triggers on falling edge instead of rising edge.  _(min=0, max=1, default=0)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **channel_mask**  : Bits 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor  _(min=1, max=31, default=1)_ 
+  * **blocksize**  : Number of sample points until a report is sent  _(min=1, max=8192, default=1000)_ 
+  * **infinite**  : Disables blocks_to_send countdown; reports will keep coming until stopped by adc(blocks_to_send=0)  _(min=0, max=1, default=0)_ 
+  * **blocks_to_send**  : Limits the number of reports to be sent (if the 'infinite' option is not set)  _(min=1, default=1)_ 
+  * **clkdiv**  : Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.)  _(min=96, max=65535, default=96)_ 
+  * **trigger_gpio**  : GPIO number for start trigger (leave -1 to make ADC start immediately)  _(min=-1, max=24, default=-1)_ 
+  * **trigger_on_falling_edge**  : If set to 1, triggers on falling edge instead of rising edge.  _(min=0, max=1, default=0)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 4 
-  * __ _data_count__  
-  * __ _data_bitwidth__  
-  * __ start_time_us__: Microsecond timestamp when ADC started this block acquisition. 
-  * __ end_time_us__: Microsecond timestamp when ADC finished this block acquisition. 
-  * __ start_sync_value__: Stepper[0] nanoposition when ADC started this block acquisition. (Will be configurable in future.) 
-  * __ end_sync_value__: Stepper[0] nanoposition when ADC finished this block acquisition. (dtto) 
-  * __ channel_mask__: The channel_mask value that was used (see adc() call parameters for details). 
-  * __ blocks_to_send__: How many blocks remain to be sent. Does not change if adc set to infinite. 
-  * __ block_delayed_by_usb__: Normally should be 0, except USB was overloaded and the ADC block had to wait for the USB buffer to accept new data. 
+  * **report_code** : 4 
+  * **_data_count**   
+  * **_data_bitwidth**   
+  * **start_time_us** : Microsecond timestamp when ADC started this block acquisition. 
+  * **end_time_us** : Microsecond timestamp when ADC finished this block acquisition. 
+  * **start_sync_value** : Stepper[0] nanoposition when ADC started this block acquisition. (Will be configurable in future.) 
+  * **end_sync_value** : Stepper[0] nanoposition when ADC finished this block acquisition. (dtto) 
+  * **channel_mask** : The channel_mask value that was used (see adc() call parameters for details). 
+  * **blocks_to_send** : How many blocks remain to be sent. Does not change if adc set to infinite. 
+  * **block_delayed_by_usb** : Normally should be 0, except USB was overloaded and the ADC block had to wait for the USB buffer to accept new data. 
 
 
 
@@ -184,28 +184,30 @@ and value of 30000 (2.4ms pulse) turns it near maximum value. YMMV.
 (see https://en.wikipedia.org/wiki/Servo_control)
 
 When PWM is low-pass filtered to generate analog signal (like a poor man's DAC),
-clkdiv=1 will yield best results; the wrap value can be reduced to get 
-faster cycle, thus more efficient filtering & better time resolution.
+clkdiv=1 is recommended as it gives optimum duty-cycle resolution; the wrap value 
+can be reduced to get faster cycle, thus more efficient filtering & better time resolution.
 
-Note while almost all GPIOs can be enabled for PWM output, there are
-only 16 channels (e.g. GPIOs 0, 16 will have the same value, if PWM output 
-enabled), and there are only 8 slices (e.g. GPIOs 0, 1, 16 and 17 share 
-also the same clkdiv, wrap and clkdiv_int_frac values.)
+> [!NOTE]
+> Note while almost all GPIOs can be enabled for PWM output, there are
+> only 16 channels (e.g. GPIOs 0, 16 will have the same value, if these are enabled for PWM output),
+> and there are only 8 PWM slices. As a result, GPIOs 0, 1, 16 and 17 share 
+> also the same clkdiv, wrap and clkdiv_int_frac values. Changing them for one of these 
+> pins changes it for other, too.)
 
 __This command results in one near-immediate report.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ gpio__  : _(min=0, max=25, default=0)_ 
-  * __ wrap_value__  : _(min=1, max=65535, default=999)_ 
-  * __ clkdiv__  : _(min=1, max=255, default=1)_ 
-  * __ clkdiv_int_frac__  : _(min=0, max=15, default=0)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **gpio**  : Selected pin for PWM output. Note not all pins are independent, see above.  _(min=0, max=25, default=0)_ 
+  * **wrap_value**  : Value at which PWM counter resets for a new cycle.  _(min=1, max=65535, default=999)_ 
+  * **clkdiv**  : Clock divider for PWM.  _(min=1, max=255, default=1)_ 
+  * **clkdiv_int_frac**  : Fine tuning of the frequency by clock divider dithering.  _(min=0, max=15, default=0)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 5 
+  * **report_code** : 5 
 
 
 
@@ -221,16 +223,16 @@ It is assumed this GPIO already was configured by `pwm_configure_pair()`.
 
 __This command results in one near-immediate report.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ gpio__  : _(min=0, max=25, default=0)_ 
-  * __ value__  : _(min=0, max=65535, default=0)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **gpio**  : _(min=0, max=25, default=0)_ 
+  * **value**  : The counter value at which PWM switches from 1 to 0. For example, set it to `wrap_value`//2 to achieve a 50% duty cycle.  _(min=0, max=65535, default=0)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 6 
+  * **report_code** : 6 
 
 
 
@@ -254,21 +256,21 @@ move the stepper; see `stepper_move()` for getting it moving.
 > current in its coils results in a voltage spike that may burn the driver chip.
 
 
-####Command parameters:
+##### Command parameters:
 
-  * __ stepper_number__  : The number of the stepper to be configured.  _(min=0, max=15)_ 
-  * __ dir_gpio__  : Direction-controlling output GPIO pin.  _(min=0, max=24)_ 
-  * __ step_gpio__  : Microstep-advancing output GPIO pin.  _(min=0, max=24)_ 
-  * __ endswitch_gpio__  : GPIO that, once shorted to ground, can automatically stop the stepper whenever it reaches the minimum (or maximum) allowed position. The end stop switch is both safety and convenience measure, allowing one to easily calibrate the stepper position upon restart. More details are with the stepper_move() command.  _(min=-1, max=24, default=-1)_ 
-  * __ disable_gpio__  : GPIO number that may be connected to the "!enable" pin on A4988 module - will automatically turn off current to save energy when the stepper is not moving. Note however it also loses its holding force.  _(min=-1, max=25, default=-1)_ 
-  * __ inertia__  : Allows for smooth acc-/deceleration of the stepper, preventing it from losing steps at startup even at high rotation speeds. The default value is usually OK unless the stepper moves some heavy mass.  _(min=0, max=10000, default=30)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **stepper_number**  : The number of the stepper to be configured.  _(min=0, max=15)_ 
+  * **dir_gpio**  : Direction-controlling output GPIO pin.  _(min=0, max=24)_ 
+  * **step_gpio**  : Microstep-advancing output GPIO pin.  _(min=0, max=24)_ 
+  * **endswitch_gpio**  : GPIO that, once shorted to ground, can automatically stop the stepper whenever it reaches the minimum (or maximum) allowed position. The end stop switch is both safety and convenience measure, allowing one to easily calibrate the stepper position upon restart. More details are with the stepper_move() command.  _(min=-1, max=24, default=-1)_ 
+  * **disable_gpio**  : GPIO number that may be connected to the "!enable" pin on A4988 module - will automatically turn off current to save energy when the stepper is not moving. Note however it also loses its holding force.  _(min=-1, max=25, default=-1)_ 
+  * **inertia**  : Allows for smooth acc-/deceleration of the stepper, preventing it from losing steps at startup even at high rotation speeds. The default value is usually OK unless the stepper moves some heavy mass.  _(min=0, max=10000, default=30)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 7 
-  * __ initial_nanopos__: This is the nanoposition the stepper was initialized to; always 0 in current firmware. 
+  * **report_code** : 7 
+  * **initial_nanopos** : This is the nanoposition the stepper was initialized to; always 0 in current firmware. 
 
 
 
@@ -290,22 +292,22 @@ be issued only when all relevant bits in steppers_moving_bitmask are cleared.)
 
 __Results in one immediate report.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ stepper_number__  : _(min=0, max=15)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **stepper_number**  : _(min=0, max=15)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 8 
-  * __ timestamp_us__  
-  * __ stepper_number__  
-  * __ endswitch__  
-  * __ nanopos__  
-  * __ steppers_init_bitmask__  
-  * __ steppers_moving_bitmask__  
-  * __ steppers_endswitch_bitmask__  
+  * **report_code** : 8 
+  * **timestamp_us**   
+  * **stepper_number**   
+  * **endswitch**   
+  * **nanopos**   
+  * **steppers_init_bitmask**   
+  * **steppers_moving_bitmask**   
+  * **steppers_endswitch_bitmask**   
 
 
 
@@ -328,60 +330,48 @@ stepper control).
 > the above example once in second. Setting minimal speed=1 gives 0.732 RPM. Note most stepper motors 
 > won't be able to turn much faster than 600 RPM.
 
-The "endswitch_sensitive_down" option is by default set to 1, i.e., the motor will immediately stop its 
-movement towards more negative target positions when the end switch pin gets connected to zero. 
-
-On the contrary, "endswitch_sensitive_up" is by default set to 0, i.e. the motor will move towards 
-more positive target positions independent of the end switch pin.
-
-Note: The defaults for the two above endswitch-related options assume you installed the endswitch at the 
+Note: The defaults for the two endswitch-related options assume you installed the endswitch at the 
 lowest end of the stepper range. Upon reaching the endswitch, the stepper position is typically 
 calibrated and it is straightforward to move upwards from the endswitch, without any change to the defaults.
 Alternately, one can swap these two options if the endswitch is mounted on the highest end 
 of the range. Or one can use different settings before/after the first calibration to allow the motor 
 going beyond the end-switch(es) - if this is safe.
 
-"reset_nanopos_at_endswitch" will reset the position if endswitch triggers the end of the 
-movement. This is a convenience option for easy calibration of position using the endswitch. 
-Note that the nanopos can also be manually reset by re-issuing the `stepper_init()` function. 
-
-"relative" if set to true, rp2daq will add the `to` value to current nanopos; movement  
-then becomes relative to the position of the motor when the command is issued. 
-
-When no callback is provided, this command blocks your program until the movement is finished. 
-Using asychronous commands one can easily make multiple steppers move at once.
-
 The initial and terminal part of the movement are smoothly ac-/de-celerated, however issuing
 this command to an already moving stepper results in its immediate stopping before it starts 
 moving smoothly again.
 
-__This command results one report after the movement is finished. Thus it may be immediate 
-or delayed by seconds, minutes or hours, depending on distance and speed. __
+> [!TIP]
+> As with all other commands taking some time to finish, moving a stepper blocks your program until the movement is finished. 
+> Using asychronous commands one can easily make multiple steppers move at once.
 
-####Command parameters:
+*This command results one report after the movement is finished. Thus it may be immediate 
+or delayed by seconds, minutes or hours, depending on distance and speed.*
 
-  * __ stepper_number__  : _(min=0, max=15)_ 
-  * __ to__ 
-  * __ speed__  : _(min=1, max=10000)_ 
-  * __ endswitch_sensitive_up__  : _(min=0, max=1, default=0)_ 
-  * __ endswitch_sensitive_down__  : _(min=0, max=1, default=1)_ 
-  * __ relative__  : _(min=0, max=1, default=0)_ 
-  * __ reset_nanopos_at_endswitch__  : _(min=0, max=1, default=0)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+##### Command parameters:
+
+  * **stepper_number**  : _(min=0, max=15)_ 
+  * **to** 
+  * **speed**  : _(min=1, max=10000)_ 
+  * **endswitch_sensitive_up**  : If unset, the motor will move towards more positive target positions independent of the end switch pin.  _(min=0, max=1, default=0)_ 
+  * **endswitch_sensitive_down**  : If set, the motor will immediately stop its movement towards more negative target positions when the end switch pin gets connected to zero.  _(min=0, max=1, default=1)_ 
+  * **relative**  : If set to 1, rp2daq will add the `to` value to current nanopos; movement then becomes relative to the position of the motor when the command is issued.  _(min=0, max=1, default=0)_ 
+  * **reset_nanopos_at_endswitch**  : will reset the position if endswitch triggers the end of the movement. This is a convenience option for easy calibration of position using the endswitch. Note that the nanopos can also be manually reset by re-issuing the `stepper_init()` function.  _(min=0, max=1, default=0)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 9 
-  * __ stepper_number__  
-  * __ nanopos__  
-  * __ endswitch_was_sensitive__  
-  * __ endswitch_triggered__  
-  * __ steppers_init_bitmask__  
-  * __ steppers_moving_bitmask__  
-  * __ steppers_endswitch_bitmask__  
-  * __ start_time_us__  
-  * __ end_time_us__  
+  * **report_code** : 9 
+  * **stepper_number**   
+  * **nanopos**   
+  * **endswitch_was_sensitive**   
+  * **endswitch_triggered**   
+  * **steppers_init_bitmask**   
+  * **steppers_moving_bitmask**   
+  * **steppers_endswitch_bitmask**   
+  * **start_time_us**   
+  * **end_time_us**   
 
 
 
@@ -400,16 +390,16 @@ This overrides previous direct-output or high-impedance state of the pin.
 
 __This command results in single, meaningless, near-immediate report.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ gpio__  : The number of the gpio to be configured  _(min=0, max=25)_ 
-  * __ value__  : Output value (i.e. 0 or 3.3 V) for high_z 0  _(min=0, max=1)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **gpio**  : The number of the gpio to be configured  _(min=0, max=25)_ 
+  * **value**  : Output value (i.e. 0 or 3.3 V), valid if not set to high-impedance mode.  _(min=0, max=1)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 10  identifies command & report type 
+  * **report_code** : 10  identifies command & report type 
 
 
 
@@ -428,15 +418,15 @@ This overrides previous direct-output or pull-up/down state of the pin.
 
 __This command results in single, meaningless, near-immediate report.__
 
-####Command parameters:
+##### Command parameters:
 
-  * __ gpio__  : The number of the gpio to be configured  _(min=0, max=25)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **gpio**  : The number of the gpio to be configured  _(min=0, max=25)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 11  identifies command & report type 
+  * **report_code** : 11  identifies command & report type 
 
 
 
@@ -452,22 +442,23 @@ finished. Also an ADC block won't be started if it is waiting for a trigger even
 Still, one or more ADC report(s) may still arrive after adc_stop() being issued; these were either actively 
 sampled at the moment, or were stored in the USB transmit queue. 
 
-Adc_stop() is most useful when adc(infinite=True) was previously called. Stopping ADC is also necessary to re-run 
-it with different configuration. But if you want to sample exactly X blocks it may be easier to specify their number
-by calling adc(blocks_to_send=X) instead.
+> [!TIP]
+> Adc_stop() is most useful when adc(infinite=True) was previously called. Stopping ADC is also necessary to re-run 
+> it with different configuration. But if you want to sample exactly X blocks it may be easier to specify their number
+> by calling adc(blocks_to_send=X) instead.
 
 If ADC is not running, this takes no action. 
 
-__This command will result in one immediate report.  __
+*This command will result in one immediate report.*
 
-####Command parameters:
+##### Command parameters:
 
-  * __ finish_last_adc_packet__  : Hard stopping of ADC in the middle of a block not implemented yet.  _(min=1, max=1, default=1)_ 
-  * __ _callback __ : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
+  * **finish_last_adc_packet**  : (No option here - hard stopping of ADC in the middle of a block not implemented yet.)  _(min=1, max=1, default=1)_ 
+  * **_callback** : Optionally, a function to handle future report(s).If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-####Report returns:
+##### Report returns:
 
-  * __ report_code__: 12 
-  * __ aborted_blocks_to_send__  
+  * **report_code** : 12 
+  * **aborted_blocks_to_send**   
 

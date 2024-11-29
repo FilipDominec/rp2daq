@@ -11,21 +11,23 @@ void pwm_configure_pair() {
      * (see https://en.wikipedia.org/wiki/Servo_control)
      *
      * When PWM is low-pass filtered to generate analog signal (like a poor man's DAC),
-     * clkdiv=1 will yield best results; the wrap value can be reduced to get 
-     * faster cycle, thus more efficient filtering & better time resolution.
+     * clkdiv=1 is recommended as it gives optimum duty-cycle resolution; the wrap value 
+     * can be reduced to get faster cycle, thus more efficient filtering & better time resolution.
      *
-     * Note while almost all GPIOs can be enabled for PWM output, there are
-     * only 16 channels (e.g. GPIOs 0, 16 will have the same value, if PWM output 
-     * enabled), and there are only 8 slices (e.g. GPIOs 0, 1, 16 and 17 share 
-     * also the same clkdiv, wrap and clkdiv_int_frac values.)
+     * > [!NOTE]
+     * > Note while almost all GPIOs can be enabled for PWM output, there are
+     * > only 16 channels (e.g. GPIOs 0, 16 will have the same value, if these are enabled for PWM output),
+     * > and there are only 8 PWM slices. As a result, GPIOs 0, 1, 16 and 17 share 
+     * > also the same clkdiv, wrap and clkdiv_int_frac values. Changing them for one of these 
+     * > pins changes it for other, too.)
      * 
      * __This command results in one near-immediate report.__
      */ 
 	struct __attribute__((packed)) {
-		uint8_t gpio;				// default=0		min=0		max=25
-		uint16_t wrap_value;		// default=999		min=1		max=65535
-		uint16_t clkdiv;			// default=1		min=1		max=255
-		uint8_t clkdiv_int_frac;	// default=0		min=0		max=15
+		uint8_t gpio;				// default=0		min=0		max=25    Selected pin for PWM output. Note not all pins are independent, see above. 
+		uint16_t wrap_value;		// default=999		min=1		max=65535 Value at which PWM counter resets for a new cycle.
+		uint16_t clkdiv;			// default=1		min=1		max=255   Clock divider for PWM.
+		uint8_t clkdiv_int_frac;	// default=0		min=0		max=15    Fine tuning of the frequency by clock divider dithering. 
 	} * args = (void*)(command_buffer+1);
 
 	// TODO remember settings - reconfig only if undefined, or if they change
@@ -54,7 +56,8 @@ void pwm_set_value() {
      */ 
 	struct __attribute__((packed)) {
 		uint8_t gpio;				// default=0		min=0		max=25
-		uint16_t value;				// default=0		min=0		max=65535
+		uint16_t value;				// default=0		min=0		max=65535  The counter value at which PWM 
+                // switches from 1 to 0. For example, set it to `wrap_value`//2 to achieve a 50% duty cycle.
 	} * args = (void*)(command_buffer+1);
 
 	// TODO remember settings - check if GPIO is defined as pwm, if not, init it here

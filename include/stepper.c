@@ -192,44 +192,40 @@ void stepper_move() {
      * > the above example once in second. Setting minimal speed=1 gives 0.732 RPM. Note most stepper motors 
      * > won't be able to turn much faster than 600 RPM.
      *
-     * The "endswitch_sensitive_down" option is by default set to 1, i.e., the motor will immediately stop its 
-     * movement towards more negative target positions when the end switch pin gets connected to zero. 
-     *
-     * On the contrary, "endswitch_sensitive_up" is by default set to 0, i.e. the motor will move towards 
-     * more positive target positions independent of the end switch pin.
-     *
-     * Note: The defaults for the two above endswitch-related options assume you installed the endswitch at the 
+     * Note: The defaults for the two endswitch-related options assume you installed the endswitch at the 
      * lowest end of the stepper range. Upon reaching the endswitch, the stepper position is typically 
      * calibrated and it is straightforward to move upwards from the endswitch, without any change to the defaults.
      * Alternately, one can swap these two options if the endswitch is mounted on the highest end 
      * of the range. Or one can use different settings before/after the first calibration to allow the motor 
      * going beyond the end-switch(es) - if this is safe.
      *
-     * "reset_nanopos_at_endswitch" will reset the position if endswitch triggers the end of the 
-     * movement. This is a convenience option for easy calibration of position using the endswitch. 
-	 * Note that the nanopos can also be manually reset by re-issuing the `stepper_init()` function. 
-     *
-     * "relative" if set to true, rp2daq will add the `to` value to current nanopos; movement  
-	 * then becomes relative to the position of the motor when the command is issued. 
-     *
-     * When no callback is provided, this command blocks your program until the movement is finished. 
-     * Using asychronous commands one can easily make multiple steppers move at once.
-     *
      * The initial and terminal part of the movement are smoothly ac-/de-celerated, however issuing
      * this command to an already moving stepper results in its immediate stopping before it starts 
      * moving smoothly again.
      *
-     * __This command results one report after the movement is finished. Thus it may be immediate 
-     * or delayed by seconds, minutes or hours, depending on distance and speed. __
+     * > [!TIP]
+     * > As with all other commands taking some time to finish, moving a stepper blocks your program until the movement is finished. 
+     * > Using asychronous commands one can easily make multiple steppers move at once.
+     *
+     * *This command results one report after the movement is finished. Thus it may be immediate 
+     * or delayed by seconds, minutes or hours, depending on distance and speed.* 
      */ 
 	struct __attribute__((packed))  {
 		uint8_t  stepper_number;		// min=0 max=15
 		int32_t to;					
 		uint32_t speed;					// min=1 max=10000
-		int8_t  endswitch_sensitive_up;		// min=0 max=1	default=0
-		int8_t  endswitch_sensitive_down;	// min=0 max=1	default=1
-		int8_t  relative;		        // min=0 max=1	default=0
-		int8_t  reset_nanopos_at_endswitch;	// min=0 max=1	default=0
+		int8_t  endswitch_sensitive_up;		// min=0 max=1	default=0   If unset, the motor will move towards 
+            // more positive target positions independent of the end switch pin.
+		int8_t  endswitch_sensitive_down;	// min=0 max=1	default=1   If set, the motor will immediately stop its 
+            // movement towards more negative target positions when the end switch pin gets connected to zero. 
+
+		int8_t  relative;		        // min=0 max=1	default=0    If set to 1, rp2daq will add the `to` value to current nanopos; movement  
+	        // then becomes relative to the position of the motor when the command is issued. 
+
+		int8_t  reset_nanopos_at_endswitch;	// min=0 max=1	default=0  will reset the position if endswitch triggers the end of the 
+            // movement. This is a convenience option for easy calibration of position using the endswitch. 
+	        // Note that the nanopos can also be manually reset by re-issuing the `stepper_init()` function. 
+
 	} * args = (void*)(command_buffer+1);
 
     uint8_t m = args->stepper_number; 
