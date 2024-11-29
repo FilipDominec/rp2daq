@@ -4,21 +4,20 @@
 rp2daq.py  (c) Filip Dominec 2020-2024, MIT licensed
 
 This module uses c_code_parser.py to auto-generate the binary message interface. 
-Then it connects to Raspberry Pi Pico to control various hardware. 
-
-The methods provided here aim to make the hardware control as convenient as possible.  
+Then it connects to Raspberry Pi Pico with rp2daq firmware to control various hardware. 
+All rp2daq capabilities are described in the C code of this project.
 
 More information and examples on https://github.com/FilipDominec/rp2daq or in README.md
 """
 
 
-MIN_FW_VER = 241127    # FIRMWARE_ABI_VERSION should be auto-loaded from rp2daq.h
 
 import atexit
 from collections import deque
 import logging
 import multiprocessing
 import os
+import pathlib
 import queue
 import serial
 from serial.tools import list_ports 
@@ -54,7 +53,7 @@ class Rp2daq():
         # will be dynamically populated with useful commands
         self._i = Rp2daq_internals(externals=self, required_device_id=required_device_id, verbose=verbose)
 
-        atexit.register(self.quit)
+        atexit.register(self.quit) # (fixme?) does not work well with Spyder console
 
 
     def quit(self):
@@ -75,8 +74,11 @@ class Rp2daq_internals(threading.Thread):
 
         self._register_commands()
 
-        time.sleep(.05)
-        self.port_name = self._find_device(required_device_id, required_firmware_version=MIN_FW_VER)
+        # auto-checking binary compatibility of device's firmware against available C code
+        rp2daq_h_file = open(pathlib.Path(__file__).resolve().parent/'rp2daq.h')
+        rp2daq_h_line = [l for l in rp2daq_h_file.readlines() if '#define FIRMWARE_VERSION' in l][0]
+        rp2daq_h_ver = int(rp2daq_h_line.split('rp2daq_')[1][:6])
+        self.port_name = self._find_device(required_device_id, required_firmware_version=rp2daq_h_ver)
 
         ## Asynchronous communication using threads
         self.sleep_tune = 0.001
@@ -277,7 +279,7 @@ class Rp2daq_internals(threading.Thread):
                 continue
 
             version_signature = id_data[7:13]
-            if not version_signature.isdigit() or int(version_signature) < required_firmware_version:
+            if not version_signature.isdigit() or int(version_signature) != required_firmware_version:
                 logging.warning(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
                         f"older than this script requires: {MIN_FW_VER}.\nPlease upgrade firmware " +\
                         "or override this error using 'required_firmware_version=0'.")
@@ -291,7 +293,7 @@ class Rp2daq_internals(threading.Thread):
                         f"required {required_device_id}")
                 continue
 
-            logging.info(f"Connected to rp2daq device with unique ID = {found_device_id.decode()}")
+            logging.info(f"Connected to rp2daq device with unique ID = {found_device_id.decode()} and correct FW version = {required_firmware_version}")
             #return try_port
             try_port.close()
             return port_name

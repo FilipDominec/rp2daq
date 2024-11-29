@@ -8,7 +8,7 @@ This project presents both precompiled firmware and a user-friendly Python modul
 
 If needed, entirely new capabilities can be added into the [open source](LICENSE) firmware. More is covered in the [developer documentation for the C firmware](docs/DEVELOPERS.md). Contributing new code back is welcome. 
 
-*Development status: basic features implemented, real-world testing underway*
+*Development status: basic features implemented, successfully employed in several projects in the lab.*
 
  * Features implemented and planned: 
     * [x] analog input (continuous 12-bit measurement with built-in ADC, at 500k samples per second)
