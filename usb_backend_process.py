@@ -3,6 +3,13 @@
 
 import multiprocessing as mp
 
+# This is a unique (?) trick to prevent the multiprocessing module from launching 
+# a "spawn bomb", without one having to annoyingly put the "if __name__ == '__main__'" 
+# guard into every script that imports this code.
+# We just need to monkey-patch the start() method of mp.Process class so that it runs this
+# file in the new process, instead of re-running the whole original program. The deadly 
+# recursion is thus avoided and no functionality is apparently harmed.
+# Maybe this feature should become available in the official multiprocessing module, too.
 class PatchedProcess(mp.Process):
     def start(self, *args):
         import sys
@@ -23,7 +30,8 @@ def usb_backend(report_queue, command_queue, terminate_queue, port_name):
     """
     Default Python interpreter has a Global Interpreter Lock, due to which a high CPU load 
     in the user script can halt USB data reception, leading to USB buffer overflow and 
-    corrupted reports. 
+    corrupted reports. This was confirmed both on Linux and Windows, although they behave a bit 
+    different. 
 
     Relegating the raw data handling to this separate process resolves the problem with GIL. 
     To keep the communication fluent without a tight busy loop in this process, USB input and 

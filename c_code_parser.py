@@ -130,7 +130,8 @@ def generate_command_binary_interface():
         # Append extracted docstring to the overall API reference
         markdown_docs += f"\n\n## {command_name}\n\n{raw_docstring}\n\n"
         markdown_docs += f"__Call signature:__\n\n`{command_name}({exec_header} _callback=None)`\n\n"
-        markdown_docs += f"__Parameters__:\n\n{param_docstring}\n"
+        markdown_docs += f"__Command parameters__:\n\n{param_docstring}\n"
+        #markdown_docs += f"__Report object's attributes__:\n\n{param_docstring}\n"
         #markdown_docs += f"{raw_docstring}\n\n#### Arguments:"
 
         # TODO once 16-bit msglen enabled: cmd_length will go +3, and 1st struct Byte must change to Half-int 

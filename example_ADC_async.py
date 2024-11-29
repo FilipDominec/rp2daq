@@ -21,7 +21,7 @@ matplotlib's interactive plot.
 ## User options
 ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
-channels = [1,2]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
+channels = [0,1]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
 #kSPS_total = 500    # note there is only one multiplexed ADC
 kSPS_total = 50    # note there is only one multiplexed ADC
 

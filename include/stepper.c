@@ -6,7 +6,7 @@
 
 struct __attribute__((packed)) {
     uint8_t report_code;
-    int32_t initial_nanopos;
+    int32_t initial_nanopos;  // This is the nanoposition the stepper was initialized to; always 0 in current firmware.
 } stepper_init_report;
 
 void stepper_init() {
@@ -38,10 +38,10 @@ void stepper_init() {
 	 *
 	 */
 	struct __attribute__((packed)) {
-		uint8_t  stepper_number;	// min=0	max=15 
-		uint8_t  dir_gpio;			// min=0	max=24
-		uint8_t  step_gpio;			// min=0	max=24
-		int8_t   endswitch_gpio;	// min=-1	max=24		default=-1
+		uint8_t  stepper_number;	// min=0	max=15    The ID of the stepper to be configured. 
+		uint8_t  dir_gpio;			// min=0	max=24    Direction-controlling output pin. 
+		uint8_t  step_gpio;			// min=0	max=24    Microstep-advancing output pin.
+		int8_t   endswitch_gpio;	// min=-1	max=24		default=-1   Optionally, this pin gets shorted at end switch.
 		int8_t   disable_gpio;		// min=-1	max=25		default=-1
 		uint32_t inertia;			// min=0	max=10000	default=30
 	} * args = (void*)(command_buffer+1);

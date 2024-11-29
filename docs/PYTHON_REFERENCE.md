@@ -66,6 +66,9 @@ Returns the digital state of a gpio pin.
 
 Typically used when the pin is set to high-z or pull-up/down.
 
+> [!CAUTION]
+> The maximum allowed voltage at any pin is 3.3V.
+
 __This command results in single near-immediate report.__
 
 __Call signature:__
@@ -117,7 +120,7 @@ __Call signature:__
 
 __Parameters__:
 
-  * channel_mask : Masks 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor 
+  * channel_mask : Bits 0x01, 0x02, 0x04 are GPIO26, 27, 28; mask 0x08 internal reference, 0x10 temperature sensor 
   * blocksize : Number of sample points until a report is sent 
   * infinite : Disables blocks_to_send countdown; reports will keep coming until stopped by adc(blocks_to_send=0) 
   * blocks_to_send : Limits the number of reports to be sent (if the 'infinite' option is not set) 
@@ -209,9 +212,9 @@ The "inertia" parameter allows for smooth ac-/de-celeration of the stepper,
 preventing it from losing steps at startup even at high rotation speeds. The 
 default value is usually OK unless the stepper moves some heavy mass.
 
-> [!WARNING]
-> Never disconnect a stepper from its driver when powered; this results in burning 
-> the A4988 chip.
+> [!CAUTION]
+> Never disconnect a stepper from Stepstick when powered. Interrupting the 
+> current in its coils results in a voltage spike that may burn the driver chip.
 
 
 __Call signature:__
@@ -263,13 +266,14 @@ Starts stepping motor movement from current position towards the new position gi
 motor has to be initialized by stepper_init first (please refer to this command for more details on 
 stepper control). 
 
-The units of position are nanosteps, i.e., 1/256 of a microstep. So typically if you have a motor
-with 200 steps per turn and your A4988-compatible driver is hard-wired for 16 microsteps/step, it takes 
-about a million (200x256x16 = 819200) nanosteps per turn.
-
-The "speed" is in nanosteps per 0.1 ms update cycle; thus setting speed=82 turns the motor in 
-the above example once in second. Setting minimal speed=1 gives 0.732 RPM. Note most stepper motors 
-won't be able to turn much faster than 600 RPM.
+> [!TIP]
+> The units of position are nanosteps, i.e., 1/256 of a microstep. So typically if you have a motor
+> with 200 steps per turn and your A4988-compatible driver is hard-wired for 16 microsteps/step, it takes 
+> about a million (200x256x16 = 819200) nanosteps per turn.
+>
+> The "speed" is in nanosteps per 0.1 ms update cycle; thus setting speed=82 turns the motor in 
+> the above example once in second. Setting minimal speed=1 gives 0.732 RPM. Note most stepper motors 
+> won't be able to turn much faster than 600 RPM.
 
 The "endswitch_sensitive_down" option is by default set to 1, i.e., the motor will immediately stop its 
 movement towards more negative target positions when the end switch pin gets connected to zero. 
@@ -284,12 +288,12 @@ Alternately, one can swap these two options if the endswitch is mounted on the h
 of the range. Or one can use different settings before/after the first calibration to allow the motor 
 going beyond the end-switch(es) - if this is safe.
 
-"reset_nanopos_at_endswitch" will reset the position only if endswitch triggers the end of the 
-movement. This is the recommended option for easy calibration of position at the endswitch. 
+"reset_nanopos_at_endswitch" will reset the position if endswitch triggers the end of the 
+movement. This is a convenience option for easy calibration of position using the endswitch. 
+Note that the nanopos can also be manually reset by re-issuing the `stepper_init()` function. 
 
-"reset_nanopos_first" will reset the position before movement, so the target nanopos value given is 
-taken as relative to the actual position.
-
+"relative" if set to true, rp2daq will add the `to` value to current nanopos; movement  
+then becomes relative to the position of the motor when the command is issued. 
 
 When no callback is provided, this command blocks your program until the movement is finished. 
 Using asychronous commands one can easily make multiple steppers move at once.
@@ -303,7 +307,7 @@ or delayed by seconds, minutes or hours, depending on distance and speed. __
 
 __Call signature:__
 
-`stepper_move(stepper_number, to, speed, endswitch_sensitive_up=0, endswitch_sensitive_down=1, reset_nanopos_first=0, reset_nanopos_at_endswitch=0,  _callback=None)`
+`stepper_move(stepper_number, to, speed, endswitch_sensitive_up=0, endswitch_sensitive_down=1, relative=0, reset_nanopos_at_endswitch=0,  _callback=None)`
 
 __Parameters__:
 
@@ -312,7 +316,7 @@ __Parameters__:
   * speed   
   * endswitch_sensitive_up   
   * endswitch_sensitive_down   
-  * reset_nanopos_first   
+  * relative   
   * reset_nanopos_at_endswitch   
   * _callback: optional report handling function; if set, makes this command asynchronous so it does not wait for report 
 
