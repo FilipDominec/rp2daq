@@ -184,7 +184,7 @@ def analyze_c_firmware():
 
         # Append extracted docstring to the overall API reference
         markdown_docs += f"\n\n## {command_name}\n\n"
-        markdown_docs += f"```Python\n{command_name}({exec_header} _callback=None)```\n\n"
+        markdown_docs += f"```Python\n{command_name}({exec_header} _callback=None)\n```\n\n"
         markdown_docs += f"{raw_docstring}\n\n"
         markdown_docs += f"####Command parameters:\n\n{param_docstring}\n"
         markdown_docs += f"####Report returns:\n\n{report_docstring}\n"
