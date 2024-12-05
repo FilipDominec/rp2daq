@@ -5,11 +5,12 @@
 #define TUD_OPT_HIGH_SPEED (1)
 //#define CFG_TUD_CDC_EP_BUFSIZE 256 // legacy; needs to go into tusb_config.h that is being used
 
-// 240221 - troubles running Waveshare RP2040-zero board, with this board not reliably 
-// holding firmware and randomly failing to reportt upon USB re-connection or re-set btn. 
-// Following two lines did not help, and we decided to abandon RP2040-Zero board support.
-//#define XOSC_STARTUP_DELAY_MULTIPLIER  64
-//#define PICO_FLASH_SPI_CLKDIV 4
+// 240221-241205 - we fixed troubles running Waveshare's RP2040-Zero board, which randomly failed to be 
+// detected upon USB re-connection. See also https://github.com/raspberrypi/pico-sdk/pull/1421 etc.
+#define XOSC_STARTUP_DELAY_MULTIPLIER  64
+#define PICO_FLASH_SPI_CLKDIV 4
+
+
 
 #define DATA_BY_REF 0
 #define DATA_BY_COPY 1
