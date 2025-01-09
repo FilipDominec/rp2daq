@@ -75,9 +75,7 @@ class Rp2daq_internals(threading.Thread):
         self._register_commands()
 
         # auto-checking binary compatibility of device's firmware against available C code
-        rp2daq_h_file = open(pathlib.Path(__file__).resolve().parent/'rp2daq.h')
-        rp2daq_h_line = [l for l in rp2daq_h_file.readlines() if '#define FIRMWARE_VERSION' in l][0]
-        rp2daq_h_ver = int(rp2daq_h_line.split('rp2daq_')[1][:6])
+        rp2daq_h_ver = c_code_parser.get_C_code_version()
         self.port_name = self._find_device(required_device_id, required_firmware_version=rp2daq_h_ver)
 
         ## Asynchronous communication using threads
@@ -161,7 +159,7 @@ class Rp2daq_internals(threading.Thread):
                 odd = [a + ((b&0xF0)<<4)  for a,b
                         in zip(data_bytes[::3], data_bytes[1::3])]
                 even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
-                        in zip(                   data_bytes[1:-1:3], data_bytes[2::3])]
+                        in zip(data_bytes[1:-1:3], data_bytes[2::3])]
                 return [x for l in zip(odd,even) for x in l] + ([odd[-1]] if len(odd)>len(even) else [])
 
                 # maybe more efficient variant, fixme: shouldn't miss last odd byte, if any
@@ -191,7 +189,7 @@ class Rp2daq_internals(threading.Thread):
                      
                     ## TODO: should switch to making an object, and setting object.__dict__ = dict(...) ?
                     cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
-                    logging.debug(f"received packet header {report_type=} {bytes(report_header_bytes)=}")
+                    logging.debug(f"received packet header {report_type} {bytes(report_header_bytes)}")
 
                     # 3rd: Get the data payload (if present), and convert it into a list of ints
                     if cb_kwargs.get("_data_count") and cb_kwargs["_data_count"]:
