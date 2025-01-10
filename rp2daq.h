@@ -8,6 +8,7 @@
 // 240221-241205 - we fixed troubles running Waveshare's RP2040-Zero board, which randomly failed to be 
 // detected upon USB re-connection. See also https://github.com/raspberrypi/pico-sdk/pull/1421 etc.
 #define XOSC_STARTUP_DELAY_MULTIPLIER  64
+#undef PICO_FLASH_SPI_CLKDIV 
 #define PICO_FLASH_SPI_CLKDIV 4
 
 

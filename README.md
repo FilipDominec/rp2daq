@@ -31,15 +31,12 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 
 1. You will need a Raspberry Pi Pico (RP2) board with a USB cable.
 1. You will also need a computer with [Python (3.6+)](https://realpython.com/installing-python/) interpreter and the ```serial``` and optionally ```tkinter``` modules.
-	* On Windows, use a recent [Python installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line. 
+	* On Windows, there are many options to get Python. If unsure, we suggest you download and simply unpack [Python Portable](https://sourceforge.net/projects/portable-python/). To get necessary modules enter run ```Console-Launcher.exe``` in unpacked folder and enter the command  ```pip install pyserial tk```. Then you can open any .py script with the App/python.exe.
 	* On Linux, Python3 should already be there. Run either ```pip install pyserial tk```,  ```apt install python3-serial python3-tk``` or similar command according to your preferred installation approach.
     * On Mac, follow a similar approach; [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
-1. Download the stable [binary firmware](https://github.com/FilipDominec/rp2daq/releases/latest/download/rp2daq.uf2) from the latest release. No compilation is necessary.
-1. Holding the white "BOOTSEL" button on your RP2, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
-    * *In few seconds the RP2 should appear as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.*
-1. Copy the ```rp2daq.uf2``` firmware file directly to RP2 along these two files. 
-    * *The flashdrive should disconnect in a second.* 
-    * *The green diode on RP2 then flashes twice, indicating the firmware is running and awaiting commands.*
+1. Next we have to flash the device, this step is platform independent. Download the stable [binary firmware](https://github.com/FilipDominec/rp2daq/releases/latest/download/rp2daq.uf2) from the latest release. No compilation is necessary.
+	* Holding the white "BOOTSEL" button on your RP2, connect it to your computer with the USB cable. Release the "BOOTSEL" button.  In few seconds the RP2 should appear as a fake flash drive, containing INDEX.HTM and INFO_UF2.TXT.
+	* Copy the ```rp2daq.uf2``` firmware file directly to RP2 along these two files. The flashdrive should disconnect in a second. The green diode on RP2 then flashes twice, indicating the firmware is running and awaiting commands.
 1. Download [the stable Python+C source](https://github.com/FilipDominec/rp2daq/releases/latest/) from the latest release. Unpack it in a working directory of your choice.
 
 If you have problems, please [describe them in a new issue](https://github.com/FilipDominec/rp2daq/issues).
