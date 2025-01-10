@@ -250,13 +250,15 @@ A: Spyder and probably some other IDEs run a persistent process which blocks the
 </details>
 
 <details>
-  <summary><ins>Q: Will rp2daq run on legacy Windows 7/8? </ins></summary>
+  <summary><ins>Q: Will rp2daq run on legacy Windows 7/8/XP? </ins></summary>
 
 A: Python 3.8 is the latest supported version on *Windows 7 Service Pack 2*. (The W7 SP1 has to be updated to SP2, Python fails "parameter is incorrect" error otherwise.)
 
 On Windows 7/8 by default there is no driver for Pico to list as an accessible serial port, it appears as "Board CDC" in hardware manager instead. 
 A driver to fix this can be downloaded from https://github.com/Melvinsajith/raspberrry_Pi_Pico_windows_7_8_xp.
-Before pointing Windows to the ```pico-serial.inf``` file as a driver for your Pico, one has to replace all four ```PID_0005``` strings to ```PID_000A``` according to the fact we the device is not running Micropython, but custom firmware. We tested rp2daq to work fine on such a W7+SP2 system; Windows 8 should work too.
+Before pointing Windows to the ```pico-serial.inf``` file as a driver for your Pico, one has to replace all four ```PID_0005``` strings to ```PID_000A``` according to the fact we the device is not running Micropython, but custom firmware. 
+
+We tested rp2daq to work fine on such a W7+SP2 system; Windows 8 should work too. Windows XP were not tested and are not sure to work, but they are mentioned in the above link.
 
 </details>
 
