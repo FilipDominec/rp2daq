@@ -71,7 +71,7 @@ A new ```build/rp2daq.uf2``` file should appear. It can be uploaded by drag&drop
 
 #### Linux: Setting UDEV rules for user-space access (to be done once)
 
-Normally, the ```BOOTSEL``` button [has to be mechanically pressed](https://gist.github.com/Hermann-SW/ca07f46b7f9456de41f0956d81de01a7), and the device has to be restarted for every firmware upload. There is a trick to control it full in software.
+Normally, the ```BOOTSEL``` button [would have to be mechanically pressed](https://gist.github.com/Hermann-SW/ca07f46b7f9456de41f0956d81de01a7), and the device has to be restarted for every firmware upload. There is a trick to control it full in software.
 
 As a first step, [it is preferable to switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) Linux udev rules so that `picotool` works without root privileges:
 

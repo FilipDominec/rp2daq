@@ -30,9 +30,9 @@ If needed, entirely new capabilities can be added into the [open source](LICENSE
 ### Getting things ready
 
 1. You will need a Raspberry Pi Pico (RP2) board with a USB cable.
-1. You will also need a computer with [Python (3.6+)](https://realpython.com/installing-python/) interpreter and the ```serial``` module
+1. You will also need a computer with [Python (3.6+)](https://realpython.com/installing-python/) interpreter and the ```serial``` and optionally ```tkinter``` modules.
 	* On Windows, use a recent [Python installer](https://www.python.org/downloads/windows/), and then issue ```pip install pyserial``` in Windows command line. 
-	* On Linux, Python3 should already be there, and ```pyserial``` can be installed through your package manager or with [pip3](https://pypi.org/project/pyserial/)
+	* On Linux, Python3 should already be there. Run either ```pip install pyserial tk```,  ```apt install python3-serial python3-tk``` or similar command according to your preferred installation approach.
     * On Mac, follow a similar approach; [version update](https://code2care.org/pages/set-python-as-default-version-macos) may be needed
 1. Download the stable [binary firmware](https://github.com/FilipDominec/rp2daq/releases/latest/download/rp2daq.uf2) from the latest release. No compilation is necessary.
 1. Holding the white "BOOTSEL" button on your RP2, connect it to your computer with the USB cable. Release the "BOOTSEL" button.
@@ -191,6 +191,7 @@ However, the *RP2040-zero* randomly failed to connect over USB, as reported else
 ![(2)](https://forums.raspberrypi.com/viewtopic.php?t=338085)
 ; we cannot consider it fully supported.
 
+Boards featuring the newer RP2350 microcontroller are not currently supported, but we plan porting rp2daq firmware to these, too.
 
 The Arduino family of boards is not supported. Neither the ESP/Espressif boards are. (Development of this project was started on the ESP32-WROOM module, but it suffered from its randomly failing (and consistently slow) USB communication, as well as somewhat lacking documentation.)
 </details>
@@ -216,6 +217,7 @@ A: [Telemetrix](https://github.com/MrYsLab/Telemetrix4RpiPico) also uses Raspber
 
 Digital I/O can similarly be performed with [PyFtdi](https://github.com/eblot/pyftdi). 
 
+We believe the set of features in rp2daq is unique. 
 </details>
 
 
@@ -245,6 +247,24 @@ A: No. Both bipolar and unipolar steppers seem to be supported by stepstick/A498
   <summary><ins>Q: Running my script in Spyder IDE results in device not reporting </ins></summary>
 
 A: Spyder and probably some other IDEs run a persistent process which blocks the USB port even after your script apparently finishes. Your script has to explicitly release the port using ```rp.quit()``` at the end. Or you can manually reset the kernel in the Spyder's Python console, for which there is also an option in the Spyder's Preferences: see tab "Python configuration", uncheck the option "User Modules Reloader".
+</details>
+
+<details>
+  <summary><ins>Q: Will rp2daq run on legacy Windows 7/8? </ins></summary>
+
+A: Python 3.8 is the latest supported version on *Windows 7 Service Pack 2*. (The W7 SP1 has to be updated to SP2, Python fails "parameter is incorrect" error otherwise.)
+
+On Windows 7/8 by default there is no driver for Pico to list as an accessible serial port, it appears as "Board CDC" in hardware manager instead. 
+A driver to fix this can be downloaded from https://github.com/Melvinsajith/raspberrry_Pi_Pico_windows_7_8_xp.
+Before pointing Windows to the ```pico-serial.inf``` file as a driver for your Pico, one has to replace all four ```PID_0005``` strings to ```PID_000A``` according to the fact we the device is not running Micropython, but custom firmware. We tested rp2daq to work fine on such a W7+SP2 system; Windows 8 should work too.
+
+</details>
+
+<details>
+  <summary><ins>Q: On Linux, the device is not detected by rp2daq </ins></summary>
+
+A: Typically, a rp2daq device connected to Linux over USB is represented by one of /dev/ttyACM* character devices. If there is no hardware failure, the user permissions to access these character devices may be missing. Make sure you are in the ```dialout``` user group; in command line this is simply done by ```sudo usermod -aG dialout ${USER}```.
+
 </details>
 
 

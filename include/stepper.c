@@ -301,12 +301,12 @@ void stepper_update() {
                     if ((stepper[m].move_reached_endswitch) && (stepper[m].reset_nanopos_at_endswitch)) {
                         stepper[m].nanopos = NANOPOS_DEFAULT; 
                         new_nanopos = NANOPOS_DEFAULT;
-                        stepper[m].target_nanopos = NANOPOS_DEFAULT;} // useful for end switch calibration
+                        stepper[m].target_nanopos = NANOPOS_DEFAULT;} // convenient for position calibration at end switch
 				} else if (new_nanopos == stepper[m].target_nanopos) { // if the move finishes successfully
 					stepper[m].max_nanospeed = 0;
 					//stepper[m].target_nanopos = new_nanopos;  // TODO rm?
 					stepper[m].move_reached_endswitch = 0;
-					mk_tx_stepper_report(m);
+					mk_tx_stepper_report(m); // (fixme) this reports the nanopos *just* before target_nanopos reached
 				}
 
 				if (stepper[m].disable_gpio >= 0) gpio_put(stepper[m].disable_gpio, 0);
