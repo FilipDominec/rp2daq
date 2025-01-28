@@ -12,7 +12,7 @@ try:
     ## Following seven lines are essential for the hardware control:
     import rp2daq
     rp = rp2daq.Rp2daq()
-    label.config(text=f' Successfully connected to {rp.identify()["data"].decode()} ')
+    label.config(text=f' Successfully connected to {"".join(chr(_) for _ in  rp.identify()["data"])} ')
 
     def set_LED(value): 
         rp.gpio_out(gpio=25, value=value) # reused for both buttons
@@ -33,6 +33,7 @@ try:
     if 'windll' in dir(ctypes): ctypes.windll.shcore.SetProcessDpiAwareness(1) # sharp fonts on Win
 
 except Exception as e: # this allows printing runtime errors in the graphical window
+    print(e)
     label.config(text=str(e))
 
 window.mainloop()

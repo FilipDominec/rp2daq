@@ -16,9 +16,7 @@ void identify() {
         uint8_t flush_buffer;    // min=0 max=1 default=1 Avoid possible pending messages from previous session
 	} * args = (void*)(command_buffer+1);
 
-	BLINK_LED_US(5000);
-	busy_wait_us_32(100000); 
-	BLINK_LED_US(5000);
+	BLINK_LED_US(10000);
 
     //
     // This ditches all pending messages, which can make a previous python script in computer wait

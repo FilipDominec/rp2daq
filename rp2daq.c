@@ -167,6 +167,10 @@ int main() {  // CPU core0 can be fully occupied with USB communication
 	gpio_init(DEBUG_PIN); gpio_set_dir(DEBUG_PIN, GPIO_OUT); // DEBUG
 	gpio_init(DEBUG2_PIN); gpio_set_dir(DEBUG2_PIN, GPIO_OUT); // DEBUG
 
+	BLINK_LED_US(5000);
+	busy_wait_us_32(100000); 
+	BLINK_LED_US(5000);
+
     multicore_launch_core1(core1_main); 
 
     // auto-assign report codes, note 1st byte of any report_struct has to be its code

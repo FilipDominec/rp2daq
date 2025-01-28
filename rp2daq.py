@@ -154,19 +154,14 @@ class Rp2daq_internals(threading.Thread):
 
         def unpack_data_payload(data_bytes, count, bitwidth):
             if bitwidth == 8:
-                return data_bytes
-            elif bitwidth == 12:      # decompress 3B  into pairs of 12b values & flatten
+                return list(data_bytes)  # for any bitwidth return a list of ints, not the bytes object
+            elif bitwidth == 12:      # quick compress byte triplet into 12b integer pairs
                 odd = [a + ((b&0xF0)<<4)  for a,b
                         in zip(data_bytes[::3], data_bytes[1::3])]
                 even = [(c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256  for b,c
                         in zip(data_bytes[1:-1:3], data_bytes[2::3])]
                 return [x for l in zip(odd,even) for x in l] + ([odd[-1]] if len(odd)>len(even) else [])
-
-                # maybe more efficient variant, fixme: shouldn't miss last odd byte, if any
-                #return [x 
-                        #for a,b,c in zip(data_bytes[::3], data_bytes[1::3], data_bytes[2::3]) 
-                        #for x in (a + ((b&0xF0)<<4), (c&0xF0)//16+(b&0x0F)*16+(c&0x0F)*256)] 
-            elif bitwidth == 16:      # using little endian byte order everywhere
+            elif bitwidth == 16:      # compress byte pairs into 16b integers (note: LE byte order)
                 return [a+(b<<8) for a,b in zip(data_bytes[:-1:2], data_bytes[1::2])]
             else:
                 print(bitwidth, count, len(data_bytes))
