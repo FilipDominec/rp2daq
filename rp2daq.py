@@ -49,8 +49,8 @@ class Rp2daq():
         logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, 
                 format='%(asctime)s (%(threadName)-9s) %(message)s',) # filename='rp2.log',
 
-        # Most of the technicalities are delegated to the following class. The Rp2daq's namespace 
-        # will be dynamically populated with useful commands
+        # Most of the technicalities are delegated to the following class. Rp2daq's namespace, 
+        # exposed to the user, will be kept clean and dynamically populated with useful commands.
         self._i = Rp2daq_internals(externals=self, required_device_id=required_device_id, verbose=verbose)
 
         atexit.register(self.quit) # (fixme?) does not work well with Spyder console
@@ -58,7 +58,7 @@ class Rp2daq():
 
     def quit(self):
         """Clean termination of tx/rx threads, and explicit releasing of serial ports (for win32) """ 
-        time.sleep(0.01)
+        time.sleep(0.01) # is this necessary?
         if self._i.run_event.is_set():
             self._i.run_event.clear()
             self._i.terminate_queue.put(b'1')   # let the subprocess release the port on its own
