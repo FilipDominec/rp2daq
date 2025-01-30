@@ -70,7 +70,7 @@ The GPIO (general-purpose input-output) 25 is connected to the green onboard LED
 
 ### Receiving analog data
 
-Similarly, you can get a readout from the built-in analog/digital converter (ADC). With default configuration, it will measure 1000 voltage values on the GPIO 26:
+Similarly, you can get a readout from the built-in analog/digital converter (ADC). With default configuration, following command will measure 1000 voltage values on the GPIO 26:
 
 ```Python
 import rp2daq
@@ -79,9 +79,27 @@ return_values = rp.adc()
 print(return_values)
 ```
 
-The ```adc()``` command returns a named tuple object, with several (more or less useful) attributes. Among these, the voltages measured by the ADC are simply accessible as ```return_values.data```. Number ```0``` corresponds to ca. 0 V, and ```4095``` to cca 3.2 V.
+Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.adc(channel_mask=16)``` will connect the ADC to the built-in thermometer. If the parameters are omitted, some reasonable default values are always used. 
 
-Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.adc(channel_mask=16)``` will connect the ADC to the built-in thermometer. If the parameters are omitted, some reasonable default values are always used. Full list of return values, parameters and their defaults is in ```docs/PYTHON_REFERENCE.md```.
+In few milliseconds, the above command returns a report as a namedtuple object, with several (more or less useful) attributes. For example, the adc command may return this: 
+
+```
+adc_report_values(report_code=6, 
+		data_count=1000, 
+		data_bitwidth=12, 
+		start_time_us=2129748122, 
+		end_time_us=2129750145, 
+		start_sync_value=0, 
+		end_sync_value=0, 
+		channel_mask=1, 
+		blocks_to_send=0, 
+		block_delayed_by_usb=0, 
+		data=[764, 783, 801, 816, 833, 857, 867, ... 931])
+```
+
+Among these attributes, the list of numbers measured by the ADC are simply accessible as ```return_values.data```. Number ```0``` corresponds to ca. 0 V, and ```4095``` to cca 3.2 V.
+
+You can find more detailed information on the commands and reports in the ```docs/PYTHON_REFERENCE.md``` file. Note that none of these commands are explicitly listed in the python code, as they are generated dynamically by parsing the C code on startup. This eliminates redundancy between the C firmware and the Python module, and always guarantees their perfect binary compatibility.
 
 ### Tip: Use TAB completion
 
@@ -93,7 +111,6 @@ The docstring for any command is printed out when one adds ```?``` and hits ente
 
 ![ipython console printout for rp.adc?](docs/ipython_command_info.png)
 
-Alternately, you can find the same information extracted in the ```docs/PYTHON_REFERENCE.md``` file. Note that none of these commands are explicitly listed in the python code, as they are generated dynamically by parsing the C code on startup. This eliminates redundancy between the C firmware and the Python module, and always guarantees their perfect binary compatibility.
 
 ### Asynchronous commands
 
