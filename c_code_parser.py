@@ -177,7 +177,7 @@ def analyze_c_firmware():
                 if arg_name not in ('data_count', 'data_bitwidth'):
                     report_docstring += f"  * **{arg_name}** {':' if arg_comment else ''} {arg_comment.strip()} \n"
                 elif arg_name == 'data_count':
-                    report_docstring += f"  * **data** : as a list of integers. \n"
+                    report_docstring += f"  * **data** : Bulk payload as a list of integers. \n"
 
         report_names[command_code] = command_name
         report_lengths[command_code] = report_length
