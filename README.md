@@ -99,7 +99,7 @@ adc_report_values(report_code=6,
 
 Among these attributes, the list of numbers measured by the ADC are simply accessible as ```return_values.data```. Number ```0``` corresponds to ca. 0 V, and ```4095``` to cca 3.2 V.
 
-You can find more detailed information on the commands and reports in the ```docs/PYTHON_REFERENCE.md``` file. Note that none of these commands are explicitly listed in the python code, as they are generated dynamically by parsing the C code on startup. This eliminates redundancy between the C firmware and the Python module, and always guarantees their perfect binary compatibility.
+You can find more detailed information on the commands and reports in the (docs/PYTHON_REFERENCE.md) file. Note that none of these commands are explicitly listed in the python code, as they are generated dynamically by parsing the C code on startup. This eliminates redundancy between the C firmware and the Python module, and always guarantees their perfect binary compatibility.
 
 ### Tip: Use TAB completion
 
