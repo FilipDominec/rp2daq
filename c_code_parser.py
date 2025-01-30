@@ -174,9 +174,9 @@ def analyze_c_firmware():
                 report_header_signature += bit_width_code.upper() if unsigned else bit_width_code
                 arg_names.append(arg_name)
 
-                if arg_name not in ('_data_count', '_data_bitwidth'):
+                if arg_name not in ('data_count', 'data_bitwidth'):
                     report_docstring += f"  * **{arg_name}** {':' if arg_comment else ''} {arg_comment.strip()} \n"
-                elif arg_name == '_data_count':
+                elif arg_name == 'data_count':
                     report_docstring += f"  * **data** : as a list of integers. \n"
 
         report_names[command_code] = command_name
