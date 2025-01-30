@@ -47,29 +47,29 @@ delayed = []
 
 # Called from other thread whenever data come from RP2
 prev_etime_us = 0
-def ADC_callback(**kwargs): 
+def ADC_callback(rv): 
     global t0, prev_etime_us
 
-    all_data.extend(kwargs['data'])
-    delayed.extend([kwargs['block_delayed_by_usb']]*(len(kwargs['data'])//2))
+    all_data.extend(rv.data)
+    delayed.extend([rv.block_delayed_by_usb]*(len(rv.data)//2))
 
-    print("Packet received", len(all_data), len(kwargs['data']),
-            -kwargs['start_time_us']+kwargs['end_time_us'],
-            -prev_etime_us+kwargs['start_time_us'],
+    print("Packet received", len(all_data), len(rv.data),
+            -rv.start_time_us+rv.end_time_us,
+            -prev_etime_us+rv.start_time_us,
             rp._i.report_queue.qsize(), 
-            (" DELAYED" if kwargs['block_delayed_by_usb'] else "") )
-    prev_etime_us = kwargs['end_time_us']
-    received_time.extend([time.time()]*(len(kwargs['data'])//len(channels)))
+            (" DELAYED" if rv.block_delayed_by_usb else "") )
+    prev_etime_us = rv.end_time_us
+    received_time.extend([time.time()]*(len(rv.data)//len(channels)))
 
-    if not kwargs['blocks_to_send']: # i.e. if all blocks were received
+    if not rv.blocks_to_send: # i.e. if all blocks were received
         all_ADC_done.set()   # releases wait() in the main tread
 
     if not t0:
         t0 = time.time()
 
-    #print(f"at {time.time()-t0:.3f} s, received {len(kwargs['data'])} new " +
-            #f"ADC values ({kwargs['blocks_to_send']} blocks to go)" + 
-            #(" DELAYED" if kwargs['block_delayed_by_usb'] else "") )
+    #print(f"at {time.time()-t0:.3f} s, received {len(kwargs.data)} new " +
+            #f"ADC values ({kwargs.blocks_to_send} blocks to go)" + 
+            #(" DELAYED" if kwargs.block_delayed_by_usb else "") )
 
 
 ## Initialize the ADC into asynchronous operation...

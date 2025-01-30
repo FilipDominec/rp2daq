@@ -13,7 +13,7 @@ More information and examples on https://github.com/FilipDominec/rp2daq or in RE
 
 
 import atexit
-from collections import deque
+from collections import deque, namedtuple
 import logging
 import multiprocessing
 import os
@@ -85,12 +85,8 @@ class Rp2daq_internals(threading.Thread):
         self.command_queue = multiprocessing.Queue()  
         self.terminate_queue = multiprocessing.Queue()  
 
-        # Experimental: the "pipe" variant
-        #self.report_pipe_out, report_pipe_in = multiprocessing.Pipe(duplex=True)
-                #args=(report_pipe_in, self.port_name))
-
-
-        # Experimental: the "guardless" variant
+        # Establish reliable USB connection using a child process, patching the multiprocessing.Process
+        # class so that user scripts are no more required to contain the __name__=='__main__' guard clause.
         import usb_backend_process as ubp
         self.usb_backend_process = ubp.PatchedProcess(
                 target=ubp.usb_backend, 
@@ -98,19 +94,13 @@ class Rp2daq_internals(threading.Thread):
         self.usb_backend_process.daemon = True
         self.usb_backend_process.start()
 
-        # The default variant
-        #self.usb_backend_process = multiprocessing.Process(
-                #target=ubp.usb_backend, 
-                #args=(self.report_queue, self.command_queue, self.port_name))
-        #self.usb_backend_process.daemon = True  # enables terminating along with main process
-        #self.usb_backend_process.start()
-
+        # Additionally, run two separate threads in the main process te deal with incoming reports.  
         self.report_processing_thread = threading.Thread(target=self._report_processor, daemon=True)
         self.callback_dispatching_thread = threading.Thread(target=self._callback_dispatcher, daemon=True)
-
         self.rx_bytes = deque()
         self.rx_bytes_total_len = 0
 
+        # Launch the bidirectional communication now
         self.run_event = threading.Event()
         self.report_processing_thread.start()
         self.callback_dispatching_thread.start()
@@ -122,7 +112,7 @@ class Rp2daq_internals(threading.Thread):
         # #define FIRMWARE_VERSION {"rp2daq_220720_"}
         # self.expected_firmware_v = 
 
-        self.report_header_lenghts, self.report_header_formats, self.report_header_varnames, \
+        self.report_names, self.report_header_lenghts, self.report_header_formats, self.report_header_varnames, \
                 names_codes, markdown_docs = c_code_parser.analyze_c_firmware()
 
         for cmd_name, cmd_code in names_codes.items():
@@ -133,8 +123,13 @@ class Rp2daq_internals(threading.Thread):
         self.sync_report_cb_queues = {}
         self.async_report_cb_queue = queue.Queue()
 
-        # Register callbacks (to dispatch reports as they arrive)
+        # Stores callbacks (to dispatch reports as they arrive); generate corresponding named tuples for each
         self.report_callbacks = {} 
+        self.report_namedtuple_classes = {} 
+        for report_type, varnames in self.report_header_varnames.items():
+            self.report_namedtuple_classes[report_type] = namedtuple(
+                    self.report_names[report_type] + '_report_values', 
+                    varnames + (['data'] if 'data_bitwidth' in varnames else []))
 
 
     def _report_processor(self):
@@ -181,35 +176,36 @@ class Rp2daq_internals(threading.Thread):
                     report_header_bytes = queue_recv_bytes(packet_length)
                     report_args = struct.unpack(self.report_header_formats[report_type], 
                             report_type_b+report_header_bytes)
-                     
-                    ## TODO: should switch to making an object, and setting object.__dict__ = dict(...) ?
-                    cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
                     logging.debug(f"received packet header {report_type} {bytes(report_header_bytes)}")
 
                     # 3rd: Get the data payload (if present), and convert it into a list of ints
-                    if cb_kwargs.get("_data_count") and cb_kwargs["_data_count"]:
-                        #print("Get the data payload",cb_kwargs.get("_data_count") )
-                        count, bitwidth = cb_kwargs["_data_count"], cb_kwargs["_data_bitwidth"]
+                    #if cb_kwargs.get("_data_count") and cb_kwargs["_data_count"]:
+                    if "data_count" in self.report_header_varnames[report_type]:
+                        cb_kwargs = dict(zip(self.report_header_varnames[report_type], report_args))
+                        count, bitwidth = cb_kwargs["data_count"], cb_kwargs["data_bitwidth"]
                         payload_length = -((-count*bitwidth)//8)  # int div like floor(); this makes it ceil()
                         payload_raw = queue_recv_bytes(payload_length)
-                        cb_kwargs["data"] = unpack_data_payload(payload_raw, count, bitwidth)
+
+                        # todo pre-cache classes for each report type...
+                        cb_nt = self.report_namedtuple_classes[report_type](
+                                *report_args, unpack_data_payload(payload_raw, count, bitwidth))
+                    else:
+                        cb_nt = self.report_namedtuple_classes[report_type](
+                                *report_args)
+
+                    #cb_kwargs['_nt'] = cb_nt # XXX
 
                     # 4th: Register callback (if async), or wait (if sync)
                     cb = self.report_callbacks.get(report_type, False) # false for unexpected reports
                     if cb:
-                        self.async_report_cb_queue.put((cb, cb_kwargs))
+                        self.async_report_cb_queue.put((cb, cb_nt))
                     elif cb is None: # expected report from blocking command
-                        self.sync_report_cb_queues[report_type].put(cb_kwargs) # unblock default callback (& send it data)
+                        self.sync_report_cb_queues[report_type].put(cb_nt) # unblock default callback (& send it data)
                     elif cb is False: # unexpected report, from command that was not yet called in this script instance
                         logging.warning(f"Warning: Got report type that was not asked for\n\tDebug info: {cb_kwargs}")
                         pass 
-                #else:
-                    #time.sleep(self.sleep_tune)
-                #logging.debug("CALLING CB {cb_kwargs}")
-                #print(f"CALLING CB {cb} {cb_kwargs}")
                 ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
                 ## TODO: check if sync cmd works correctly after async cmd (of the same type)
-                #cb(**cb_kwargs)
 
             except EOFError:
                 logging.warning("Got EOF from the receiver process, quitting")
@@ -222,7 +218,7 @@ class Rp2daq_internals(threading.Thread):
 
         while self.run_event.is_set():
             (cb, cb_kwargs) = self.async_report_cb_queue.get()
-            cb(**cb_kwargs)
+            cb(cb_kwargs)
 
     def default_blocking_callback(self, command_code): # 
         """
@@ -234,7 +230,6 @@ class Rp2daq_internals(threading.Thread):
         This function is called from *autogenerated* code for each command, iff no _callback
         is specified.
         """
-        #print("DBC WAITING", command_code)
         kwargs = self.sync_report_cb_queues[command_code].get() # waits until default callback unblocked
         return kwargs
 
@@ -267,14 +262,14 @@ class Rp2daq_internals(threading.Thread):
                 id_data = b''
             ## TODO close the port, remember its port_name (thus do not keep open many ports & enable pickling for multiproc on win)
 
-            if not id_data[:6] == b'rp2daq': 
+            if id_data[:6] != b'rp2daq': 
                 logging.info(f"A Raspberry Pi Pico device is present but its firmware doesn't identify as rp2daq: {id_data}" )
                 continue
 
             version_signature = id_data[7:13]
             if not version_signature.isdigit() or int(version_signature) != required_firmware_version:
                 logging.warning(f"rp2daq device firmware has version {version_signature.decode('utf-8')},\n" +\
-                        f"older than this script requires: {MIN_FW_VER}.\nPlease upgrade firmware " +\
+                        f"older than this script requires: {required_firmware_version}.\nPlease upgrade firmware " +\
                         "or override this error using 'required_firmware_version=0'.")
                 continue
 

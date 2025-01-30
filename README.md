@@ -75,13 +75,13 @@ Similarly, you can get a readout from the built-in analog/digital converter (ADC
 ```Python
 import rp2daq
 rp = rp2daq.Rp2daq()
-print( rp.adc() )
+return_values = rp.adc()
+print(return_values)
 ```
 
-The ```adc()``` command returns a standard pythonic dictionary, with several (more or less useful) *key:value* pairs. Among these, the ADC readouts are simply named ```data```; value ```0``` corresponds to cca 0 V, and ```4095``` to cca 3.2 V.
+The ```adc()``` command returns a named tuple object, with several (more or less useful) attributes. Among these, the voltages measured by the ADC are simply accessible as ```return_values.data```. Number ```0``` corresponds to ca. 0 V, and ```4095``` to cca 3.2 V.
 
-Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.adc(channel_mask=16)``` will switch the ADC to get raw readouts from the built-in thermometer. If the parameters are omitted, some reasonable default values are used.
-
+Most commands take several named parameters which change their default behaviour; e.g. calling ```rp.adc(channel_mask=16)``` will connect the ADC to the built-in thermometer. If the parameters are omitted, some reasonable default values are always used. Full list of return values, parameters and their defaults is in ```docs/PYTHON_REFERENCE.md```.
 
 ### Tip: Use TAB completion
 
@@ -103,8 +103,8 @@ Consider the following ADC readout code, which looks different, but does *almost
 import rp2daq
 rp = rp2daq.Rp2daq()
 
-def my_callback(**kwargs):
-	print(kwargs)
+def my_callback(return_values):
+	print(return_values)
 
 rp.adc(_callback=my_callback)     # non-blocking!
 
@@ -113,15 +113,16 @@ import time
 time.sleep(.5) # required for noninteractive script, to not terminate before data arrive
 ```
 
-The important difference is that here, the ```rp.adc``` is provided with a *callback* function. This makes it *asynchronous*: it does no more block further program flow, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your ```_callback``` function is called (in a separate thread) to process it. 
+The important difference is that here, the ```rp.adc``` is provided with a *callback* function. This makes it *asynchronous*: it does no more block further program flow, no matter how long it takes to sample 1000 points. Only after the report is received from the device, your function specified as the ```_callback``` is called (in a separate thread) to process it. 
 
 Calling commands asynchronously allows one to simultaneously orchestrate multiple rp2daq commands. It is particularly useful for commands taking long time to finish, like extensive ADC acquisition or stepping motor movement. 
 
 ### Caveats of advanced asynchronous commands use
 You can call synchronous rp2daq commands of one type and asynchronous commands of another type without problems.
 
-It is not advisable, however, to issue two asynchronous commands of the same type with two different callback functions, if there is a risk of their temporal overlap.
-At most one callback function is assigned to one *command type*, not to *each unique command* you issued. 
+It is not advisable, however, to issue two asynchronous commands of the same type with two different callback functions, if there is a possibility of the first command finishing after the second was called: 
+
+This comes from that your callback function is assigned to one *command type*, not to *each unique command* you issued. 
 
 As a result, if you launch two long-duration commands of the same type in close succession (e.g. stepping motor movements), first one with ```_callback=A```, second one with ```_callback=B```, each motor reporting its move being finished will eventually result in calling the ```B``` function as their callback. 
 
@@ -138,7 +139,7 @@ Maybe the greatest strength of the asynchronous commands lies in their ability t
 
 The following example measures one million ADC samples; these would not fit into Pico's 264kB RAM, let alone into single report message (limited by 8k buffer). This is necessary to monitor slow processes, e.g., temperature changes or battery discharge.
 
-If high temporal resolution is not necessary, each data packet can be averaged into a single number by not storing ```kwargs['data']```, but ```[sum(kwargs["data"])/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
+If high temporal resolution is not necessary, each data packet can be averaged into a single number by not storing ```kwargs.data```, but ```[sum(kwargs.data)/1000]```. Note that averaging 1000 numbers improves signal to noise ratio sqrt(1000) ~ 31 times.
 
 ```Python
 import rp2daq
@@ -146,8 +147,8 @@ rp = rp2daq.Rp2daq()
 
 all_data = []
 
-def my_callback(**kwargs):
-    all_data.extend([sum(kwargs["data"])/1000])
+def my_callback(rv):
+    all_data.extend([sum(rv.data])/1000])
     print(f"{len(all_data)} ADC samples received so far")
 print(all_data)
 
@@ -263,6 +264,13 @@ We tested rp2daq to work fine on such a W7+SP2 system; Windows 8 should work too
   <summary><ins>Q: On Linux, the device is not detected by rp2daq </ins></summary>
 
 A: Typically, a rp2daq device connected to Linux over USB is represented by one of /dev/ttyACM* character devices. If there is no hardware failure, the user permissions to access these character devices may be missing. Make sure you are in the ```dialout``` user group; in command line this is simply done by ```sudo usermod -aG dialout ${USER}```.
+
+</details>
+
+<details>
+  <summary><ins>Q: My editor/IDE provides no hints for the methods of the rp2daq objects </ins></summary>
+
+A: This results from that they are not present in Python; they are always dynamically generated by parsing C-code. This prevents repeating code between C/Python interfaces and possible errors coming from mismatch. Please look at docs/PYTHON_REFERENCE.md, which is also auto-generated. 
 
 </details>
 

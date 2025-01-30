@@ -19,25 +19,25 @@ coords_to_go += [(0,0)] # finally return back to origin
 ##     for multi-axis motion. Note that this script could define several independent stepper groups if needed.
 zero_pos = {}
 steppers_group_bitmask = (1<<0) | (1<<1) 
-zero_pos[0] = rp.stepper_init(0, dir_gpio=12, step_gpio=13, endswitch_gpio=19, inertia=190)["initial_nanopos"]
-zero_pos[1] = rp.stepper_init(1, dir_gpio=10, step_gpio=11, endswitch_gpio=18, inertia=190)["initial_nanopos"]
-#zero_pos[2] = rp.stepper_init(2, dir_gpio=14, step_gpio=15, endswitch_gpio=17, inertia=30)["initial_nanopos"]
-#zero_pos[3] = rp.stepper_init(3, dir_gpio=21, step_gpio=20, endswitch_gpio=16, inertia=30)["initial_nanopos"]
+zero_pos[0] = rp.stepper_init(0, dir_gpio=12, step_gpio=13, endswitch_gpio=19, inertia=190).initial_nanopos
+zero_pos[1] = rp.stepper_init(1, dir_gpio=10, step_gpio=11, endswitch_gpio=18, inertia=190).initial_nanopos
+#zero_pos[2] = rp.stepper_init(2, dir_gpio=14, step_gpio=15, endswitch_gpio=17, inertia=30).initial_nanopos
+#zero_pos[3] = rp.stepper_init(3, dir_gpio=21, step_gpio=20, endswitch_gpio=16, inertia=30).initial_nanopos
 all_steppers_done = threading.Event() # a thread-safe semaphore
 
 
 ## 3. Define callback that feeds both steppers with new coords - but only if both (whole group) have finished a move!
-def stepper_cb(**kwargs):
+def stepper_cb(r):
     ## i. End switches are useful for position calibration (and to prevent dangerous crashes later)
-    if kwargs['endswitch_triggered']:
-        if kwargs['endswitch_expected']:
-            zero_pos[kwargs["stepper_number"]] = kwargs["nanopos"]  # recalibrate position against endstop
+    if r.endswitch_triggered:
+        if r.endswitch_expected:
+            zero_pos[r.stepper_number] = r.nanopos  # recalibrate position against endstop
         else:
-            print(f"Error: Unexpected endswitch trigger on motor #{kwargs['stepper_number']}!") 
+            print(f"Error: Unexpected endswitch trigger on motor #{r.stepper_number}!") 
             coords_to_go[:] = []   # for safety, we flush further movements, so this script ends
 
     ## ii. Check if whole stepper group is done
-    if kwargs["steppers_moving_bitmask"]:
+    if r.steppers_moving_bitmask:
         return # some stepper is still busy - do nothing now, wait for its callback
 
     ## iii. Feed whole stepper group with new coordinates to go

@@ -24,7 +24,7 @@
 // order in the following table. This happens at runtime in firmware, and independently,
 // at import-time in Python; there is no explicit numbering. Shuffling these lines and
 // uploading new recompiled firmware makes no difference in function, excepting message
-// numbers.
+// numbers. Only 'identify' must be first. 
 //
 // If a new functionality is added to this firmware, we suggest to start with a copy of 
 // e.g. the `identify` command handler. Then don't forget to register this new function 

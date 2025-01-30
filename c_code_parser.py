@@ -57,7 +57,7 @@ def analyze_c_firmware():
 
     # Results that will be dynamically populated
     func_dict = {}  # Rp2daq class' methods for calling commands
-    report_lengths, report_header_signatures, arg_names_for_reports = {}, {}, {} # Report formats
+    report_names, report_lengths, report_header_signatures, arg_names_for_reports = {}, {}, {}, {}
     markdown_docs = ""  # Docs generated from C code and comments therein
 
     for command_name, command_code in command_codes.items():
@@ -149,14 +149,12 @@ def analyze_c_firmware():
         ## Search for the report structures in C code
         report_docstring = ""
         q = re.search(f"}}\\s*{command_name}_report", C_code)
-        #print(command_code, command_name,q)
         report_struct_code = get_prev_code_block(C_code[:q.span()[0]+1]) # code enclosed by closest brace block
         #report_struct_code = remove_c_comments(report_struct_code)
 
         report_header_signature, report_length = "<", 0
         arg_names, arg_defaults = [], []
 
-        #for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)([; \t\w=\/]*)",  report_struct_code):
         report_struct_code = re.sub(r'\n\s*\/\/', '', report_struct_code) # allow multi-line comments for report comments
         for line in re.finditer(r"(u?)int(8|16|32|64)_t\s+([\w,]*)(.*)",  report_struct_code):
             unsigned, bits, arg_name_multi, line_comments = line.groups()
@@ -170,8 +168,8 @@ def analyze_c_firmware():
             if arg_name_multi == 'report_code': 
                 arg_comment = f'{command_code} {arg_comment}'
 
-
             for arg_name in arg_name_multi.split(","):
+                arg_name = arg_name.lstrip('_') # TODO should simply remove all underscores in C argnames, then rm this line
                 report_length += int(bits)//8
                 report_header_signature += bit_width_code.upper() if unsigned else bit_width_code
                 arg_names.append(arg_name)
@@ -181,6 +179,7 @@ def analyze_c_firmware():
                 elif arg_name == '_data_count':
                     report_docstring += f"  * **data** : as a list of integers. \n"
 
+        report_names[command_code] = command_name
         report_lengths[command_code] = report_length
         assert report_length > 0, "every report has to contain at least 1 byte, troubles ahead"
         report_header_signatures[command_code] = report_header_signature
@@ -193,15 +192,8 @@ def analyze_c_firmware():
         markdown_docs += f"***Command parameters:***\n\n{param_docstring}\n"
         markdown_docs += f"***Report returns:***\n\n{report_docstring}\n"
 
-    #print(report_header_signatures)
-    #print(arg_names_for_reports)
+    return report_names, report_lengths, report_header_signatures, arg_names_for_reports, func_dict, markdown_docs
 
-
-
-    return report_lengths, report_header_signatures, arg_names_for_reports, func_dict, markdown_docs
-
-def generate_report_binary_interface():
-    pass
 
 def gather_C_code(proj_path):
     C_code = open(proj_path/'rp2daq.c').read()
@@ -209,17 +201,19 @@ def gather_C_code(proj_path):
         C_code += open(included).read()
     return C_code
 
+
 def get_C_code_version():
     rp2daq_h_file = open(pathlib.Path(__file__).resolve().parent/'rp2daq.h')
     rp2daq_h_line = [l for l in rp2daq_h_file.readlines() if '#define FIRMWARE_VERSION' in l][0]
     return int(rp2daq_h_line.split('rp2daq_')[1][:6])
+
 
 if __name__ == "__main__":
     proj_path = pathlib.Path(__file__).resolve().parent
     reference_file = "./docs/PYTHON_REFERENCE.md"
     print(f"This module was run as a command. It will parse C code and re-generate {reference_file}")
     
-    report_lengths, report_header_signatures, arg_names_for_reports, command_functions, markdown_docs =\
+    report_names, report_lengths, report_header_signatures, arg_names_for_reports, command_functions, markdown_docs =\
             analyze_c_firmware()
 
     with open(proj_path / reference_file, "w") as of:
@@ -231,11 +225,4 @@ if __name__ == "__main__":
             of.write(f"   1. [{cmdname}](#{cmdname})\n") # .replace('_','-')
         of.write(markdown_docs)
     print("Done")
-    #for func_name, func_code in command_functions.items():
-        #print(func_code)
 
-    #report_lengths, report_header_signatures, arg_names_for_reports = generate_report_binary_interface()
-    #print(f"{report_lengths=}")
-    #print(f"{report_header_signatures=}")
-    #print(f"{arg_names_for_reports=}")
-        # (todo?) 
