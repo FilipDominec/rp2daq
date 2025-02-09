@@ -156,7 +156,77 @@ void gpio_on_change() {
 
 
 
+struct __attribute__((packed)) {
+    uint8_t report_code;
+} gpio_out_seq_report;
 
+void gpio_out_seq() {
+    /* Sets (optionally) multiple outputs at once; optionally sets them multiple times 
+	 * in an accurately timed sequence. 
+	 *
+	 * If you need to change several pins simultaneously (within 1 ns), and/or in 
+	 * quite accurate time delay independent on how USB is busy (within 2 us), this 
+	 * somewhat complex command offers an advantage over the simpler gpio_out() 
+	 * commands (which each take some 2ms). Typically this is necessary for custom 
+	 * digital protocols, resistor ladders, charlieplexing etc. 
+	 *
+	 * The *gpio_mask* and *value* parameters accept bit mask; e.g. if you wish to
+	 * set GPIO 0 to logical high and GPIO 4 to logical low, use gpio_mask=1+16 and
+	 * value0=1. The following parameters can be all 0, unless one wants to define 
+	 * a sequence that changes the GPIOs in time.  
+	 *
+	 * Not all wait times and values have to be set; the defaults negative value
+	 * means they won't be used. 
+	 *
+     * __Fixme__: the sequence should be given as variable-length data array instead
+     * 
+     * *This command results in one report when the sequence is finished.*
+     */
+	struct  __attribute__((packed)) {
+		uint32_t gpio_mask;		  // Only *gpio* numbers corresponding to "1" bits be changed
+		int32_t value0;     // default=-1 Binary value will be set as the outputs
+		int32_t wait_us0;   // default=-1 Microseconds to wait after setting this value
+		int32_t value1;     // default=-1 Next binary value, if not negative...
+		int32_t wait_us1;   // default=-1 
+		int32_t value2;     // default=-1 
+		int32_t wait_us2;   // default=-1 
+		int32_t value3;     // default=-1 
+		int32_t wait_us3;   // default=-1 
+		int32_t value4;     // default=-1 
+		int32_t wait_us4;   // default=-1 
+		int32_t value5;     // default=-1 
+		int32_t wait_us5;   // default=-1 
+		int32_t value6;     // default=-1 
+		int32_t wait_us6;   // default=-1 
+		int32_t value7;     // default=-1 
+		int32_t wait_us7;   // default=-1 
+	} * args = (void*)(command_buffer+1);
+
+	gpio_set_dir_out_masked(args->gpio_mask);
+	gpio_put_masked(args->gpio_mask, args->value0);
+	// (todo) this is just quick & dirty hack; should be IRQ-driven ... hardware_alarm_set_target()
+	if (args->value0 > -1) { gpio_put_masked (args->gpio_mask, args->value0); }
+	if (args->wait_us0 > -1) { busy_wait_us_32(args->wait_us0); }
+	if (args->value1 > -1) { gpio_put_masked (args->gpio_mask, args->value1); }
+	if (args->wait_us1 > -1) { busy_wait_us_32(args->wait_us1); }
+	if (args->value2 > -1) { gpio_put_masked (args->gpio_mask, args->value2); }
+	if (args->wait_us2 > -1) { busy_wait_us_32(args->wait_us2); }
+	if (args->value3 > -1) { gpio_put_masked (args->gpio_mask, args->value3); }
+	if (args->wait_us3 > -1) { busy_wait_us_32(args->wait_us3); }
+
+	if (args->value4 > -1) { gpio_put_masked (args->gpio_mask, args->value4); }
+	if (args->wait_us4 > -1) { busy_wait_us_32(args->wait_us4); }
+	if (args->value5 > -1) { gpio_put_masked (args->gpio_mask, args->value5); }
+	if (args->wait_us5 > -1) { busy_wait_us_32(args->wait_us5); }
+	if (args->value6 > -1) { gpio_put_masked (args->gpio_mask, args->value6); }
+	if (args->wait_us6 > -1) { busy_wait_us_32(args->wait_us6); }
+	if (args->value7 > -1) { gpio_put_masked (args->gpio_mask, args->value7); }
+	if (args->wait_us7 > -1) { busy_wait_us_32(args->wait_us7); }
+
+	// (todo) 1-3 microsecond jitter (delay) due to other hardware IRQ on this CPU core
+	// (todo) sub-microsecond delays: see timing https://forums.raspberrypi.com/viewtopic.php?t=333928
+	prepare_report(&gpio_out_seq_report, sizeof(gpio_out_seq_report), 0, 0, 0);
+}
 
 
 

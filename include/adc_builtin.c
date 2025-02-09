@@ -229,8 +229,8 @@ void iADC_start_or_schedule_after_trigger() { // ... or for user-defined timeout
 		if (iADC_config.trigger_gpio < 0) {
 			iADC_start_or_schedule_after_usb();
 		} else {
-		gpio_put(PICO_DEFAULT_LED_PIN, 1); // XXX
-			iADC_config.waits_for_trigger = 1;
+            gpio_put(PICO_DEFAULT_LED_PIN, 1); // XXX
+            iADC_config.waits_for_trigger = 1;
 		}
     } 
 }
@@ -264,6 +264,7 @@ void iADC_DMA_IRQ_handler() {
 	adc_run(false);
 
 	// Quickly swap buffers & start a new ADC acquisition (if appropriate)
+    // TODO should be done by chained DMA hardware to avoid any delay
     uint8_t iADC_buffer_prev = iADC_active_buffer;
     iADC_active_buffer = (iADC_active_buffer + 1) % iADC_BUF_COUNT;
 

@@ -30,6 +30,10 @@ def handler(rv):
 rp.gpio_on_change(0, on_rising_edge=1, on_falling_edge=1, _callback=handler)
 
 
+rp.gpio_masked( 2**13, 2**13, 1000,
+                2**13, 0,     100,
+                )
+rp.gpio(13, 0)
 
 time.sleep(wait_sec)
 
