@@ -55,7 +55,7 @@ void adc() {
 		uint8_t infinite;			// default=0		min=0		max=1  Disables blocks_to_send countdown; reports will keep coming until stopped by adc(blocks_to_send=0)
 		uint32_t blocks_to_send;	// default=1		min=1		         Limits the number of reports to be sent (if the 'infinite' option is not set)
 		uint16_t clkdiv;			// default=96		min=96		max=65535 Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.)
-		int8_t trigger_gpio;		// default=-1		min=-1		max=24 GPIO number for start trigger (leave -1 to make ADC start immediately)
+		int8_t trigger_gpio;		// default=-1		min=-1		max=24 GPIO number which triggers each ADC block (default value of -1 makes ADC start immediately)
 		uint8_t trigger_on_falling_edge;	// default=0		min=0		max=1 If set to 1, triggers on falling edge instead of rising edge.
 	} * command = (void*)(command_buffer+1);
     // TODO implement send_data and send_statistics options
@@ -72,8 +72,10 @@ void adc() {
 
 
         if (iADC_config.trigger_gpio > -1)
+			 // The IRQ handler conflicts with gpio_on_change handler; TODO resolve this
+			 // "if there was a Pico FAQ, avoiding gpio_set_irq_enabled_with_callback() would be in the top 10"
              gpio_set_irq_enabled_with_callback(
-                     1, 
+                     iADC_config.trigger_gpio,
                      iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE,
                      true, 
                      &iADC_trigger_IRQ);
