@@ -156,13 +156,43 @@ void gpio_on_change() {
 
 
 
+#define GPIO_OUT_SEQ_MAXLEN 8  // TODO
+struct __attribute__((packed)) {
+    int8_t  seq_stage;
+    int32_t gpio_mask;
+	int32_t value [GPIO_OUT_SEQ_MAXLEN];     // Binary value will be set as the outputs
+	int32_t wait_us [GPIO_OUT_SEQ_MAXLEN];   // Microseconds to wait after setting this value
+} gpio_out_seq_config;
+
 struct __attribute__((packed)) {
     uint8_t report_code;
 } gpio_out_seq_report;
 
+int64_t gpio_seq_callback(alarm_id_t id, __unused void *user_data) { //TODO
+
+	gpio_out_seq_config.seq_stage++;
+
+	if (gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage] > -1) { 
+		if (gpio_out_seq_config.value[gpio_out_seq_config.seq_stage] > -1) { 
+			gpio_put_masked (gpio_out_seq_config.gpio_mask, gpio_out_seq_config.value[gpio_out_seq_config.seq_stage]); 
+		}
+	}
+
+	if (gpio_out_seq_config.seq_stage == GPIO_OUT_SEQ_MAXLEN-1) { // if this was the last seq stage
+		prepare_report(&gpio_out_seq_report, sizeof(gpio_out_seq_report), 0, 0, 0);
+		return 0;
+	} else { 
+		// TODO accurate timing!  don't add 2us here, output next values in this call
+		// Note sub-microsecond timing can be trimmed by busy_wait_at_least_cycles(uint32_t minimum_cycles), 
+		// and clock_get_hz(clk_sys)
+		return -gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage] - 2;  // negative values = 
+	};
+}
+
+
 void gpio_out_seq() {
-    /* Sets (optionally) multiple outputs at once; optionally sets them multiple times 
-	 * in an accurately timed sequence. 
+    /* Sets (optionally) multiple GPIO outputs at once; (optionally) sets them 
+	 * multiple times in an accurately timed short sequence of bit patterns. 
 	 *
 	 * If you need to change several pins simultaneously (within 1 ns), and/or in 
 	 * quite accurate time delay independent on how USB is busy (within 2 us), this 
@@ -202,30 +232,22 @@ void gpio_out_seq() {
 		int32_t wait_us7;   // default=-1 
 	} * args = (void*)(command_buffer+1);
 
-	gpio_set_dir_out_masked(args->gpio_mask);
-	gpio_put_masked(args->gpio_mask, args->value0);
-	// (todo) this is just quick & dirty hack; should be IRQ-driven ... hardware_alarm_set_target()
-	if (args->value0 > -1) { gpio_put_masked (args->gpio_mask, args->value0); }
-	if (args->wait_us0 > -1) { busy_wait_us_32(args->wait_us0); }
-	if (args->value1 > -1) { gpio_put_masked (args->gpio_mask, args->value1); }
-	if (args->wait_us1 > -1) { busy_wait_us_32(args->wait_us1); }
-	if (args->value2 > -1) { gpio_put_masked (args->gpio_mask, args->value2); }
-	if (args->wait_us2 > -1) { busy_wait_us_32(args->wait_us2); }
-	if (args->value3 > -1) { gpio_put_masked (args->gpio_mask, args->value3); }
-	if (args->wait_us3 > -1) { busy_wait_us_32(args->wait_us3); }
+	//gpio_init_mask(args->gpio_mask); // TODO freezes after a while
+	gpio_put_masked(args->gpio_mask, args->value0); 
+	gpio_set_dir_out_masked(args->gpio_mask); 
 
-	if (args->value4 > -1) { gpio_put_masked (args->gpio_mask, args->value4); }
-	if (args->wait_us4 > -1) { busy_wait_us_32(args->wait_us4); }
-	if (args->value5 > -1) { gpio_put_masked (args->gpio_mask, args->value5); }
-	if (args->wait_us5 > -1) { busy_wait_us_32(args->wait_us5); }
-	if (args->value6 > -1) { gpio_put_masked (args->gpio_mask, args->value6); }
-	if (args->wait_us6 > -1) { busy_wait_us_32(args->wait_us6); }
-	if (args->value7 > -1) { gpio_put_masked (args->gpio_mask, args->value7); }
-	if (args->wait_us7 > -1) { busy_wait_us_32(args->wait_us7); }
+	gpio_out_seq_config.seq_stage = -1;
+	gpio_out_seq_config.gpio_mask = args->gpio_mask;
+	for (uint8_t i=0; i<GPIO_OUT_SEQ_MAXLEN; i++) {
+		// fixme @command_data: accessing fixed struct as an interlaced quasi-array is a hack:
+		gpio_out_seq_config.value[i] = *((int32_t*)(((int32_t*)(&args->value0)) +(2*i) ));  
+		gpio_out_seq_config.wait_us[i]  = *((int32_t*)(((int32_t*)(&args->wait_us0)) +(2*i) )); //
+	}
 
-	// (todo) 1-3 microsecond jitter (delay) due to other hardware IRQ on this CPU core
-	// (todo) sub-microsecond delays: see timing https://forums.raspberrypi.com/viewtopic.php?t=333928
-	prepare_report(&gpio_out_seq_report, sizeof(gpio_out_seq_report), 0, 0, 0);
+	// (TODO) 3 us safety delay needed?
+    add_alarm_in_us(1+2, gpio_seq_callback, NULL, false);
+
+	// A report will be sent from the callback function when the sequence ends.  
 }
 
 
