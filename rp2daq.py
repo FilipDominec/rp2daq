@@ -237,12 +237,14 @@ class Rp2daq_internals(threading.Thread):
         specified, for its particular unique vendor name.
         """
 
-        VID, PID = 0x2e8a, 0x000a 
         port_list = list_ports.comports()
 
         for port_name in port_list:
             # filter out ports, without disturbing previously connected devices 
-            if not port_name.hwid.startswith("USB VID:PID=2E8A:000A SER="+required_device_id.upper()):
+            #VID=0x2e8a;  PID = 0x000a for RP2040, but 0x0009 for RP2350 
+            print(port_name.hwid)
+            if not (port_name.hwid.startswith("USB VID:PID=2E8A:000A SER="+required_device_id.upper()) or
+                port_name.hwid.startswith("USB VID:PID=2E8A:0009 SER="+required_device_id.upper()) ): 
                 continue
             #print(f"port_name.hwid={port_name.hwid}")
             try_port = serial.Serial(port=port_name.device, timeout=1)
