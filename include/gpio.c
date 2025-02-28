@@ -16,7 +16,7 @@ void gpio_out() {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
 		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V)
 	} * args = (void*)(command_buffer+1);
-	gpio_init(args->gpio);  // is it necessary to avoid clash e.g. with PWM output
+	gpio_init(args->gpio);  // is may be useful to report conflict e.g. with PWM output
 
     gpio_put(args->gpio, args->value);
     gpio_set_dir(args->gpio, GPIO_OUT);
@@ -185,7 +185,7 @@ int64_t gpio_seq_callback(alarm_id_t id, __unused void *user_data) { //TODO
 		// TODO accurate timing!  don't add 2us here, output next values in this call
 		// Note sub-microsecond timing can be trimmed by busy_wait_at_least_cycles(uint32_t minimum_cycles), 
 		// and clock_get_hz(clk_sys)
-		return -gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage] - 2;  // negative values = 
+		return -gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage] - 2;  
 	};
 }
 
@@ -232,9 +232,12 @@ void gpio_out_seq() {
 		int32_t wait_us7;   // default=-1 
 	} * args = (void*)(command_buffer+1);
 
-	//gpio_init_mask(args->gpio_mask); // TODO freezes after a while
-	gpio_put_masked(args->gpio_mask, args->value0); 
+	//gpio_init_mask(args->gpio_mask);
+	
+	//Set a number of GPIOs to output Switch all GPIOs in "mask" to output.
 	gpio_set_dir_out_masked(args->gpio_mask); 
+	
+	gpio_put_masked(args->gpio_mask, args->value0); 
 
 	gpio_out_seq_config.seq_stage = -1;
 	gpio_out_seq_config.gpio_mask = args->gpio_mask;

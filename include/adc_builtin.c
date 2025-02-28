@@ -115,6 +115,7 @@ void adc_stop() {
 	iADC_config.waits_for_usb = 0;	
 	iADC_config.waits_for_trigger = 0;	
     prepare_report(&adc_stop_report, sizeof(adc_stop_report), 0,0,0);
+    // Note immediate stop could be achieved by dma_channel_abort(), see https://lorenz-ruprecht.at/docu/pico-sdk/1.4.0/html/group__hardware__dma.html
 }
 
 
