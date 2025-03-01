@@ -98,7 +98,7 @@ class Rp2daq_internals(threading.Thread):
         self.report_processing_thread = threading.Thread(target=self._report_processor, daemon=True)
         self.callback_dispatching_thread = threading.Thread(target=self._callback_dispatcher, daemon=True)
         self.rx_bytes = deque()
-        self.rx_bytes_total_len = 0
+        #self.rx_bytes_total_len = 0
 
         # Launch the bidirectional communication now
         self.run_event = threading.Event()
@@ -144,7 +144,7 @@ class Rp2daq_internals(threading.Thread):
                 c = self.report_queue.get()
 
                 self.rx_bytes.extend(c) # superfluous bytes are kept in deque for later use
-                self.rx_bytes_total_len += len(c)
+                #self.rx_bytes_total_len += len(c)
             return bytes([self.rx_bytes.popleft() for _ in range(length)])
 
         def unpack_data_payload(data_bytes, count, bitwidth):

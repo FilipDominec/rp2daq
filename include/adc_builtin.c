@@ -129,7 +129,7 @@ typedef struct  {
     uint8_t dummy0;  // This is necessary for proper byte alignment, why? 
 } iADC_buffer;
 
-#define iADC_BUF_COUNT 4 // multi-buffering ensures continuous acquisition without USB delays
+#define iADC_BUF_COUNT 12 // multi-buffering ensures continuous acquisition without USB delays
 iADC_buffer iADC_buffers[iADC_BUF_COUNT];
 
 volatile uint8_t iADC_active_buffer = 0;

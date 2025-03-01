@@ -22,9 +22,12 @@ matplotlib's interactive plot.
 ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
 channels = [0,1]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
-#kSPS_total = 500    # note there is only one multiplexed ADC
-kSPS_total = 50    # note there is only one multiplexed ADC
 
+kSPS_total = 500    # with short (1000sample) packets it causes USB data loss (leading sometimes to USB comm freezing) at my notebook
+#kSPS_total = 480     # ?
+#kSPS_total = 400     # seems safe (even at CPU_STRESS=2, but the printout is jerky)
+
+CPU_STRESS = 0 # use 0 for thread wait (good practice), 1 for a loop with short time.sleep(), 2 for a busy loop
 
 
 import rp2daq 
@@ -34,9 +37,10 @@ import time
 ## Connect to the device
 rp = rp2daq.Rp2daq()
 
-## Generate some realistic signal on GPIO 2 (connect it with a jumper to GPIO 26)
-rp.pwm_configure_pair(gpio=2, wrap_value=6553, clkdiv=250, clkdiv_int_frac=0)
-rp.pwm_set_value(gpio=2, value=3500) # minimum position
+## Generate some realistic signal on GPIO (e.g. connect it through an RC filter to GPIO 26)
+rp.pwm_configure_pair(gpio=17, wrap_value=65530, clkdiv=25, clkdiv_int_frac=0)
+rp.pwm_set_value(gpio=17, value=12500) # minimum position
+#rp.gpio_out(17,1)
 time.sleep(.1)
 
 ## Run-time objects and variables
@@ -51,9 +55,9 @@ def ADC_callback(rv):
     global t0, prev_etime_us
 
     all_data.extend(rv.data)
-    delayed.extend([rv.block_delayed_by_usb]*(len(rv.data)//2))
+    delayed.extend([rv.block_delayed_by_usb]*(len(rv.data)//len(channels)))
 
-    print("Packet received", len(all_data), len(rv.data),
+    print("Packet received", len(all_data), len(rv.data), rv.blocks_to_send,
             -rv.start_time_us+rv.end_time_us,
             -prev_etime_us+rv.start_time_us,
             rp._i.report_queue.qsize(), 
@@ -75,9 +79,9 @@ def ADC_callback(rv):
 ## Initialize the ADC into asynchronous operation...
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
-        blocksize=1000*len(channels), 
-        blocks_to_send=100, 
-        #trigger_gpio=1,
+        blocksize=4000*len(channels), 
+        blocks_to_send=10, 
+        trigger_gpio=17,
         trigger_on_falling_edge=1,
         clkdiv=int(48000//kSPS_total), 
         _callback=ADC_callback)
@@ -89,25 +93,21 @@ rp.adc(channel_mask=sum(2**ch for ch in channels),
 
 
 
-#all_ADC_done.wait() ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)
-
-#while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
-    #time.sleep(.000005)
-    
-
-tt = time.time()
-def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
-    t0 = time.time()
-    while time.time() < t0+t: pass
-while not all_ADC_done.is_set():
-    #rp.gpio_out(25,1)
-    busy_wait(.05)
-    if time.time() > tt+.31:
-        pass
-        #print(rp.adc(blocks_to_send=0))
-        print(rp.adc_stop())
-    #rp.gpio_out(25,0)
-    busy_wait(.05)
+if CPU_STRESS == 0:
+    all_ADC_done.wait() ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)
+elif CPU_STRESS == 1:
+    while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
+        time.sleep(.000005)
+elif CPU_STRESS == 2:
+    tt = time.time()
+    def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
+        t0 = time.time()
+        while time.time() < t0+t: pass
+    while not all_ADC_done.is_set(): #rp.gpio_out(25,1)
+        busy_wait(.05)
+        #if time.time() > tt+.31:    # optionally, stop the stream
+            #print(rp.adc_stop()) #rp.gpio_out(25,0)
+        busy_wait(.05)
 
 # FIXME! 
 # stopping ADC batch in the middle results in:
