@@ -15,7 +15,7 @@ achieve reliable uninterrupted data stream at 500k × 12bit samples per second.
 Finally, the ADC record is separated into channels and plotted using numpy and
 matplotlib's interactive plot.
 
-        Filip Dominec 2023, public domain
+        Filip Dominec 2023-25, public domain
 """
 
 ## User options
@@ -23,7 +23,7 @@ ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builti
 
 channels = [0,1]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
 
-kSPS_total = 500    # with short (1000sample) packets it causes USB data loss (leading sometimes to USB comm freezing) at my notebook
+kSPS_total = 500    # with short (1000sample) packets it causes USB data loss (leading sometimes to USB comm freezing - computer problem?) 
 #kSPS_total = 480     # ?
 #kSPS_total = 400     # seems safe (even at CPU_STRESS=2, but the printout is jerky)
 
@@ -38,8 +38,8 @@ import time
 rp = rp2daq.Rp2daq()
 
 ## Generate some realistic signal on GPIO (e.g. connect it through an RC filter to GPIO 26)
-rp.pwm_configure_pair(gpio=17, wrap_value=65530, clkdiv=25, clkdiv_int_frac=0)
-rp.pwm_set_value(gpio=17, value=12500) # minimum position
+rp.pwm_configure_pair(gpio=17, wrap_value=2000-1, clkdiv=25, clkdiv_int_frac=0)
+rp.pwm_set_value(gpio=17, value=1000)
 #rp.gpio_out(17,1)
 time.sleep(.1)
 
@@ -48,6 +48,8 @@ all_ADC_done = threading.Event() # a thread-safe semaphore
 all_data = []
 received_time = []
 delayed = []
+
+
 
 # Called from other thread whenever data come from RP2
 prev_etime_us = 0
@@ -79,19 +81,20 @@ def ADC_callback(rv):
 ## Initialize the ADC into asynchronous operation...
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
-        blocksize=4000*len(channels), 
-        blocks_to_send=10, 
-        trigger_gpio=17,
+        blocksize=2000*len(channels), 
+        blocks_to_send=1, 
+        #trigger_gpio=17,
         trigger_on_falling_edge=1,
         clkdiv=int(48000//kSPS_total), 
         _callback=ADC_callback)
+
+
+
 ## Unless all data are received, the program can continue (or wait) here. A dedicated separate process
 ## ensures that raw data are quickly offloaded from USB into a queue, so that no message is corrupted. 
 ## High CPU load in this user script can however lead to delays in the callbacks being issued.
 ## In particular, tight busy loops in main thread (option 4 below) will cause callback delays, so 
 ## maximum sustained data rate may be roughly halved on ordinary modern computer (<300 kBps).
-
-
 
 if CPU_STRESS == 0:
     all_ADC_done.wait() ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)

@@ -50,7 +50,7 @@ def usb_backend(report_queue, command_queue, terminate_queue, port_name):
         port.close()   # other threads below are made to handle this situation and gracefully
 
 
-    # Observation from stress-tests: on Linux rp2daq.py handles more data with few-ms delay within 
+    # Observation from stress-tests: on Linux, rp2daq.py handles more data with few-ms delay within 
     # receiver loop, while Windows10 seems better without it 
     # Warning: current implementation may silently lose ADC packets when they come too often >400/s 
     # (https://github.com/FilipDominec/rp2daq/issues/23)

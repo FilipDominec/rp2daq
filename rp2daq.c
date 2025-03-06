@@ -54,7 +54,7 @@ message_descriptor message_table[] = // #new_features: add your command to this 
 
                 //{&adc_set_trigger,	&adc_set_trigger_report},
 
-inline void rx_next_command() {
+static inline void rx_next_command() {
     int packet_size;
     uint8_t packet_data;
     message_descriptor message_entry;

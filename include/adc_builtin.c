@@ -181,12 +181,12 @@ int32_t get_sync_value() {
 void iADC_DMA_start() {
     iADC_config.block_delayed_by_usb = iADC_config.waits_for_usb;
     iADC_config.waits_for_usb = 0;
-    //iADC_config.block_delayed_by_trigger = iADC_config.waits_for_trigger; TODO 
+    //iADC_config.block_delayed_by_trigger = iADC_config.waits_for_trigger; (todo) is this useful?
 	
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
 	adc_run(false);				
 	adc_fifo_drain(); 
-	//adc_set_round_robin(iADC_config.channel_mask);  // TODO this may prevent 500 ksps on single channel? 
+	adc_set_round_robin(iADC_config.channel_mask);  // TODO this may prevent 500 ksps on single channel? 
 	adc_set_clkdiv(iADC_config.clkdiv); // user-set
 
 	// Prepare a new non-blocking ADC acquisition using DMA in background
@@ -266,7 +266,9 @@ void iADC_DMA_IRQ_handler() {
 	adc_run(false);
 
 	// Quickly swap buffers & start a new ADC acquisition (if appropriate)
-    // TODO should be done by chained DMA hardware to avoid any delay
+    // (todo) can be done by chained DMA hardware to avoid any delay, but the DMA chain
+	// has to be dynamically adjusted to (1) wait for USB freeing a buffer,
+	// (2) not launch again if blocks_to_send==0, and (3) wait for trigger GPIO if set.
     uint8_t iADC_buffer_prev = iADC_active_buffer;
     iADC_active_buffer = (iADC_active_buffer + 1) % iADC_BUF_COUNT;
 
