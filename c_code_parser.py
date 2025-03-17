@@ -190,7 +190,7 @@ def analyze_c_firmware():
         markdown_docs += f"```Python\n{command_name}({exec_header} _callback=None)\n```\n\n"
         markdown_docs += f"{raw_docstring}\n\n"
         markdown_docs += f"***Command parameters:***\n\n{param_docstring}\n"
-        markdown_docs += f"***Report returns:***\n\n{report_docstring}\n"
+        markdown_docs += f"***Report object attributes:***\n\n{report_docstring}\n"
 
     return report_names, report_lengths, report_header_signatures, arg_names_for_reports, func_dict, markdown_docs
 

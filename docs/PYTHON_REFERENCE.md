@@ -42,7 +42,7 @@ Mostly for internal use: confirms the RP2DAQ device is up and has matching firmw
 ***Report returns:***
 
   * **report_code** : 0 
-  * **data** : as a list of integers. 
+  * **data** : Bulk payload as a list of integers. 
 
 
 
@@ -214,7 +214,7 @@ almost immediate or delayed, depending on block size and timing.*
 ***Report returns:***
 
   * **report_code** : 6 
-  * **data** : as a list of integers. 
+  * **data** : Bulk payload as a list of integers. 
   * **start_time_us** : Microsecond timestamp when ADC started this block acquisition. 
   * **end_time_us** : Microsecond timestamp when ADC finished this block acquisition. 
   * **start_sync_value** : Stepper[0] nanoposition when ADC started this block acquisition. (Will be configurable in future.) 
