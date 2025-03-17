@@ -199,7 +199,8 @@ class Rp2daq_internals(threading.Thread):
                     elif cb is None: # expected report from blocking command
                         self.sync_report_cb_queues[report_type].put(return_values) # unblock default callback (& send it data)
                     elif cb is False: # unexpected report, from command that was not yet called in this script instance
-                        logging.warning(f"Warning: Unexpected report type; you may want to reset the device. \n\tDebug info: {return_values}")
+                        logging.warning(f"Warning: Unexpected report type; you may want to reset the device. \n\tDebug info: {return_values}", 
+                                report_namedtuple_classes[return_values])
                         pass 
                 ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
                 ## TODO: check if sync cmd works correctly after async cmd (of the same type)
@@ -242,7 +243,7 @@ class Rp2daq_internals(threading.Thread):
         for port_name in port_list:
             # filter out ports, without disturbing previously connected devices 
             #VID=0x2e8a;  PID = 0x000a for RP2040, but 0x0009 for RP2350 
-            print(port_name.hwid)
+            #print(port_name.hwid)
             if not (port_name.hwid.startswith("USB VID:PID=2E8A:000A SER="+required_device_id.upper()) or
                 port_name.hwid.startswith("USB VID:PID=2E8A:0009 SER="+required_device_id.upper()) ): 
                 continue

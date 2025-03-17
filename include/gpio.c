@@ -158,6 +158,7 @@ void gpio_on_change() {
 
 #define GPIO_OUT_SEQ_MAXLEN 16  // (todo) make this longer when command variable-length data
 struct __attribute__((packed)) {
+	uint64_t start_timestamp_us;
 	volatile int8_t  seq_stage;
 	volatile uint8_t seq_len;
 	volatile int32_t gpio_mask;
@@ -167,6 +168,7 @@ struct __attribute__((packed)) {
 
 struct __attribute__((packed)) {
     uint8_t report_code;
+	uint64_t start_timestamp_us;
 	uint64_t end_timestamp_us;
 } gpio_out_seq_report;
 // todo timestamps for start/end of seq
@@ -181,6 +183,8 @@ int64_t gpio_seq_callback(alarm_id_t id, __unused void *user_data) {
 	gpio_out_seq_config.seq_stage++;
 	if (gpio_out_seq_config.seq_stage >= gpio_out_seq_config.seq_len) { // if beyond last sequence stage
         gpio_out_seq_report.end_timestamp_us = time_us_64(); 
+        gpio_out_seq_report.start_timestamp_us = gpio_out_seq_config.start_timestamp_us; 
+
 		prepare_report(&gpio_out_seq_report, sizeof(gpio_out_seq_report), 0, 0, 0);
 		return 0;
 	} else { 
@@ -250,7 +254,7 @@ void gpio_out_seq() {
     // Note: could be extended trivially, adjusting GPIO_OUT_SEQ_MAXLEN. Max cmd len given by RX_BUF_LEN.
     // But better solution is to implement data array also for commands in the future. 
 
-	
+    gpio_out_seq_config.start_timestamp_us = time_us_64(); 
 	gpio_out_seq_config.gpio_mask = args->gpio_mask;
 	gpio_out_seq_config.seq_len = 0;
 	for (uint8_t i=0; i<GPIO_OUT_SEQ_MAXLEN; i++) { // verbatim copy of the command values
@@ -258,25 +262,16 @@ void gpio_out_seq() {
 		gpio_out_seq_config.wait_us[i] = *((int32_t*)(((int32_t*)(&args->wait_us0)) +(2*i) )); // -2???
 		if (gpio_out_seq_config.value[i] != -1) gpio_out_seq_config.seq_len = i+1;
 	}
-	//gpio_out_seq_config.seq_len = 14;
-    //gpio_out_seq_config.value[0] = 0b0011;
-    //gpio_out_seq_config.value[1] = 0b0000;
-    //gpio_out_seq_config.value[2] = 0b0010;
-    //gpio_out_seq_config.value[3] = 0b0000;
-    //gpio_out_seq_config.wait_us[0] = 10;
-    //gpio_out_seq_config.wait_us[1] = 10;
-    //gpio_out_seq_config.wait_us[2] = 10;
-    //gpio_out_seq_config.wait_us[3] = 10;
-
-	//Set the selected GPIOs to output
-	//gpio_set_dir_out_masked(args->gpio_mask); // FIXME did nothing? 
-	//for (uint8_t i=0; i<25; i++) { 
-        //if ((1<<i) & gpio_out_seq_config.gpio_mask) {
-            //gpio_init(i);  // Is this necessary? FIXME this introduces a sub-microsecond high-impedance glitch
-            //gpio_set_dir(i, GPIO_OUT);
-        //}
-    //}
-            //gpio_put(i, );
+    
+	// (re)init the masked GPIOs as output
+	gpio_set_dir_out_masked(args->gpio_mask); // FIXME did nothing? 
+	for (uint8_t i=0; i<=25; i++) { 
+        if ((1<<i) & gpio_out_seq_config.gpio_mask) {
+            gpio_init(i);  // Is this necessary? 
+            // (it introduces a mostly harmless sub-microsecond glitch if gpio already sourced current)
+            gpio_set_dir(i, GPIO_OUT);
+        }
+    }
     
 	//Output the first sequence values
     gpio_out_seq_config.seq_stage = 0;
