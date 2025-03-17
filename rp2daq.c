@@ -74,7 +74,7 @@ static inline void rx_next_command() {
         }
 
         // Check for unknown message - this should never happen. (todo: report it)
-        if (command_buffer[0] >= ARRAY_LEN(message_table)) 
+        if (command_buffer[0] >= ARRAY_LEN(message_table))  // FIXME comm freezes when commented out
             return; 
 
         // Seek for the associated command handler function, implemented in the include/*.c files

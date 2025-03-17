@@ -130,6 +130,7 @@ def analyze_c_firmware():
 
 
         # TODO once 16-bit msglen enabled: cmd_length will go +3, and 1st struct Byte must change to Half-int 
+        print(command_code, cmd_length)
         exec_msghdr = f"', {cmd_length+2}, {command_code}, "
         code = f"def {command_name}(self,{exec_header} _callback=None):\n" +\
                 f'\t"""{raw_docstring}\n\nParameters:\n{param_docstring}"""\n' +\

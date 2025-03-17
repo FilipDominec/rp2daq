@@ -1,33 +1,41 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 """
-This slightly fancier example receives multiple data blocks from the built in ADC 
-(analog-to-digital converter) Raspberry Pi Pico.
+This example initiates the built-in ADC (analog-digital converter) once, and then receives 
+multiple reports containing sampled ADC.
 
 It demonstrates how a virtually unlimited amount of data can be acquired, with
 the main thread staying responsive. Such asynchronous, callback-based operation is 
 generally more flexible and efficient. 
 
-Rp2daq implements direct-memory access (DMA), triple-buffering and bit-compression 
+Rp2daq implements direct-memory access (DMA), multiple buffering and bit compression 
 in the firmware, along with multi-threading and -processing in the python module, to 
 achieve reliable uninterrupted data stream at 500k × 12bit samples per second.
 
-Finally, the ADC record is separated into channels and plotted using numpy and
+Finally, in this script the ADC record is separated into channels and plotted using numpy and
 matplotlib's interactive plot.
 
         Filip Dominec 2023-25, public domain
 """
 
 ## User options
-ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermo"}
 
-channels = [0,1]     # 0,1,2 are GPIOs 26-28;  3 is V_ref and 4 is internal thermometer
+# List of ADC input channels that will be interleaved in the sampled data. 
+ADC_channel_names = {0:"GPIO 26", 1:"GPIO 27", 2:"GPIO 28", 3:"ref V", 4:"builtin thermometer"}
 
-kSPS_total = 500    # with short (1000sample) packets it causes USB data loss (leading sometimes to USB comm freezing - computer problem?) 
-#kSPS_total = 480     # ?
-#kSPS_total = 400     # seems safe (even at CPU_STRESS=2, but the printout is jerky)
+channels = [0,1]     
 
-CPU_STRESS = 0 # use 0 for thread wait (good practice), 1 for a loop with short time.sleep(), 2 for a busy loop
+# ADC speed; 500 ksps is maximum given by hardware. Rp2daq firmware packs the 12bit values into 
+# 750 kBps and should be able to stream it continuously to the computer.
+kSPS_total = 500
+
+# CPU stress test. While ADC is running, the script on your computer must be able to do other jobs.   
+# Use 0 for idle thread waiting, 1 for a loop containing a short time.sleep(), and 2 for a tight busy loop.
+# Expected results: With normal 2GHz+ CPU, the options 0 and 1 should store the incoming data on-the-fly. 
+# With option 2, the rp2daq receiving routines may not keep up with the stream, leading to the ADC reports 
+# heaping in the internal report queue (c.f. rp._i.report_queue.qsize() to monitor this). 
+# But in no case any data should be lost.
+CPU_STRESS = 2  
 
 
 import rp2daq 
@@ -60,10 +68,11 @@ def ADC_callback(rv):
     delayed.extend([rv.block_delayed_by_usb]*(len(rv.data)//len(channels)))
 
     print("Packet received", len(all_data), len(rv.data), rv.blocks_to_send,
-            -rv.start_time_us+rv.end_time_us,
-            -prev_etime_us+rv.start_time_us,
+            rv.end_time_us-rv.start_time_us,
+            rv.start_time_us-prev_etime_us,
             rp._i.report_queue.qsize(), 
             (" DELAYED" if rv.block_delayed_by_usb else "") )
+
     prev_etime_us = rv.end_time_us
     received_time.extend([time.time()]*(len(rv.data)//len(channels)))
 
@@ -81,8 +90,8 @@ def ADC_callback(rv):
 ## Initialize the ADC into asynchronous operation...
 t0 = None
 rp.adc(channel_mask=sum(2**ch for ch in channels), 
-        blocksize=2000*len(channels), 
-        blocks_to_send=1, 
+        blocksize=500*len(channels), 
+        blocks_to_send=1000, 
         #trigger_gpio=17,
         trigger_on_falling_edge=1,
         clkdiv=int(48000//kSPS_total), 
@@ -97,13 +106,13 @@ rp.adc(channel_mask=sum(2**ch for ch in channels),
 ## maximum sustained data rate may be roughly halved on ordinary modern computer (<300 kBps).
 
 if CPU_STRESS == 0:
-    all_ADC_done.wait() ## Waiting option 1: the right and efficient waiting (data rate OK, no loss)
+    all_ADC_done.wait() ## Waiting option 0: the right and efficient waiting
 elif CPU_STRESS == 1:
-    while not all_ADC_done.is_set(): # Waiting option 2: moderate CPU load is (also OK)
+    while not all_ADC_done.is_set(): # Waiting option 1: moderate CPU load
         time.sleep(.000005)
 elif CPU_STRESS == 2:
     tt = time.time()
-    def busy_wait(t): # Waiting option 3: stress test with busy loops (still OK)
+    def busy_wait(t): # Waiting option 2: stress test with busy loops (still OK)
         t0 = time.time()
         while time.time() < t0+t: pass
     while not all_ADC_done.is_set(): #rp.gpio_out(25,1)

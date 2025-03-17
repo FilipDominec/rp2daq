@@ -16,8 +16,8 @@ void gpio_out() {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
 		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V)
 	} * args = (void*)(command_buffer+1);
-	gpio_init(args->gpio);  // is may be useful to report conflict e.g. with PWM output
 
+	gpio_init(args->gpio);  // is may be useful to report conflict e.g. with PWM output
     gpio_put(args->gpio, args->value);
     gpio_set_dir(args->gpio, GPIO_OUT);
 	prepare_report(&gpio_out_report, sizeof(gpio_out_report), 0, 0, 0);
@@ -156,7 +156,7 @@ void gpio_on_change() {
 
 
 
-#define GPIO_OUT_SEQ_MAXLEN 8  // (todo) make this longer when command variable-length data
+#define GPIO_OUT_SEQ_MAXLEN 16  // (todo) make this longer when command variable-length data
 struct __attribute__((packed)) {
 	volatile int8_t  seq_stage;
 	volatile uint8_t seq_len;
@@ -167,21 +167,27 @@ struct __attribute__((packed)) {
 
 struct __attribute__((packed)) {
     uint8_t report_code;
-	uint8_t seq_len;
+	uint64_t end_timestamp_us;
 } gpio_out_seq_report;
+// todo timestamps for start/end of seq
 
-int64_t gpio_seq_callback(alarm_id_t id, __unused void *user_data) { //TODO
+int64_t gpio_seq_callback(alarm_id_t id, __unused void *user_data) { 
+    // Interrupt service routine for updating the GPIO sequence, initiated by the gpio_out_seq command.
+    // Note sub-microsecond timing could be trimmed by busy_wait_at_least_cycles(uint32_t minimum_cycles), 
+    // and clock_get_hz(clk_sys), but won't be implemented - busy waiting should be avoided in IRQ.
+    // TODO migrate this ISR to the second core which is dedicated to such real-time tasks; hook it to a 
+    // busy loop checking for https://forums.raspberrypi.com/viewtopic.php?f=145&t=304201&p=1820770&hilit=Hermannsw+systick#p1822677.
+    
 	gpio_out_seq_config.seq_stage++;
 	if (gpio_out_seq_config.seq_stage >= gpio_out_seq_config.seq_len) { // if beyond last sequence stage
-		gpio_out_seq_report.seq_len = gpio_out_seq_config.seq_len;
+        gpio_out_seq_report.end_timestamp_us = time_us_64(); 
 		prepare_report(&gpio_out_seq_report, sizeof(gpio_out_seq_report), 0, 0, 0);
 		return 0;
 	} else { 
-		gpio_put_masked(gpio_out_seq_config.gpio_mask, gpio_out_seq_config.value[gpio_out_seq_config.seq_stage]); 
-		return -gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage];
-		// Note sub-microsecond timing could be trimmed by busy_wait_at_least_cycles(uint32_t minimum_cycles), 
-		// and clock_get_hz(clk_sys), but it is not implemented - busy waiting should be avoided in IRQ.
-		// (todo) migrate this ISR to second core which is dedicated to such real-time tasks.
+		//if (gpio_out_seq_config.value[gpio_out_seq_config.seq_stage] >= 0)
+        gpio_put_masked(gpio_out_seq_config.gpio_mask, gpio_out_seq_config.value[gpio_out_seq_config.seq_stage]); 
+		//return min(-1, -gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage]); // negative delay = more accurate timing
+		return -gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage]; // negative delay = more accurate timing
 	};
 }
 
@@ -199,72 +205,94 @@ void gpio_out_seq() {
 	 * The *gpio_mask* and *value* parameters accept bit mask; e.g. if you wish to
 	 * set GPIO 0 to logical high and GPIO 4 to logical low, use gpio_mask=1+16 and
 	 * value0=1. The following parameters can be all 0, unless one wants to define 
-	 * a sequence that changes the GPIOs in time.  
+	 * a sequence that changes the GPIOs in time.
 	 *
 	 * Not all wait times and values have to be set; the defaults (negative values)
 	 * mean the unused entries won't be used. 
-	 *
-     * __Fixme__: the sequence should be given as variable-length data array instead
      * 
      * *This command results in one report when the sequence is finished.*
      */
 	struct  __attribute__((packed)) {
-		uint32_t gpio_mask;		  // Only *gpio* numbers corresponding to "1" bits be changed
-		int32_t value0;     // default=-1 Binary value will be set as the outputs
-		int32_t wait_us0;   // default=-1 Microseconds to wait after setting this value
-		int32_t value1;     // default=-1 Next binary value, if not negative...
-		int32_t wait_us1;   // default=-1 
-		int32_t value2;     // default=-1 
-		int32_t wait_us2;   // default=-1 
-		int32_t value3;     // default=-1 
-		int32_t wait_us3;   // default=-1 
-		int32_t value4;     // default=-1 
-		int32_t wait_us4;   // default=-1 
-		int32_t value5;     // default=-1 
-		int32_t wait_us5;   // default=-1 
-		int32_t value6;     // default=-1 
-		int32_t wait_us6;   // default=-1 
-		int32_t value7;     // default=-1 
-		int32_t wait_us7;   // default=-1 
+		uint32_t gpio_mask;	// Only *gpio* numbers corresponding to "1" bits in mask will be initialized as outputs and changed
+		int32_t value0;     // default=-1 min=-1 Binary value will be set as the outputs
+		int32_t wait_us0;   // default=-1 min=-1 Microseconds to wait after setting this value
+		int32_t value1;     // default=-1 min=-1 Next binary value, used if not negative...
+		int32_t wait_us1;   // default=-1 min=-1 
+		int32_t value2;     // default=-1 min=-1 
+		int32_t wait_us2;   // default=-1 min=-1 
+		int32_t value3;     // default=-1 min=-1 
+		int32_t wait_us3;   // default=-1 min=-1 
+		int32_t value4;     // default=-1 min=-1 
+		int32_t wait_us4;   // default=-1 min=-1 
+		int32_t value5;     // default=-1 min=-1 
+		int32_t wait_us5;   // default=-1 min=-1 
+		int32_t value6;     // default=-1 min=-1 
+		int32_t wait_us6;   // default=-1 min=-1 
+		int32_t value7;     // default=-1 min=-1 
+		int32_t wait_us7;   // default=-1 min=-1 
+		int32_t value8;     // default=-1 min=-1 
+		int32_t wait_us8;   // default=-1 min=-1 
+		int32_t value9;     // default=-1 min=-1 
+		int32_t wait_us9;   // default=-1 min=-1 
+		int32_t value10;    // default=-1 min=-1 
+		int32_t wait_us10;  // default=-1 min=-1 
+		int32_t value11;    // default=-1 min=-1 
+		int32_t wait_us11;  // default=-1 min=-1 
+		int32_t value12;    // default=-1 min=-1 
+		int32_t wait_us12;  // default=-1 min=-1 
+		int32_t value13;    // default=-1 min=-1 
+		int32_t wait_us13;  // default=-1 min=-1 
+		int32_t value14;    // default=-1 min=-1 
+		int32_t wait_us14;  // default=-1 min=-1 
+		int32_t value15;    // default=-1 min=-1 
+		int32_t wait_us15;  // default=-1 min=-1 
 	} * args = (void*)(command_buffer+1);
+    // Note: could be extended trivially, adjusting GPIO_OUT_SEQ_MAXLEN. Max cmd len given by RX_BUF_LEN.
+    // But better solution is to implement data array also for commands in the future. 
 
-	//gpio_init_mask(args->gpio_mask);
-	
-	//Set a number of GPIOs to output Switch all GPIOs in "mask" to output.
-	gpio_set_dir_out_masked(args->gpio_mask); 
 	
 	gpio_out_seq_config.gpio_mask = args->gpio_mask;
 	gpio_out_seq_config.seq_len = 0;
-	for (uint8_t i=0; i<GPIO_OUT_SEQ_MAXLEN-1; i++) { // verbatim copy of the message values
+	for (uint8_t i=0; i<GPIO_OUT_SEQ_MAXLEN; i++) { // verbatim copy of the command values
 		gpio_out_seq_config.value[i] = *((int32_t*)(((int32_t*)(&args->value0)) +(2*i) ));  
 		gpio_out_seq_config.wait_us[i] = *((int32_t*)(((int32_t*)(&args->wait_us0)) +(2*i) )); // -2???
-		if (gpio_out_seq_config.value[i] != -1)
-			gpio_out_seq_config.seq_len = i+1;
+		if (gpio_out_seq_config.value[i] != -1) gpio_out_seq_config.seq_len = i+1;
 	}
-	//gpio_out_seq_config.seq_len = 5; // XXX    && (gpio_out_seq_config.wait_us[i] != -1))
+	//gpio_out_seq_config.seq_len = 14;
+    //gpio_out_seq_config.value[0] = 0b0011;
+    //gpio_out_seq_config.value[1] = 0b0000;
+    //gpio_out_seq_config.value[2] = 0b0010;
+    //gpio_out_seq_config.value[3] = 0b0000;
+    //gpio_out_seq_config.wait_us[0] = 10;
+    //gpio_out_seq_config.wait_us[1] = 10;
+    //gpio_out_seq_config.wait_us[2] = 10;
+    //gpio_out_seq_config.wait_us[3] = 10;
 
-
-	//if (gpio_out_seq_config.seq_len > 0) {
-		gpio_out_seq_config.seq_stage = 0;
-		gpio_put_masked(args->gpio_mask, args->value0); 
-		add_alarm_in_us(gpio_out_seq_config.wait_us[0],  // negative delay values mean start-to-start IRQ timing
-				gpio_seq_callback, 
-				NULL,  // no user data needed
-				true); // ensures the alarm IRQ chain does not break on delay (and report is always sent)
+	//Set the selected GPIOs to output
+	//gpio_set_dir_out_masked(args->gpio_mask); // FIXME did nothing? 
+	//for (uint8_t i=0; i<25; i++) { 
+        //if ((1<<i) & gpio_out_seq_config.gpio_mask) {
+            //gpio_init(i);  // Is this necessary? FIXME this introduces a sub-microsecond high-impedance glitch
+            //gpio_set_dir(i, GPIO_OUT);
+        //}
+    //}
+            //gpio_put(i, );
+    
+	//Output the first sequence values
+    gpio_out_seq_config.seq_stage = 0;
+    if (gpio_out_seq_config.value[0] >= 0) { // TODO check all ill cases like this
+        gpio_put_masked(args->gpio_mask, gpio_out_seq_config.value[0]); 
+    }
+    add_alarm_in_us(gpio_out_seq_config.wait_us[0], 
+            gpio_seq_callback,  // launch next IRQ update
+            NULL,  // no user data needed
+            true); // ensures the alarm IRQ chain does not break on delay (and report is always sent)
 	//};
 
 	// A report will be sent from the callback function when the sequence ends.  
+	
 }
 
 
-
-//• enum gpio_slew_rate { GPIO_SLEW_RATE_SLOW = 0, GPIO_SLEW_RATE_FAST = 1 }
-//Slew rate limiting levels for GPIO outputs Slew rate limiting increases the minimum rise/fall time when a GPIO
-//output is lightly loaded, which can help to reduce electromagnetic emissions.
-//• enum
-//gpio_drive_strength { GPIO_DRIVE_STRENGTH_2MA = 0, GPIO_DRIVE_STRENGTH_4MA = 1, GPIO_DRIVE_STRENGTH_8MA = 2,
-//GPIO_DRIVE_STRENGTH_12MA = 3 }
-
-// TODO multiple gpio reading at once: with gpio_get_all(), gpio_xor_mask() etc.
 
 

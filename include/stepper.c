@@ -272,7 +272,6 @@ inline uint32_t udiff(int32_t a, int32_t b) {  // absolute value of difference
 }
 
 void stepper_update() { // called from core1_main() loop every 100 us
-	return;
 	for (uint8_t m=0; m<MAX_STEPPER_COUNT; m++) {
 		if (stepper[m].initialized) {  // one moving stepper takes ca. 450 CPU cycles (if not messaging) // TODO rm CHECK
 			int32_t new_nanopos, actual_nanospeed;

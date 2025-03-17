@@ -31,7 +31,7 @@
 #define RXBUF_LEN 1024    
 uint8_t command_buffer[RXBUF_LEN];
 
-// Cyclic buffer for staging reports to be sent (headers + optional data payload if fits in)
+// Cyclic buffer for staging reports to be sent (fixed-length structures only)
 #define TXBUF_LEN 256    // (longer data than this can be transmitted as reference to memory)
 #define TXBUF_COUNT 8    // up to 8 reports can be immediately scheduled, even if USB is busy
 uint8_t  txbuf[(TXBUF_LEN*TXBUF_COUNT)];
