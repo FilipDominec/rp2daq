@@ -33,9 +33,15 @@ kSPS_total = 500
 # Use 0 for idle thread waiting, 1 for a loop containing a short time.sleep(), and 2 for a tight busy loop.
 # Expected results: With normal 2GHz+ CPU, the options 0 and 1 should store the incoming data on-the-fly. 
 # With option 2, the rp2daq receiving routines may not keep up with the stream, leading to the ADC reports 
-# heaping in the internal report queue (c.f. rp._i.report_queue.qsize() to monitor this). 
-# But in no case any data should be lost.
-CPU_STRESS = 2  
+# heaping in the internal report queue (c.f. rp._i.report_queue.qsize() to monitor this).  
+# Option 3 is similar, but between the busy loops rp2daq sends commands (synchronously) to blink the LED.
+
+# But in any case of CPU load and parallel communication, no data should be lost.
+
+CPU_STRESS = 3  
+
+# Set this to True to see all acquired values
+PLOTTING_ENABLED = True
 
 
 import rp2daq 
@@ -105,61 +111,56 @@ rp.adc(channel_mask=sum(2**ch for ch in channels),
 ## In particular, tight busy loops in main thread (option 4 below) will cause callback delays, so 
 ## maximum sustained data rate may be roughly halved on ordinary modern computer (<300 kBps).
 
+def busy_wait(t): 
+    t0 = time.time()
+    while time.time() < t0+t: pass
+start_time = time.time()
+
 if CPU_STRESS == 0:
-    all_ADC_done.wait() ## Waiting option 0: the right and efficient waiting
+    all_ADC_done.wait() ## Waiting option 0: the right approach to efficient waiting
 elif CPU_STRESS == 1:
     while not all_ADC_done.is_set(): # Waiting option 1: moderate CPU load
         time.sleep(.000005)
-elif CPU_STRESS == 2:
-    tt = time.time()
-    def busy_wait(t): # Waiting option 2: stress test with busy loops (still OK)
-        t0 = time.time()
-        while time.time() < t0+t: pass
-    while not all_ADC_done.is_set(): #rp.gpio_out(25,1)
-        busy_wait(.05)
-        #if time.time() > tt+.31:    # optionally, stop the stream
-            #print(rp.adc_stop()) #rp.gpio_out(25,0)
-        busy_wait(.05)
-
-# FIXME! 
-# stopping ADC batch in the middle results in:
-# ... 
-#Packet received 452000 2000 4044 3 0 
-#Packet received 454000 2000 4044 4 0 
-#Packet received 456000 2000 4044 1469 0 
-#2024-07-15 19:46:20,603 (Thread-2 ) Warning: Got callback that was not asked for
-	#Debug info: {'report_code': 0, '_data_count': 30, '_data_bitwidth': 8, 'data': b'rp2daq_240715_E66118604B52522A'}
-
-
-#rp.gpio_out(25,1) # Waiting option 4: stress test with single busy loop
-#while not all_ADC_done.is_set(): pass
-#rp.gpio_out(25,0) # note this only happens after all data is received on computer side
+elif CPU_STRESS == 2:        # Waiting option 2: the Python process is 100% busy (still OK)
+    while not all_ADC_done.is_set(): 
+        busy_wait(.1)
+        if time.time() > start_time+.5:    # optionally, stop the stream after half second
+            print(rp.adc_stop()) 
+elif CPU_STRESS == 3:   # Waiting option 3: the Python process is 100% busy and issues many sync commands
+    while not all_ADC_done.is_set(): 
+        rp.gpio_out(25,1)
+        busy_wait(.01)
+        if time.time() > start_time+.5:    # optionally, stop the stream
+            print(rp.adc_stop()) 
+        rp.gpio_out(25,0)
+        busy_wait(.01)
 
 print(f"Received total {len(all_data)} samples in {time.time()-t0}")
-print(f"Average processed data rate was {len(all_data)/(time.time()-t0):.2f} samples per second")
+print(f"The actual rate of data arriving in the computer: {len(all_data)/(time.time()-t0):.2f} samples per second")
 
 ## Optional plotting of all channels
-t0 = time.time()
-import matplotlib.pyplot as plt
-import numpy as np
+if PLOTTING_ENABLED:
+    t0 = time.time()
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-def adc_to_temperature(adc, Vref=3.30): 
-    return 27 - (adc*Vref/4095 - 0.716)/0.001721
+    def adc_to_temperature(adc, Vref=3.30): 
+        return 27 - (adc*Vref/4095 - 0.716)/0.001721
 
-print(f"Plotting took {time.time() - t0:.3f} s")
-y = np.array(all_data)
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 10))
-for ofs,ch in enumerate(channels):
-    ax.plot(y[ofs::len(channels)] * 3.3 / 2**12, 
-            label=ADC_channel_names[ch],
-            lw=.3, c='rgbycm'[ch]) # marker=',', 
-    if ch==4: print(f"Average temperature at channel no.4 = {adc_to_temperature(np.mean(y[ofs::len(channels)])):.3f} °C")
+    print(f"Plotting took {time.time() - t0:.3f} s")
+    y = np.array(all_data)
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 10))
+    for ofs,ch in enumerate(channels):
+        ax.plot(y[ofs::len(channels)] * 3.3 / 2**12, 
+                label=ADC_channel_names[ch],
+                lw=.3, c='rgbycm'[ch]) # marker=',', 
+        if ch==4: print(f"Average temperature at channel no.4 = {adc_to_temperature(np.mean(y[ofs::len(channels)])):.3f} °C")
 
-#ax.plot((-min(received_time)+np.array(received_time)), lw=.3, c='k', label='message received time')  # timing
-ax.plot(np.array(delayed), lw=.8, c='k', label='(message delayed warning)') 
+    #ax.plot((-min(received_time)+np.array(received_time)), lw=.3, c='k', label='message received time')  # timing
+    ax.plot(np.array(delayed), lw=.8, c='k', label='(message delayed warning)') 
 
-ax.set_xlabel("ADC count per channel")
-ax.set_ylabel("ADC readout (V)")
-ax.legend()
-plt.show()
+    ax.set_xlabel("ADC count per channel")
+    ax.set_ylabel("ADC readout (V)")
+    ax.legend()
+    plt.show()
 
