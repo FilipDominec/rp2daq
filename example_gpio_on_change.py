@@ -1,7 +1,20 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 
-wait_sec = 1.
+# This example first sets up an independent square wave generator using the PWM command. 
+# Then it hooks up the gpio_on_change callback on every change of this PWM signal, and 
+# counts the incoming messages. Aside of showing how gpio_on_change asynchronously reports 
+# leading/falling edges on a given pin, it is a test of how fast the reports can be sent.
+# No hardware preparation on the board is necessary.
+
+# 50 000 messages per second seems at the edge of what rp2daq handles; higher frequency results 
+# in reports being silently dropped. 
+
+wait_sec = 1.0
+clkdiv = 250       # Since system clock is 250 MHz, so 250 corresponds to 1 MHz
+wrap_value = 20-1  # Dividing 1 MHz by 20 results in 50 000 reports/s
+pwm_frequency = 250000/clkdiv/(wrap_value+1) 
+
 
 
 import time
@@ -9,46 +22,41 @@ import time
 import rp2daq
 rp = rp2daq.Rp2daq()
 
-# Optional: Let's prepare PWM for some artificial signal on GPIO 0
-# Note that with wrap_value=40, even 50k reports per second can be received, this is about the limit
-print("Configuring PWM channel to make artificial 5kHz square wave (and waiting for it to settle)")
+print(f'Configuring PWM channel to make artificial {pwm_frequency} kHz square wave')
 rp.pwm_configure_pair(gpio=0, 
-        clkdiv=250, # clock at 1.000 MHz
-        wrap_value=80-1) # one rising or falling edge 20 kHz  
+        clkdiv=clkdiv,
+        wrap_value=wrap_value)
 
-time.sleep(.08) # unclear why, but 100 ms is safe
+time.sleep(.08) # unclear why, but a margin of ~100 ms is better for PWM to start
+rp.pwm_set_value(gpio=0, value=1)  # short 1us spikes
 
-rp.pwm_set_value(0, 10) 
 
 
-## Define a report handler and start asynchronous reporting on each GPIO change
-print("Registering rising/falling edge events...")
+print(f'Registering rising edge events for {wait_sec} seconds...')
 
 count = [0]
-def handler(rv): 
+def event_counter(rv): 
+    ## Define a report handler 
     count[0] += 1
-rp.gpio_on_change(0, on_rising_edge=1, on_falling_edge=1, _callback=handler)
 
-
+rp.gpio_on_change(gpio=0, 
+        on_rising_edge=True, 
+        on_falling_edge=False, 
+        _callback=event_counter) # Start asynchronous reporting on each GPIO change
 
 time.sleep(wait_sec)
 
 
 
-## Note one or few more reports may be on their way yet, so:
-## 1. stop the PWM
-print("Switching off PWM signal")
-def dummy_cb(rv): pass
-rp.pwm_set_value(0, 0, _callback=dummy_cb) # stop PWM signal (immediately)
-print(f'Number of received edge reports immediately after {wait_sec} seconds:', count)
-#rp.pwm_set_value(0, 0) # c.f. stop PWM signal (waits for all previous reports)
+print('Switching off the PWM signal')
 
-    ## 2. stop the device from issuing new reports, but wait for pending ones to arrive
-    #rp.pin_on_change(pin=0, on_rising_edge=1, on_falling_edge=0, _callback=handler)  
+rp.pwm_set_value(0, 0) # stop PWM signal (nearly immediate - waits for all previous reports)
 
-## Receive pending reports (if any)
-after_wait_sec = 2
-time.sleep(after_wait_sec)
-print(f'Total received edge reports after extra {after_wait_sec} seconds:', count)
-time.sleep(after_wait_sec)
-print(f'Total received edge reports after further extra {after_wait_sec} seconds:', count)
+
+
+print(f'Number of received edge reports after {wait_sec} seconds = ', count[0])
+
+
+count = [0] # reset the counter, but let's check if event_counter will be called
+time.sleep(wait_sec)
+print(f'Extra edge reports received from queue after another {wait_sec} s = ', count[0])

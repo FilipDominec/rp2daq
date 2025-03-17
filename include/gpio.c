@@ -16,7 +16,7 @@ void gpio_out() {
 		uint8_t gpio;		// min=0 max=25          The number of the gpio to be configured
 		uint8_t value;		// min=0 max=1           Output value (i.e. 0 or 3.3 V)
 	} * args = (void*)(command_buffer+1);
-	gpio_init(args->gpio);  // is it necessary to avoid clash e.g. with PWM output
+	gpio_init(args->gpio);  // is may be useful to report conflict e.g. with PWM output
 
     gpio_put(args->gpio, args->value);
     gpio_set_dir(args->gpio, GPIO_OUT);
@@ -156,7 +156,102 @@ void gpio_on_change() {
 
 
 
+#define GPIO_OUT_SEQ_MAXLEN 8  // TODO
+struct __attribute__((packed)) {
+    int8_t  seq_stage;
+    int32_t gpio_mask;
+	int32_t value [GPIO_OUT_SEQ_MAXLEN];     // Binary value will be set as the outputs
+	int32_t wait_us [GPIO_OUT_SEQ_MAXLEN];   // Microseconds to wait after setting this value
+} gpio_out_seq_config;
 
+struct __attribute__((packed)) {
+    uint8_t report_code;
+} gpio_out_seq_report;
+
+int64_t gpio_seq_callback(alarm_id_t id, __unused void *user_data) { //TODO
+
+	gpio_out_seq_config.seq_stage++;
+
+	if (gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage] > -1) { 
+		if (gpio_out_seq_config.value[gpio_out_seq_config.seq_stage] > -1) { 
+			gpio_put_masked (gpio_out_seq_config.gpio_mask, gpio_out_seq_config.value[gpio_out_seq_config.seq_stage]); 
+		}
+	}
+
+	if (gpio_out_seq_config.seq_stage == GPIO_OUT_SEQ_MAXLEN-1) { // if this was the last seq stage
+		prepare_report(&gpio_out_seq_report, sizeof(gpio_out_seq_report), 0, 0, 0);
+		return 0;
+	} else { 
+		// TODO accurate timing!  don't add 2us here, output next values in this call
+		// Note sub-microsecond timing can be trimmed by busy_wait_at_least_cycles(uint32_t minimum_cycles), 
+		// and clock_get_hz(clk_sys)
+		return -gpio_out_seq_config.wait_us[gpio_out_seq_config.seq_stage] - 2;  
+	};
+}
+
+
+void gpio_out_seq() {
+    /* Sets (optionally) multiple GPIO outputs at once; (optionally) sets them 
+	 * multiple times in an accurately timed short sequence of bit patterns. 
+	 *
+	 * If you need to change several pins simultaneously (within 1 ns), and/or in 
+	 * quite accurate time delay independent on how USB is busy (within 2 us), this 
+	 * somewhat complex command offers an advantage over the simpler gpio_out() 
+	 * commands (which each take some 2ms). Typically this is necessary for custom 
+	 * digital protocols, resistor ladders, charlieplexing etc. 
+	 *
+	 * The *gpio_mask* and *value* parameters accept bit mask; e.g. if you wish to
+	 * set GPIO 0 to logical high and GPIO 4 to logical low, use gpio_mask=1+16 and
+	 * value0=1. The following parameters can be all 0, unless one wants to define 
+	 * a sequence that changes the GPIOs in time.  
+	 *
+	 * Not all wait times and values have to be set; the defaults negative value
+	 * means they won't be used. 
+	 *
+     * __Fixme__: the sequence should be given as variable-length data array instead
+     * 
+     * *This command results in one report when the sequence is finished.*
+     */
+	struct  __attribute__((packed)) {
+		uint32_t gpio_mask;		  // Only *gpio* numbers corresponding to "1" bits be changed
+		int32_t value0;     // default=-1 Binary value will be set as the outputs
+		int32_t wait_us0;   // default=-1 Microseconds to wait after setting this value
+		int32_t value1;     // default=-1 Next binary value, if not negative...
+		int32_t wait_us1;   // default=-1 
+		int32_t value2;     // default=-1 
+		int32_t wait_us2;   // default=-1 
+		int32_t value3;     // default=-1 
+		int32_t wait_us3;   // default=-1 
+		int32_t value4;     // default=-1 
+		int32_t wait_us4;   // default=-1 
+		int32_t value5;     // default=-1 
+		int32_t wait_us5;   // default=-1 
+		int32_t value6;     // default=-1 
+		int32_t wait_us6;   // default=-1 
+		int32_t value7;     // default=-1 
+		int32_t wait_us7;   // default=-1 
+	} * args = (void*)(command_buffer+1);
+
+	//gpio_init_mask(args->gpio_mask);
+	
+	//Set a number of GPIOs to output Switch all GPIOs in "mask" to output.
+	gpio_set_dir_out_masked(args->gpio_mask); 
+	
+	gpio_put_masked(args->gpio_mask, args->value0); 
+
+	gpio_out_seq_config.seq_stage = -1;
+	gpio_out_seq_config.gpio_mask = args->gpio_mask;
+	for (uint8_t i=0; i<GPIO_OUT_SEQ_MAXLEN; i++) {
+		// fixme @command_data: accessing fixed struct as an interlaced quasi-array is a hack:
+		gpio_out_seq_config.value[i] = *((int32_t*)(((int32_t*)(&args->value0)) +(2*i) ));  
+		gpio_out_seq_config.wait_us[i]  = *((int32_t*)(((int32_t*)(&args->wait_us0)) +(2*i) )); //
+	}
+
+	// (TODO) 3 us safety delay needed?
+    add_alarm_in_us(1+2, gpio_seq_callback, NULL, false);
+
+	// A report will be sent from the callback function when the sequence ends.  
+}
 
 
 

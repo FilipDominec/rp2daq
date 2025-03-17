@@ -40,6 +40,7 @@ message_descriptor message_table[] = // #new_features: add your command to this 
                 {&gpio_on_change,	&gpio_on_change_report},
                 {&gpio_highz,		&gpio_highz_report},
                 {&gpio_pull,		&gpio_pull_report},
+                {&gpio_out_seq,		&gpio_out_seq_report},
                 {&adc,				&adc_report},
                 {&adc_stop,		    &adc_stop_report},
                 {&pwm_configure_pair, &pwm_configure_pair_report},

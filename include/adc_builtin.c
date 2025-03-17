@@ -54,8 +54,8 @@ void adc() {
 		uint16_t blocksize;			// default=1000		min=1		max=8192 Number of sample points until a report is sent
 		uint8_t infinite;			// default=0		min=0		max=1  Disables blocks_to_send countdown; reports will keep coming until stopped by adc(blocks_to_send=0)
 		uint32_t blocks_to_send;	// default=1		min=1		         Limits the number of reports to be sent (if the 'infinite' option is not set)
-		uint16_t clkdiv;			// default=96		min=96		max=65535 Sampling rate is 48MHz/clkdiv (e.g. 96 gives 500 ksps; 48000 gives 1000 sps etc.)
-		int8_t trigger_gpio;		// default=-1		min=-1		max=24 GPIO number for start trigger (leave -1 to make ADC start immediately)
+		uint16_t clkdiv;			// default=95		min=95		max=65535 Sampling rate is 48MHz/(clkdiv+1), e.g. 95 gives 500 ksps; 47999 gives 1000 sps etc.
+		int8_t trigger_gpio;		// default=-1		min=-1		max=24 GPIO number which triggers each ADC block (default value of -1 makes ADC start immediately)
 		uint8_t trigger_on_falling_edge;	// default=0		min=0		max=1 If set to 1, triggers on falling edge instead of rising edge.
 	} * command = (void*)(command_buffer+1);
     // TODO implement send_data and send_statistics options
@@ -72,8 +72,10 @@ void adc() {
 
 
         if (iADC_config.trigger_gpio > -1)
+			 // The IRQ handler conflicts with gpio_on_change handler; TODO resolve this
+			 // "if there was a Pico FAQ, avoiding gpio_set_irq_enabled_with_callback() would be in the top 10"
              gpio_set_irq_enabled_with_callback(
-                     1, 
+                     iADC_config.trigger_gpio,
                      iADC_config.trigger_on_falling_edge ? GPIO_IRQ_EDGE_FALL : GPIO_IRQ_EDGE_RISE,
                      true, 
                      &iADC_trigger_IRQ);
@@ -113,6 +115,7 @@ void adc_stop() {
 	iADC_config.waits_for_usb = 0;	
 	iADC_config.waits_for_trigger = 0;	
     prepare_report(&adc_stop_report, sizeof(adc_stop_report), 0,0,0);
+    // Note immediate stop could be achieved by dma_channel_abort(), see https://lorenz-ruprecht.at/docu/pico-sdk/1.4.0/html/group__hardware__dma.html
 }
 
 
@@ -134,7 +137,7 @@ volatile uint8_t iADC_active_buffer = 0;
 dma_channel_config iADC_DMA_cfg;
 int iADC_DMA_chan;
 
-
+// FIXME: apparently cannot sample 500 ksps on one channel; but 2x250 ksps interlaced is OK
 void iADC_DMA_init() { 
     adc_init();
 	for (uint8_t ch=0; ch<4; ch++) {
@@ -183,11 +186,10 @@ void iADC_DMA_start() {
 	// Pause and drain ADC before DMA setup (doing otherwise breaks ADC input order)
 	adc_run(false);				
 	adc_fifo_drain(); 
-	adc_set_round_robin(iADC_config.channel_mask);
+	//adc_set_round_robin(iADC_config.channel_mask);  // TODO this may prevent 500 ksps on single channel? 
 	adc_set_clkdiv(iADC_config.clkdiv); // user-set
 
 	// Prepare a new non-blocking ADC acquisition using DMA in background
-    //iADC_buffers[iADC_active_buffer].start_time_us = time_us_64();
     iADC_config.start_time_us = time_us_64();
 	iADC_config.start_sync_value = get_sync_value();
 
@@ -229,8 +231,8 @@ void iADC_start_or_schedule_after_trigger() { // ... or for user-defined timeout
 		if (iADC_config.trigger_gpio < 0) {
 			iADC_start_or_schedule_after_usb();
 		} else {
-		gpio_put(PICO_DEFAULT_LED_PIN, 1); // XXX
-			iADC_config.waits_for_trigger = 1;
+            //gpio_put(PICO_DEFAULT_LED_PIN, 1); // debugging - indicate ADC armed
+            iADC_config.waits_for_trigger = 1;
 		}
     } 
 }
@@ -238,7 +240,7 @@ void iADC_start_or_schedule_after_trigger() { // ... or for user-defined timeout
 void iADC_trigger_IRQ(uint gpio, uint32_t events) {
 	
 	if (iADC_config.waits_for_trigger) {
-		gpio_put(PICO_DEFAULT_LED_PIN, 0); // XXX
+        //gpio_put(PICO_DEFAULT_LED_PIN, 0); // debugging - indicate ADC triggered
 		iADC_start_or_schedule_after_usb();
 	};
 }
@@ -264,6 +266,7 @@ void iADC_DMA_IRQ_handler() {
 	adc_run(false);
 
 	// Quickly swap buffers & start a new ADC acquisition (if appropriate)
+    // TODO should be done by chained DMA hardware to avoid any delay
     uint8_t iADC_buffer_prev = iADC_active_buffer;
     iADC_active_buffer = (iADC_active_buffer + 1) % iADC_BUF_COUNT;
 
