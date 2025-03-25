@@ -75,9 +75,6 @@ make
 popd
 ```
 
-#  -DPICO_PLATFORM=rp2040
- #  -DPICO_PLATFORM=rp2350      
-
 A new ```build/rp2daq.uf2``` file should appear. It can be uploaded by drag&drop as described in [README.md], or a following trick can be used that saves a bit of clicking.
 
 

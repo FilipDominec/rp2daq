@@ -266,9 +266,9 @@ void gpio_out_seq() {
 	// (re)init the masked GPIOs as output
 	gpio_set_dir_out_masked(args->gpio_mask); // FIXME did nothing? 
 	for (uint8_t i=0; i<=25; i++) { 
-        if ((1<<i) & gpio_out_seq_config.gpio_mask) {
-            gpio_init(i);  // Is this necessary? 
-            // (it introduces a mostly harmless sub-microsecond glitch if gpio already sourced current)
+        if (((1<<i) & gpio_out_seq_config.gpio_mask) & (1<<i & ~GPIO_OE)) {
+            gpio_init(i);  // this is necessary only if the pin isn't initialized as output yet
+            // (otherwise it introduces a mostly harmless sub-microsecond 0 glitch in output)
             gpio_set_dir(i, GPIO_OUT);
         }
     }
