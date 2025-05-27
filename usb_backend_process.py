@@ -36,6 +36,7 @@ def usb_backend(report_queue, command_queue, terminate_queue, port_name):
     Relegating the raw data handling to this separate process resolves the problem with GIL. 
     To keep the communication fluent without a tight busy loop in this process, USB input and 
     output are further separated into two threads here. 
+
     """
 
     def _raw_byte_output_thread():
@@ -50,8 +51,11 @@ def usb_backend(report_queue, command_queue, terminate_queue, port_name):
         port.close()   # other threads below are made to handle this situation and gracefully
 
 
-    # Observation from stress-tests: on Linux rp2daq.py handles more data with few-ms delay within 
+    # Observation from stress-tests: on Linux, rp2daq.py handles more data with few-ms delay within 
     # receiver loop, while Windows10 seems better without it 
+    # Warning: current implementation may silently lose ADC packets when they come too often >400/s 
+    # (https://github.com/FilipDominec/rp2daq/issues/23)
+    # see also https://github.com/hathach/tinyusb/discussions/2805 for speed optim
     rx_delay = 0.002 if os.name == 'posix' else 0 
 
     terminate_pending = threading.Event()

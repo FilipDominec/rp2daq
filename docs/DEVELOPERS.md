@@ -47,6 +47,15 @@ The `pico_setup.sh` script will help you to download and compile the *Standard D
     bash ./pico_setup.sh           # takes some 3 minutes
 ```
 
+Or, if you are sure all dependencies are present, you can just get the sdk:
+
+```bash
+git clone -b master https://github.com/raspberrypi/pico-sdk.git --depth=1
+cd pico-sdk
+git submodule update --init --depth=1
+
+```
+
 
 #### Fresh compilation
 
@@ -59,11 +68,11 @@ Now go to the folder where you downloaded rp2daq, e.g.:
 Fresh compilation (or re-compilation if Cmake options changed):
 
 ```bash
-    rm -r build/ 
-    cmake -B build -S .         # takes a minute
-    pushd build 
-    make
-    popd
+rm -rf build/ 
+cmake -B build -S . 
+pushd build 
+make
+popd
 ```
 
 A new ```build/rp2daq.uf2``` file should appear. It can be uploaded by drag&drop as described in [README.md], or a following trick can be used that saves a bit of clicking.

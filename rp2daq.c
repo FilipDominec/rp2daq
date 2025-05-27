@@ -54,7 +54,7 @@ message_descriptor message_table[] = // #new_features: add your command to this 
 
                 //{&adc_set_trigger,	&adc_set_trigger_report},
 
-inline void rx_next_command() {
+static inline void rx_next_command() {
     int packet_size;
     uint8_t packet_data;
     message_descriptor message_entry;
@@ -74,7 +74,7 @@ inline void rx_next_command() {
         }
 
         // Check for unknown message - this should never happen. (todo: report it)
-        if (command_buffer[0] >= ARRAY_LEN(message_table)) 
+        if (command_buffer[0] >= ARRAY_LEN(message_table))  // FIXME comm freezes when commented out
             return; 
 
         // Seek for the associated command handler function, implemented in the include/*.c files
