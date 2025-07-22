@@ -88,7 +88,7 @@ struct __attribute__((packed)) {
     uint16_t steppers_moving_bitmask;
     uint16_t steppers_endswitch_bitmask;
 } stepper_status_report;
-	// TODO: report defined value for dir_GPIO and step_GPIO and others, 
+	// TODO: report the defined values for dir_GPIO and step_GPIO and others, 
 	//   defined inertia, and all that the user may ever need
 
 void stepper_status() {
@@ -232,6 +232,8 @@ void stepper_move() {
 
 	} * args = (void*)(command_buffer+1);
 
+    // TODO FIXME check if stepper initialized, return (with error report?) if not
+	
     uint8_t m = args->stepper_number; 
 	stepper[m].start_time_us = time_us_64();
 	if (args->relative) 
@@ -251,6 +253,7 @@ void stepper_move() {
 	// Normally will not report until stepper finishes, which may take some seconds or minutes.
     // An exception is obviously when no movement is necessary, this results in one immediate report:
     if (stepper[m].nanopos == stepper[m].target_nanopos) { mk_tx_stepper_report(m); }
+	// TODO this seems not to always work, check all use cases...
 }
 
 
