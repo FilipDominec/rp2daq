@@ -33,7 +33,7 @@ try:
 
 except Exception as e: # this allows printing runtime errors in the graphical window
     import traceback
-    print(traceback.format_exc())
-    label.config(text=str(traceback.format_exc()))
+    label.config(text=str(traceback.format_exc())) # Show the error in a label in your program
+    print(traceback.format_exc(), '\n Press Enter key'); input()  # Error message won't close immediately on Windows
 
 window.mainloop()

@@ -32,12 +32,12 @@ void stepper_init() {
 		uint8_t  step_gpio;			// min=0	max=24    Microstep-advancing output GPIO pin.
 		int8_t   endswitch_gpio;	// min=-1	max=24	default=-1     GPIO that, once shorted to ground, can 
             // automatically stop the stepper whenever it reaches the minimum (or maximum) allowed
-            // position. The end stop switch is both safety and convenience measure, 
+            // position. The end stop switch is both a safety and convenience measure, 
             // allowing one to easily calibrate the stepper position upon restart. More details
             // are with the stepper_move() command.
 		int8_t   disable_gpio;		// min=-1	max=25		default=-1     GPIO number that may be connected to 
 	        // the "!enable" pin on A4988 module - will automatically turn off current to save energy when
-            // the stepper is not moving. Note however it also loses its holding force. 
+            // the stepper is not moving. Note however the stepper also loses its holding force. 
 		uint32_t inertia;			// min=0	max=10000	default=30  Allows for smooth acc-/deceleration of the stepper, preventing it from losing steps at startup even at high rotation speeds. The default value is usually OK unless the stepper moves some heavy mass.
 	} * args = (void*)(command_buffer+1);
 
@@ -88,6 +88,8 @@ struct __attribute__((packed)) {
     uint16_t steppers_moving_bitmask;
     uint16_t steppers_endswitch_bitmask;
 } stepper_status_report;
+	// TODO: report defined value for dir_GPIO and step_GPIO and others, 
+	//   defined inertia, and all that the user may ever need
 
 void stepper_status() {
 	/* Returns the position and endswitch status of the stepper selected by "stepper_number".

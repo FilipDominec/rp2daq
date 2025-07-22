@@ -40,7 +40,7 @@ Mostly for internal use: confirms the RP2DAQ device is up and has matching firmw
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 0 
   * **data** : Bulk payload as a list of integers. 
@@ -68,7 +68,7 @@ This overrides previous high-impedance or pull-up/down state of the pin.
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 1  identifies command & report type 
 
@@ -95,7 +95,7 @@ Typically used when the pin is set to high-z or pull-up/down.
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 2 
   * **gpio**   
@@ -123,7 +123,7 @@ __Fixme__: in current firmware, edge events cannot be turned off!
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 3 
   * **gpio** : The pin at which the event was detected. 
@@ -153,7 +153,7 @@ This overrides previous direct-output or pull-up/down state of the pin.
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 4  identifies command & report type 
 
@@ -181,7 +181,7 @@ This overrides previous direct-output or high-impedance state of the pin.
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 5  identifies command & report type 
 
@@ -250,7 +250,7 @@ mean the unused entries won't be used.
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 6 
   * **start_timestamp_us**   
@@ -283,7 +283,7 @@ almost immediate or delayed, depending on block size and timing.*
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 7 
   * **data** : Bulk payload as a list of integers. 
@@ -324,7 +324,7 @@ If ADC is not running, this takes no action.
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 8 
   * **aborted_blocks_to_send**   
@@ -366,7 +366,7 @@ can be reduced to get faster cycle, thus more efficient filtering & better time 
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 9 
 
@@ -391,7 +391,7 @@ It is assumed this GPIO already was configured by `pwm_configure_pair()`.
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 10 
 
@@ -424,13 +424,13 @@ move the stepper; see `stepper_move()` for getting it moving.
   * **stepper_number**  : The number of the stepper to be configured.  _(min=0, max=15)_ 
   * **dir_gpio**  : Direction-controlling output GPIO pin.  _(min=0, max=24)_ 
   * **step_gpio**  : Microstep-advancing output GPIO pin.  _(min=0, max=24)_ 
-  * **endswitch_gpio**  : GPIO that, once shorted to ground, can automatically stop the stepper whenever it reaches the minimum (or maximum) allowed position. The end stop switch is both safety and convenience measure, allowing one to easily calibrate the stepper position upon restart. More details are with the stepper_move() command.  _(min=-1, max=24, default=-1)_ 
-  * **disable_gpio**  : GPIO number that may be connected to the "!enable" pin on A4988 module - will automatically turn off current to save energy when the stepper is not moving. Note however it also loses its holding force.  _(min=-1, max=25, default=-1)_ 
+  * **endswitch_gpio**  : GPIO that, once shorted to ground, can automatically stop the stepper whenever it reaches the minimum (or maximum) allowed position. The end stop switch is both a safety and convenience measure, allowing one to easily calibrate the stepper position upon restart. More details are with the stepper_move() command.  _(min=-1, max=24, default=-1)_ 
+  * **disable_gpio**  : GPIO number that may be connected to the "!enable" pin on A4988 module - will automatically turn off current to save energy when the stepper is not moving. Note however the stepper also loses its holding force.  _(min=-1, max=25, default=-1)_ 
   * **inertia**  : Allows for smooth acc-/deceleration of the stepper, preventing it from losing steps at startup even at high rotation speeds. The default value is usually OK unless the stepper moves some heavy mass.  _(min=0, max=10000, default=30)_ 
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 11 
   * **initial_nanopos** : This is the nanoposition the stepper was initialized to; always 0 in current firmware. 
@@ -486,7 +486,7 @@ or delayed by seconds, minutes or hours, depending on the distance and speed.*
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 12 
   * **stepper_number**   
@@ -525,7 +525,7 @@ be issued only when all relevant bits in steppers_moving_bitmask are cleared.)
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
-***Report returns:***
+***Report object attributes:***
 
   * **report_code** : 13 
   * **timestamp_us**   
