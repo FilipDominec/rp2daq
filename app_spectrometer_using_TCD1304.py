@@ -23,12 +23,12 @@ your own purposes, as there are other uses of linear CCD like barcode and
 flatbed scanners, accurate position sensors etc.
 """
 
+from matplotlib.figure import Figure 
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import numpy as np
 import threading
 import time
 import tkinter as tk
-from matplotlib.figure import Figure 
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  NavigationToolbar2Tk) 
   
 import rp2daq
 
@@ -37,19 +37,17 @@ class TCD1304_Backend:
 
     def __init__(self, rp, verbose=False):
         """
-        Configures GPIO pins so that CCD sensor is ready to start acquisition. 
+        Configures the Pico so that CCD sensor is ready to start acquisition. 
         """
 
-        # Hardware GPIO pins assignment (Note these are hardcoded; if you change the numbers, you must rearrange 
-        # the columns in the `gpio_seq` command below!):
+        # Hardware GPIO pins assignment (Note these are hardcoded; if you
+        # change the numbers, you must rearrange the columns in the `gpio_seq`
+        # command below!):
+
         self.S, self.V, self.I, self.P, self.A, self.M = 8, 9, 10, 11, 6, 7  
             # SH, VDD, ICG, PhiM GPIO numbers are directly connected to these pins on CCD (see datasheet)
             # A is ADC_lock for Pico to start sampling (without software jitter)
             # M is an optional sync marker to see the real integration time on oscilloscope
-
-        # Configuration values from the Toshiba TCD1304 datasheet: 
-        self.CCD_pixel_count = 16+13+3+3648+14  # 16 dummy + 13 lightshielded + 3 dummy + 3648 signal + 14 dummy
-        self.px_per_clk = 4
 
         # Timing of the signals is nontrivial and can't be efficiently done by
         # software control of GPIO. The PhiM clock is driven by Pico's hardware
@@ -74,14 +72,19 @@ class TCD1304_Backend:
             # oversample=1 -> 125ksps -> 28ms/spectrum  3600pts 
             # oversample=2 -> 250ksps -> 28ms/spectrum  7200pts
 
-        ## Start the PhiM clock signal 
+        # Fixed configuration values from the Toshiba TCD1304 datasheet: 
+        self.CCD_pixel_count = 16+13+3+3648+14  # 16 dummy + 13 lightshielded + 3 dummy + 3648 signal + 14 dummy
+        self.px_per_clk = 4
+        self.minimum_readout_us = self.CCD_pixel_count*self.px_per_clk//self.CCD_freq_kHz 
+
+        # Start the PhiM clock signal 
         PhiMwrap = 250_000//self.CCD_freq_kHz - 1 
         self.rp = rp
         self.rp.pwm_configure_pair(gpio=self.P, wrap_value=PhiMwrap, clkdiv=1) # 500 kHz = full readout in 7.3 ms
         self.rp.pwm_set_value(gpio=self.P, value=PhiMwrap//2) # ~50% duty cycle
 
 
-        ## Initialize GPIO values (FIXME: they shouldn't be hardcoded in the sequence bits)
+        # Initialize GPIO values (FIXME: they shouldn't be hardcoded in the sequence bits)
         rp.gpio_out(self.V, 1)  # FIXME: this should be also safely done by sequence
         rp.gpio_out(self.S, 0) 
         rp.gpio_out(self.I, 1) 
@@ -96,13 +99,12 @@ class TCD1304_Backend:
 
         self.verbose=verbose
 
-    def start_CCD_acquisition(self, rp, ADC_callback, shutter_us, oversample=1):
+    def start_CCD_acquisition(self, rp, callback_on_ADC_data_ready, shutter_us, oversample=1):
         # Every falling edge of SH ends one integration period, and starts a new one
         # Every falling edge of ICG starts a readout period
         # Datasheet specifies some minimum timings, but command/report round-trip times are safely much longer (some 20us)
 
-        minimum_readout_us, strobe_us = self.CCD_pixel_count*self.px_per_clk//self.CCD_freq_kHz, 1
-        assert shutter_us > minimum_readout_us
+        assert shutter_us > self.minimum_readout_us
 
         ## Arm internal ADC of RP2 to start on first A-pin trigger falling edge.
         ## Note that timing of the ADC sequence is accurately in-sync with the driving signal thanks 
@@ -121,20 +123,20 @@ class TCD1304_Backend:
                 trigger_gpio=self.A,
                 trigger_on_falling_edge=1, 
                 clkdiv=clkdiv,  # 4 master clock = 1 CCD pixel shift
-                _callback=ADC_callback,
+                _callback=callback_on_ADC_data_ready,
                 )
 
         # CCD pre-flush - improves signal to noise ratio and recovery from deep oversaturation
         for x in range(10):
             rp.gpio_out_seq(   0b0111_1100_0000, # this is the mask of bits being changed
                                0b0011_0100_0000,    1, # SH strobe to flush the CCD
-                               0b0010_0100_0000,    minimum_readout_us, 
+                               0b0010_0100_0000,    self.minimum_readout_us, 
                                0b0110_0100_0000,    1, # integ time
                                )
 
         # CCD driving sequence from datasheet, also starts ADC acquisition in sync with CCD signal.
-        #  bit numbering:    ba98_7654_3210   
-        #  bit names on CCD: PIVS MA__ ____   
+        # Hex bit numbering: ba98_7654_3210   
+        # Bit names on CCD:  PIVS MA__ ____   
         rp.gpio_out_seq(   0b0111_1100_0000, # this is the mask of bits being changed
 
                          # 0b0110_0100_0000,       # bit state from previous gpio_out_seq
@@ -157,7 +159,6 @@ class MainApplication(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
-        row = 0
 
         root.title('RAW CCD readout ') 
         #root.geometry("1000x800") 
@@ -177,8 +178,8 @@ class MainApplication(tk.Frame):
         self.ax1.grid()
         self.ax1.legend(prop={'size':10}, loc='upper right')
         self.ax1.set_yscale('log')
-        self.ax1.set_xlim(xmin=0, xmax=self.my_CCD.CCD_pixel_count)
-        self.ax1.set_ylim(ymin=1e0, ymax=1e5)
+        self.ax1.set_xlim(xmin=320, xmax=750) # TODO generic # self.my_CCD.CCD_pixel_count .. for raw pixel number
+        self.ax1.set_ylim(ymin=1e0, ymax=1e6)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=root)   
         self.canvas.draw() 
@@ -200,14 +201,13 @@ class MainApplication(tk.Frame):
         #self.btn_Process = tk.Button(self, text='Process!', command=self.btn_Start_click)
         #self.btn_Process.grid(column=1, row=row, columnspan=2); row+=1
 
-    def ADC_callback(self, rv): 
-        #print(len(rv.data))
+    def callback_on_ADC_data_ready(self, rv): # this will be called from rp2daq module, the `rv` contains ADC results
         deadtime=0.005
         if self.ADC_oversample == 2:
             self.new_spectrum = [(y1+y2)/2/(self.int_time-deadtime) for y1,y2 in zip(rv.data[:-1:2], rv.data[1::2])]  
         else:
             self.new_spectrum = [y/(self.int_time-deadtime) for y in rv.data]
-        y_ref = sum(self.new_spectrum[:5])/5
+        y_ref = sum(self.new_spectrum[:5])/ 4.999
         self.new_spectrum = [y_ref-y for y in self.new_spectrum]
 
         self.CCD_acquisition_finished.set()
@@ -219,23 +219,31 @@ class MainApplication(tk.Frame):
 
         self.acquisition_running = True
 
-        #for n,t in enumerate([ .02, ]):  # SINGLE SCAN
-        #for n,t in enumerate([0.012, .02, .05, .1, ]): #, 1, 3]): # HDR - HIGH ILLUM
-        for n,t in enumerate([.02, .05,   .1, .2, .5, ]): #, 1, 3]): # HDR - MEDIUM ILLUM
-        #for n,t in enumerate([           .1, .2, .5, 1., 2.]):  # HDR - LOW ILLUM
-        #for n,t in enumerate([                  .5, 1., 2,  5, 10,]):  # HDR - VERY LOW ILLUM
-        #for n,t in enumerate([.02, .02,   .1, .5,  .1, .02]): #, 1, 3]): # TESTING REPEATABILITY
-            self.int_time = t
+        #for n,shutter_time_s in enumerate([ .014, 0.14, 1.4, ]):  # SINGLE SCAN
+        #for n,shutter_time_s in enumerate([0.012, .02, .05, .1, ]): #, 1, 3]): # HDR - HIGH ILLUM
+        #for n,shutter_time_s in enumerate([.02, .05,   .1, .2, .5, ]): #, 1, 3]): # HDR - MEDIUM ILLUM
+        #for n,shutter_time_s in enumerate([           .1, .2, .5, 1., 2.]):  # HDR - LOW ILLUM
+        #for n,shutter_time_s in enumerate([                  .5, 1., 2,  5, 10,]):  # HDR - VERY LOW ILLUM
+        #for n,shutter_time_s in enumerate([.02, .02,   .1, .5,  .1, .02]): #, 1, 3]): # TESTING REPEATABILITY
+        #for n,shutter_time_s in enumerate([0.014, 0.02, 0.1, .5, 2,]):  # Ultra HDR
+        for n,shutter_time_s in enumerate([0.012,   ]*5): #, 1, 3]): # fast oversample
+            self.int_time = shutter_time_s
             time.sleep(.01) # FIXME is this necessary, why?
 
             self.CCD_acquisition_finished.clear()
             self.my_CCD.start_CCD_acquisition(self.rp, 
-                    self.ADC_callback, int(self.int_time*1e6), oversample=self.ADC_oversample) # takes some 120ms, why?
-            # The ADC_callback stores results into self.new_spectrum now, then 
-            # clears the CCD_acquisition_finished semaphore
+                    self.callback_on_ADC_data_ready, int(self.int_time*1e6), oversample=self.ADC_oversample) # takes some 120ms, why?
+
+            # The callback_on_ADC_data_ready stores results into self.new_spectrum now, then 
+            # clears the CCD_acquisition_finished semaphore, so we can plot it here.
             self.CCD_acquisition_finished.wait()
-            self.lines[n].set_data(range(len(self.new_spectrum)), np.array(self.new_spectrum)-t*0) 
-            self.lines[n].set_label(str(t))
+            #self.lines[n].set_data(range(len(self.new_spectrum)), np.array(self.new_spectrum)-shutter_time_s*0) 
+            p1,l1,p2,l2 = 534, 404., 1805, 532.
+            pps = np.arange(len(self.new_spectrum))
+            self.lines[n].set_data(
+                    l1 + (pps-p1) * (l2-l1)/(p2-p1),
+                    np.array(self.new_spectrum)-shutter_time_s*0) 
+            self.lines[n].set_label(str(shutter_time_s))
 
         self.canvas.draw()
         self.acquisition_running = False
