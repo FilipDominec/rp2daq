@@ -160,10 +160,14 @@ class MainApplication(tk.Frame):
         tk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
 
-        root.title('RAW CCD readout ') 
+        root.title('rp2daq spectrometer for TCD1304 CCD sensor') 
         #root.geometry("1000x800") 
         self.plot_button = tk.Button(master=root,  command=self.update_plot, text="Start scanning") 
         self.plot_button.pack() 
+        self.dark_button = tk.Button(master=root,  command=self.save_dark, text="Save dark") 
+        self.dark_button.pack() 
+        self.brigth_button = tk.Button(master=root,  command=self.save_bright, text="Save bright ref") 
+        self.brigth_button.pack() 
 
         ## Connect to the Pico and CCD hardware
         self.rp = rp2daq.Rp2daq()   # initialize rp2daq device first, to keep independent access to its other functions     
@@ -179,7 +183,7 @@ class MainApplication(tk.Frame):
         self.ax1.legend(prop={'size':10}, loc='upper right')
         self.ax1.set_yscale('log')
         self.ax1.set_xlim(xmin=320, xmax=750) # TODO generic # self.my_CCD.CCD_pixel_count .. for raw pixel number
-        self.ax1.set_ylim(ymin=1e0, ymax=1e6)
+        self.ax1.set_ylim(ymin=1e-3, ymax=1e5)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=root)   
         self.canvas.draw() 
@@ -191,7 +195,8 @@ class MainApplication(tk.Frame):
         ## Getting ready to start acquisition
         self.CCD_acquisition_finished = threading.Event() # future TODO: rewrite to use 2nd thread
         self.acquisition_running = False
-
+        self.dark_saved_spectra = {}
+        self.bright_saved_spectra = {}
         self.ADC_oversample = 1
         self.int_time = .5
         self.t0 = time.time()
@@ -218,15 +223,16 @@ class MainApplication(tk.Frame):
         self.t0 = time.time(); #print(time.time() - self.t0, 'start upd' )
 
         self.acquisition_running = True
+        self.recent_spectra = {}
 
-        #for n,shutter_time_s in enumerate([ .014, 0.14, 1.4, ]):  # SINGLE SCAN
+        #for n,shutter_time_s in enumerate([ .014, ]):  # SINGLE SCAN
         #for n,shutter_time_s in enumerate([0.012, .02, .05, .1, ]): #, 1, 3]): # HDR - HIGH ILLUM
         #for n,shutter_time_s in enumerate([.02, .05,   .1, .2, .5, ]): #, 1, 3]): # HDR - MEDIUM ILLUM
         #for n,shutter_time_s in enumerate([           .1, .2, .5, 1., 2.]):  # HDR - LOW ILLUM
-        #for n,shutter_time_s in enumerate([                  .5, 1., 2,  5, 10,]):  # HDR - VERY LOW ILLUM
+        for n,shutter_time_s in enumerate([                  .5, 1., 2,  5, ]):  # HDR - VERY LOW ILLUM
         #for n,shutter_time_s in enumerate([.02, .02,   .1, .5,  .1, .02]): #, 1, 3]): # TESTING REPEATABILITY
-        #for n,shutter_time_s in enumerate([0.014, 0.02, 0.1, .5, 2,]):  # Ultra HDR
-        for n,shutter_time_s in enumerate([0.012,   ]*5): #, 1, 3]): # fast oversample
+        #for n,shutter_time_s in enumerate([0.014, 0.02, 0.1, .5, ]):  # Ultra HDR
+        #for n,shutter_time_s in enumerate([.2,   ]*1): #, 1, 3]): # fast oversample
             self.int_time = shutter_time_s
             time.sleep(.01) # FIXME is this necessary, why?
 
@@ -240,9 +246,26 @@ class MainApplication(tk.Frame):
             #self.lines[n].set_data(range(len(self.new_spectrum)), np.array(self.new_spectrum)-shutter_time_s*0) 
             p1,l1,p2,l2 = 534, 404., 1805, 532.
             pps = np.arange(len(self.new_spectrum))
+
+            ## Simple compensation for light intensity
+            calibrated_spectrum = np.array(self.new_spectrum)-shutter_time_s*0
+
+            self.recent_spectra[shutter_time_s] = calibrated_spectrum
+
+            ## Dark & Bright CCD intensity compensation
+            if shutter_time_s in self.dark_saved_spectra.keys(): #todo: and chk_subtract_dark.checked()
+                calibrated_spectrum -= self.dark_saved_spectra[shutter_time_s]
+
+            if shutter_time_s in self.bright_saved_spectra.keys(): #todo: and chk_divide_by_bright.checked()
+                if shutter_time_s in self.dark_saved_spectra.keys(): #todo: and chk_subtract_dark.checked()
+                    calibrated_spectrum /= (self.bright_saved_spectra[shutter_time_s] - self.dark_saved_spectra[shutter_time_s])
+                else:
+                    calibrated_spectrum /= self.bright_saved_spectra[shutter_time_s]
+
+
             self.lines[n].set_data(
                     l1 + (pps-p1) * (l2-l1)/(p2-p1),
-                    np.array(self.new_spectrum)-shutter_time_s*0) 
+                    calibrated_spectrum) 
             self.lines[n].set_label(str(shutter_time_s))
 
         self.canvas.draw()
@@ -252,6 +275,11 @@ class MainApplication(tk.Frame):
         print(time.time() - self.t0, ' s for whole update routine' )
         root.after(20, self.update_plot) # periodic update
     
+    def save_dark(self):
+        self.dark_saved_spectra = self.recent_spectra.copy()
+
+    def save_bright(self):
+        self.bright_saved_spectra = self.recent_spectra.copy()
 
 def crude_CCD_test(): # minimum code for testing
     rp = rp2daq.Rp2daq() 
