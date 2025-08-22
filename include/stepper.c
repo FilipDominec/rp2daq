@@ -69,7 +69,7 @@ void stepper_init() {
 		//}
 
 		stepper[m].initialized = 1;
-	}
+	} // TODO: else transmit_error_message('Cannot initialize stepper number over 15')
 
 	stepper_init_report.initial_nanopos = stepper[m].nanopos;
 	prepare_report(&stepper_init_report, sizeof(stepper_init_report), 0,0,0);
@@ -232,9 +232,9 @@ void stepper_move() {
 
 	} * args = (void*)(command_buffer+1);
 
-    // TODO FIXME check if stepper initialized, return (with error report?) if not
-	
     uint8_t m = args->stepper_number; 
+	if (!stepper[m].initialized) return; // TODO: transmit_error_message('Cannot move unitialized stepper')
+
 	stepper[m].start_time_us = time_us_64();
 	if (args->relative) 
 		stepper[m].target_nanopos += args->to;  // i.e. relative movement
@@ -300,7 +300,7 @@ void stepper_update() { // called from core1_main() loop every 100 us
 
 				if (ENDSWITCH_TEST(m)) { // if the stepper triggers end-stop switch
 					stepper[m].max_nanospeed = 0; 
-					stepper[m].target_nanopos = new_nanopos;  // immediate stop
+					stepper[m].target_nanopos = stepper[m].nanopos;  // immediate stop
 					stepper[m].move_reached_endswitch = 1; // remember reason for stopping
 					mk_tx_stepper_report(m);
                     if ((stepper[m].move_reached_endswitch) && (stepper[m].reset_nanopos_at_endswitch)) {
