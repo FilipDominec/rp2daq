@@ -78,16 +78,17 @@ popd
 A new ```build/rp2daq.uf2``` file should appear. It can be uploaded by drag&drop as described in [README.md], or a following trick can be used that saves a bit of clicking.
 
 
-#### Linux: Setting UDEV rules for user-space access (to be done once)
+#### Linux: Setting UDEV rules for user-space access (to be done once, as superuser)
 
 Normally, the ```BOOTSEL``` button [would have to be mechanically pressed](https://gist.github.com/Hermann-SW/ca07f46b7f9456de41f0956d81de01a7), and the device has to be restarted for every firmware upload. There is a trick to control it full in software.
 
-As a first step, [it is preferable to switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) Linux udev rules so that `picotool` works without root privileges:
+As a first step, [it is preferable to switch](https://gist.github.com/tjvr/3c406bddfe9ae0a3860a3a5e6b381a93) Linux udev rules so that `picotool` works without root privileges. (Compared to [an older howto](https://piers.rocks/2023/09/05/installing-pico-sdk-and-picotool.html), the udev rules have to take into account that pico reports with 0003 or 000f codes.)
 
 ```bash
     echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="0003", MODE="0666"' | sudo tee /etc/udev/rules.d/99-pico.rules
-```
-
+    echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="000f", MODE="0666"' | sudo tee /etc/udev/rules.d/98-pico2350.rules 
+    sudo udevadm control --reload-rules && sudo udevadm trigger
+``` 
 Once again, disconnect RP2 & reconnect it. 
 
 #### Routine re-compilation and re-upload
