@@ -309,6 +309,7 @@ void stepper_update() { // called from core1_main() loop every 100 us
                         stepper[m].target_nanopos = NANOPOS_DEFAULT;} // convenient for position calibration at end switch
 				} else if (new_nanopos == stepper[m].target_nanopos) { // if the move finishes successfully
 					stepper[m].max_nanospeed = 0;
+					stepper[m].nanopos = new_nanopos;
 					//stepper[m].target_nanopos = new_nanopos;  // TODO rm?
 					stepper[m].move_reached_endswitch = 0;
 					mk_tx_stepper_report(m); // (fixme) this reports the nanopos *just* before target_nanopos reached
