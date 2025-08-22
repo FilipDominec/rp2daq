@@ -237,14 +237,15 @@ void stepper_move() {
 
 	stepper[m].start_time_us = time_us_64();
 	if (args->relative) 
-		stepper[m].target_nanopos += args->to;  // i.e. relative movement
+		stepper[m].target_nanopos = stepper[m].target_nanopos + args->to;  // i.e. relative movement
+				// FIXME the += operator behaved weirdly; the movement was initiated only when args_to was higher than current 
 	else 	
 		stepper[m].target_nanopos = args->to;  // i.e. movement w.r.t. initial zero position
 	stepper[m].reset_nanopos_at_endswitch = args->reset_nanopos_at_endswitch; // i.e. calibration
 
     stepper[m].endswitch_sensitive = (
-            (args->endswitch_sensitive_up   && (stepper[m].nanopos < args->to)) ||
-            (args->endswitch_sensitive_down && (stepper[m].nanopos > args->to)));
+            (args->endswitch_sensitive_up   && (stepper[m].nanopos < stepper[m].target_nanopos)) ||
+            (args->endswitch_sensitive_down && (stepper[m].nanopos > stepper[m].target_nanopos)));
 
 
 	stepper[m].previous_nanopos     = stepper[m].nanopos; // remember the starting position (for smooth start)
