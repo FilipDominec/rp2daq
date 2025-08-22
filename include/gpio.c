@@ -266,11 +266,15 @@ void gpio_out_seq() {
 	// (re)init the masked GPIOs as output
 	gpio_set_dir_out_masked(args->gpio_mask); // FIXME did nothing? 
 	for (uint8_t i=0; i<=25; i++) { 
-        if (((1<<i) & gpio_out_seq_config.gpio_mask) & (1<<i & ~GPIO_OE)) {
-            gpio_init(i);  // this is necessary only if the pin isn't initialized as output yet
+        //if (((1<<i) & gpio_out_seq_config.gpio_mask) & (1<<i & ~GPIO_OE)) {
+		
+			// this is necessary only if the pin isn't initialized as output yet
             // (otherwise it introduces a mostly harmless sub-microsecond 0 glitch in output)
+			// TODO: optimize checking if the bit is in right state yet to avoid glitches
+            gpio_init(i);  
+
             gpio_set_dir(i, GPIO_OUT);
-        }
+        //}
     }
     
 	//Output the first sequence values

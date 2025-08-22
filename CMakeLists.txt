@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.12)
 set(CMAKE_CXX_STANDARD 14)
 set(PICO_COPY_TO_RAM 1)
 
-set(PICO_BOARD pico)  # uncomment to build for the original "Pico" with RP2040
-#set(PICO_BOARD pico2)  # uncomment to build for the newer "Pico 2" with RP2350
+#set(PICO_BOARD pico)  # uncomment to build for the original "Pico" with RP2040
+set(PICO_BOARD pico2)  # uncomment to build for the newer "Pico 2" with RP2350
 
 include(pico_sdk_import.cmake)
 project(rp2daq)
