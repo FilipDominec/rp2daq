@@ -6,7 +6,7 @@
 
 struct __attribute__((packed)) {
     uint8_t report_code;
-    int32_t initial_nanopos;  // This is the nanoposition the stepper was initialized to; always 0 in current firmware.
+    int32_t initial_nanopos;  // This is the position the stepper was initialized to; always 0 in current firmware.
 } stepper_init_report;
 
 void stepper_init() {
@@ -151,8 +151,8 @@ struct __attribute__((packed)) {
 
 void mk_tx_stepper_report(uint8_t n)
 {
-    // Reporting function called when 1) stepper reaches target nanoposition, or 2) endswitch,
-    // or when target is current nanopos. 
+    // Reporting function called when 1) stepper reaches target position, or 2) endswitch,
+    // or when target is identical to current position. 
 	stepper_move_report.stepper_number = n;
 	stepper_move_report.nanopos = stepper[n].nanopos;
 	stepper_move_report.endswitch_was_sensitive = stepper[n].endswitch_sensitive;
@@ -180,6 +180,22 @@ void mk_tx_stepper_report(uint8_t n)
 		}
 	}
 	prepare_report(&stepper_move_report, sizeof(stepper_move_report), 0, 0, 0);
+}
+
+int32_t overflow_safe_addition(int32_t x, int32_t y) {
+	if ((x>0 && y<=0) || (x<=0 && y>0)) 
+		return x+y; // opposite signs are always safe
+
+	int32_t half_sum = (x/2) + (y/2); // imprecise, but always overflow safe
+	int32_t MAX_LIMIT = (INT32_MAX-10000); // keeping room for arithmetics
+	int32_t MIN_LIMIT = (INT32_MIN+10000);
+	if (half_sum+1 > MAX_LIMIT/2) {  // impose hard limits for big numbers
+		return MAX_LIMIT;
+	} else if (half_sum-1 < MIN_LIMIT/2) { 
+		return MIN_LIMIT;
+	} else { 
+		return x+y;  // in most cases, will still return an exact sum
+	}
 }
 
 void stepper_move() {
@@ -216,28 +232,34 @@ void stepper_move() {
      */ 
 	struct __attribute__((packed))  {
 		uint8_t  stepper_number;		// min=0 max=15
-		int32_t to;					
-		uint32_t speed;					// min=1 max=10000
+		int32_t to;					    //              The target position the motor will start moving to, or in 
+			// case of relative movement, the distance to travel from the current position. The unit is 1/256 of a 
+			// microstep. 
+		uint32_t speed;					// min=1 max=10000 The unit is 1/256 of microstep per 100 microseconds. Typically 
+			// 200-300, i.e. roughly one microstep/100us is the reasonable maximum for NEMA17 steppers.
 		int8_t  endswitch_sensitive_up;		// min=0 max=1	default=0   If unset, the motor will move towards 
             // more positive target positions independent of the end switch pin.
 		int8_t  endswitch_sensitive_down;	// min=0 max=1	default=1   If set, the motor will immediately stop its 
             // movement towards more negative target positions when the end switch pin gets connected to zero. 
-
-		int8_t  relative;		        // min=0 max=1	default=0    If set to 1, rp2daq will add the `to` value to current nanopos; movement  
-	        // then becomes relative to the position of the motor when the command is issued. 
-
+		int8_t  relative;		        // min=0 max=1	default=0    If set to 1, rp2daq will add the `to` value to 
+		    // current nanopos. The movement then becomes relative to the position of the motor when the command is issued. 
+			// There are hard limits of roughly -2_147_000_000 .. 2_147_000_000 to position; this prevents 32bit integer overflows 
+			// which might result from of cumulating many or long relative movements. These limits should be no issue in most cases. 
 		int8_t  reset_nanopos_at_endswitch;	// min=0 max=1	default=0  will reset the position if endswitch triggers the end of the 
             // movement. This is a convenience option for easy calibration of position using the endswitch. 
-	        // Note that the nanopos can also be manually reset by re-issuing the `stepper_init()` function. 
+	        // Note that the position can also be manually reset by re-issuing the `stepper_init()` function. 
 
 	} * args = (void*)(command_buffer+1);
 
     uint8_t m = args->stepper_number; 
-	if (!stepper[m].initialized) return; // TODO: transmit_error_message('Cannot move unitialized stepper')
+	if (stepper[m].initialized == 0) {
+	   mk_tx_stepper_report(m);	 // (todo) transmit_error_message('Cannot move unitialized stepper')
+	   return;
+	} 
 
 	stepper[m].start_time_us = time_us_64();
 	if (args->relative) 
-		stepper[m].target_nanopos = stepper[m].target_nanopos + args->to;  // i.e. relative movement
+		stepper[m].target_nanopos = overflow_safe_addition(stepper[m].nanopos, args->to); 
 				// FIXME the += operator behaved weirdly; the movement was initiated only when args_to was higher than current 
 	else 	
 		stepper[m].target_nanopos = args->to;  // i.e. movement w.r.t. initial zero position
@@ -254,7 +276,6 @@ void stepper_move() {
 	// Normally will not report until stepper finishes, which may take some seconds or minutes.
     // An exception is obviously when no movement is necessary, this results in one immediate report:
     if (stepper[m].nanopos == stepper[m].target_nanopos) { mk_tx_stepper_report(m); }
-	// TODO this seems not to always work, check all use cases...
 }
 
 
