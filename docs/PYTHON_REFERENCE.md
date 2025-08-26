@@ -433,7 +433,7 @@ move the stepper; see `stepper_move()` for getting it moving.
 ***Report object attributes:***
 
   * **report_code** : 11 
-  * **initial_nanopos** : This is the nanoposition the stepper was initialized to; always 0 in current firmware. 
+  * **initial_nanopos** : This is the position the stepper was initialized to; always 0 in current firmware. 
 
 
 
@@ -477,12 +477,12 @@ or delayed by seconds, minutes or hours, depending on the distance and speed.*
 ***Command parameters:***
 
   * **stepper_number**  : _(min=0, max=15)_ 
-  * **to** 
-  * **speed**  : _(min=1, max=10000)_ 
+  * **to**  : The target position the motor will start moving to, or in case of relative movement, the distance to travel from the current position. The unit is 1/256 of a microstep. 
+  * **speed**  : The unit is 1/256 of microstep per 100 microseconds. Typically 200-300, i.e. roughly one microstep/100us is the reasonable maximum for NEMA17 steppers.  _(min=1, max=10000)_ 
   * **endswitch_sensitive_up**  : If unset, the motor will move towards more positive target positions independent of the end switch pin.  _(min=0, max=1, default=0)_ 
   * **endswitch_sensitive_down**  : If set, the motor will immediately stop its movement towards more negative target positions when the end switch pin gets connected to zero.  _(min=0, max=1, default=1)_ 
-  * **relative**  : If set to 1, rp2daq will add the `to` value to current nanopos; movement then becomes relative to the position of the motor when the command is issued.  _(min=0, max=1, default=0)_ 
-  * **reset_nanopos_at_endswitch**  : will reset the position if endswitch triggers the end of the movement. This is a convenience option for easy calibration of position using the endswitch. Note that the nanopos can also be manually reset by re-issuing the `stepper_init()` function.  _(min=0, max=1, default=0)_ 
+  * **relative**  : If set to 1, rp2daq will add the `to` value to current nanopos. The movement then becomes relative to the position of the motor when the command is issued. There are hard limits of roughly -2_147_000_000 .. 2_147_000_000 to position; this prevents 32bit integer overflows which might result from of cumulating many or long relative movements. These limits should be no issue in most cases.  _(min=0, max=1, default=0)_ 
+  * **reset_nanopos_at_endswitch**  : will reset the position if endswitch triggers the end of the movement. This is a convenience option for easy calibration of position using the endswitch. Note that the position can also be manually reset by re-issuing the `stepper_init()` function.  _(min=0, max=1, default=0)_ 
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 
@@ -492,7 +492,7 @@ or delayed by seconds, minutes or hours, depending on the distance and speed.*
   * **stepper_number**   
   * **nanopos**   
   * **endswitch_was_sensitive**   
-  * **endswitch_triggered**   
+  * **endswitch_stopped_last_move**   
   * **steppers_init_bitmask**   
   * **steppers_moving_bitmask**   
   * **steppers_endswitch_bitmask**   

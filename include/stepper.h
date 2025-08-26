@@ -3,11 +3,12 @@
 #define NANOPOS_DEFAULT 0 // (uint32_t)(1<<31)   // so that motor can move symmetrically from origin
 #define NANOSTEP_PER_MICROSTEP  256             // for fine-grained speed and position control
 #define MAX_STEPPER_COUNT 16
-#define STEPPER_IS_MOVING(m)	(stepper[m].max_nanospeed > 0) 
-// TODO change this to this:
-// #define STEPPER_IS_MOVING(m)	(stepper[m].previous_nanopos == stepper[m].target_nanopos)
-#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_sensitive) && (stepper[m].endswitch_gpio >= 0) && \
-			 (!gpio_get(stepper[m].endswitch_gpio)))
+//#define STEPPER_IS_MOVING(m)	(stepper[m].max_nanospeed > 0) 
+// TODO changed this to this:
+#define STEPPER_IS_MOVING(m)	(stepper[m].nanopos != stepper[m].target_nanopos)
+#define ENDSWITCH_TEST(m) ((stepper[m].endswitch_sensitive) && \
+							(stepper[m].endswitch_gpio >= 0) && \
+							(!gpio_get(stepper[m].endswitch_gpio)))
 
 
 typedef struct __attribute__((packed)) {
@@ -25,7 +26,7 @@ typedef struct __attribute__((packed)) {
 
     uint32_t max_nanospeed;
     uint32_t inertia_coef;
-    uint8_t  move_reached_endswitch;
+    uint8_t  endswitch_stopped_last_move;
     uint64_t start_time_us; 
 
     uint8_t finish_reason; 

@@ -50,7 +50,7 @@ void stepper_init() {
 		stepper[m].inertia_coef  = max(args->inertia, 1); // prevent div/0 error
 		stepper[m].endswitch_sensitive = 0;
 		stepper[m].reset_nanopos_at_endswitch = 0;
-		stepper[m].move_reached_endswitch = 0;
+		stepper[m].endswitch_stopped_last_move = 0;
 
 		gpio_init(stepper[m].dir_gpio); gpio_set_dir(stepper[m].dir_gpio, GPIO_OUT);
 		gpio_init(stepper[m].step_gpio); gpio_set_dir(stepper[m].step_gpio, GPIO_OUT);
@@ -141,14 +141,12 @@ struct __attribute__((packed)) {
     uint8_t stepper_number;
     int32_t nanopos;
     uint8_t endswitch_was_sensitive;
-    uint8_t endswitch_triggered;
+    uint8_t endswitch_stopped_last_move;
     uint16_t steppers_init_bitmask;		
     uint16_t steppers_moving_bitmask;	
     uint16_t steppers_endswitch_bitmask;
     uint64_t start_time_us; 
     uint64_t end_time_us; 
-
-	uint8_t finish_reason;
 } stepper_move_report;  // (transmitted when a stepper actually finishes its move)
 
 void transmit_stepper_move_report(uint8_t n)
@@ -158,15 +156,13 @@ void transmit_stepper_move_report(uint8_t n)
 	stepper_move_report.stepper_number = n;
 	stepper_move_report.nanopos = stepper[n].nanopos;
 	stepper_move_report.endswitch_was_sensitive = stepper[n].endswitch_sensitive;
-	stepper_move_report.endswitch_triggered = stepper[n].move_reached_endswitch;
+	stepper_move_report.endswitch_stopped_last_move = stepper[n].endswitch_stopped_last_move;
 
 	stepper_move_report.steppers_init_bitmask = 0;
 	stepper_move_report.steppers_moving_bitmask = 0;
 	stepper_move_report.steppers_endswitch_bitmask = 0;
 	stepper_move_report.start_time_us = stepper[n].start_time_us;
 	stepper_move_report.end_time_us = time_us_64();
-
-	stepper_move_report.finish_reason = stepper[n].finish_reason; // FIXME
 	
 	for (uint8_t m=0; m<MAX_STEPPER_COUNT; m++) {
 		if (stepper[m].initialized) 
@@ -175,7 +171,7 @@ void transmit_stepper_move_report(uint8_t n)
 			stepper_move_report.steppers_moving_bitmask |= (1<<m);
 
 		if (n==m) {
-			if (stepper[n].move_reached_endswitch) // better copy recent value here (eliminates race conditions)
+			if (stepper[n].endswitch_stopped_last_move) // better copy recent value here (eliminates race conditions)
 				stepper_move_report.steppers_endswitch_bitmask |= (1<<m);
 		} else {
 			if (ENDSWITCH_TEST(m))
@@ -278,14 +274,11 @@ void stepper_move() {
 		// take some seconds or minutes. An exception is obviously when no movement is necessary, this 
 		// must result in an immediate report here:
 		if (stepper[m].previous_nanopos == stepper[m].target_nanopos) { 
-			stepper[m].finish_reason = 3;
 			transmit_stepper_move_report(m); }
 	} else {
 		// A report is necessary even in case of user error - when an unitialized no. of stepper is used. 
 		// (TODO) transmit_error_message('Cannot move unitialized stepper')
-		stepper[m].finish_reason = 6;
 	    transmit_stepper_move_report(m);	 
-	    return;
 	} 
 }
 
@@ -336,23 +329,19 @@ void stepper_update() { // called from core1_main() loop every 100 us
 				// Check conditions that stop the movement
 				//   1. if the stepper triggers end-stop switch ...
 				if (ENDSWITCH_TEST(m)) { 
-					stepper[m].max_nanospeed = 0; // todo rm after stepper.h is ifxed... 
 					stepper[m].target_nanopos = stepper[m].nanopos;  // immediate stop
 					new_nanopos = stepper[m].nanopos;
-					stepper[m].move_reached_endswitch = 1; // remember reason for stopping
-					stepper[m].finish_reason = 2;
+					stepper[m].endswitch_stopped_last_move = 1; // remember reason for stopping
 					transmit_stepper_move_report(m);
-                    if ((stepper[m].move_reached_endswitch) && (stepper[m].reset_nanopos_at_endswitch)) {
+                    if ((stepper[m].endswitch_stopped_last_move) && (stepper[m].reset_nanopos_at_endswitch)) {
                         stepper[m].nanopos = NANOPOS_DEFAULT; 
                         new_nanopos = NANOPOS_DEFAULT;
                         stepper[m].target_nanopos = NANOPOS_DEFAULT;} // convenient for position calibration at end switch
 				//   2. or if the motor successfully gets to its target position.
 				} else if (new_nanopos == stepper[m].target_nanopos) { 
-					stepper[m].max_nanospeed = 0; // todo rm? 
 					stepper[m].nanopos = new_nanopos;
 					//stepper[m].target_nanopos = new_nanopos;  // TODO rm?
-					stepper[m].move_reached_endswitch = 0;
-					stepper[m].finish_reason = 1;
+					stepper[m].endswitch_stopped_last_move = 0;
 					transmit_stepper_move_report(m); // (fixme) this reports the nanopos *just* before target_nanopos reached
 				}
 
