@@ -264,6 +264,7 @@ class Rp2daq_internals(threading.Thread):
             ## TODO close the port, remember its port_name (thus do not keep open many ports & enable pickling for multiproc on win)
 
             if id_data[:6] != b'rp2daq': 
+                ## FIXME, preceded by NameError: name 'report_namedtuple_classes' is not defined
                 logging.info(f"A Raspberry Pi Pico device is present but its firmware doesn't identify as rp2daq: {id_data}" )
                 continue
 
