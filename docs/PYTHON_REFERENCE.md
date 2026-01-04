@@ -334,7 +334,7 @@ If ADC is not running, this takes no action.
 ## pwm_configure_pair
 
 ```Python
-pwm_configure_pair(gpio=0, wrap_value=999, clkdiv=1, clkdiv_int_frac=0,  _callback=None)
+pwm_configure_pair(gpio=0, wrap_value=999, clkdiv=1, clkdiv_int_frac=0, phase_correct=0,  _callback=None)
 ```
 
 Sets frequency for a "PWM slice", i.e. pair of GPIOs 
@@ -352,10 +352,10 @@ can be reduced to get faster cycle, thus more efficient filtering & better time 
 > Note while almost all GPIOs can be enabled for PWM output, there are
 > only 16 channels (e.g. GPIOs 0, 16 will have the same value, if these are enabled for PWM output),
 > and there are only 8 PWM slices. As a result, GPIOs 0, 1, 16 and 17 share 
-> also the same clkdiv, wrap and clkdiv_int_frac values. Changing them for one of these 
-> pins changes it for other, too.)
+> also the same clkdiv, wrap and clkdiv_int_frac values. Changing them for one pin 
+> changes them for other pins, too.)
 
-*This command results in one near-immediate report.*
+*This command results in one immediate report.*
 
 ***Command parameters:***
 
@@ -363,6 +363,7 @@ can be reduced to get faster cycle, thus more efficient filtering & better time 
   * **wrap_value**  : Value at which PWM counter resets for a new cycle.  _(min=1, max=65535, default=999)_ 
   * **clkdiv**  : Clock divider for PWM.  _(min=1, max=255, default=1)_ 
   * **clkdiv_int_frac**  : Fine tuning of the frequency by clock divider dithering.  _(min=0, max=15, default=0)_ 
+  * **phase_correct**  : If set, the PWM period is doubled and waveforms of both channels of the slice are synchronized by their centers. By default they would be synced by their rising edges.  _(min=0, max=1, default=0)_ 
   * **_callback** : Optionally, a function to handle future report(s). If set, makes this command asynchronous so it does not wait for the command being finished. 
 
 

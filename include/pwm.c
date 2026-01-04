@@ -18,26 +18,27 @@ void pwm_configure_pair() {
      * > Note while almost all GPIOs can be enabled for PWM output, there are
      * > only 16 channels (e.g. GPIOs 0, 16 will have the same value, if these are enabled for PWM output),
      * > and there are only 8 PWM slices. As a result, GPIOs 0, 1, 16 and 17 share 
-     * > also the same clkdiv, wrap and clkdiv_int_frac values. Changing them for one of these 
-     * > pins changes it for other, too.)
+     * > also the same clkdiv, wrap and clkdiv_int_frac values. Changing them for one pin 
+     * > changes them for other pins, too.)
      * 
-     * *This command results in one near-immediate report.*
+     * *This command results in one immediate report.*
      */ 
 	struct __attribute__((packed)) {
 		uint8_t gpio;				// default=0		min=0		max=25    Selected pin for PWM output. Note not all pins are independent, see above. 
 		uint16_t wrap_value;		// default=999		min=1		max=65535 Value at which PWM counter resets for a new cycle.
 		uint16_t clkdiv;			// default=1		min=1		max=255   Clock divider for PWM.
 		uint8_t clkdiv_int_frac;	// default=0		min=0		max=15    Fine tuning of the frequency by clock divider dithering. 
+		uint8_t phase_correct;	    // default=0		min=0		max=1     If set, the PWM period is doubled and waveforms of both channels of the slice are synchronized by their centers. By default they would be synced by their rising edges.
 	} * args = (void*)(command_buffer+1);
 
 	// TODO remember settings - reconfig only if undefined, or if they change
 	
     uint slice_num = pwm_gpio_to_slice_num(args->gpio);
     pwm_config config = pwm_get_default_config();
+	pwm_config_set_phase_correct(&config, args->phase_correct);
     pwm_init(slice_num, &config, true);
 	pwm_set_wrap(slice_num, args->wrap_value);
     pwm_set_clkdiv_int_frac(slice_num, args->clkdiv, args->clkdiv_int_frac);
-
 	prepare_report(&pwm_configure_pair_report, sizeof(pwm_configure_pair_report), 0, 0, 0);
 }
 
