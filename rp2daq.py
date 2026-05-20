@@ -201,7 +201,7 @@ class Rp2daq_internals(threading.Thread):
                         self.sync_report_cb_queues[report_type].put(return_values) # unblock default callback (& send it data)
                     elif cb is False: # unexpected report, from command that was not yet called in this script instance
                         logging.warning(f"Warning: Unexpected report type; you may want to reset the device. \n\tDebug info: {return_values}", 
-                                report_namedtuple_classes[return_values])
+                                self.report_namedtuple_classes[return_values])
                         pass 
                 ## TODO: enqueue to be called by yet another thread (so that sync cmds work within callbacks,too)
                 ## TODO: check if sync cmd works correctly after async cmd (of the same type)
