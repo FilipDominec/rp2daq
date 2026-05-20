@@ -1,7 +1,7 @@
 #!/usr/bin/python3  
 #-*- coding: utf-8 -*-
 """
-rp2daq.py  (c) Filip Dominec 2020-2024, MIT licensed
+rp2daq.py  (c) Filip Dominec 2020-2026, MIT licensed
 
 This module uses c_code_parser.py to auto-generate the binary message interface. 
 Then it connects to Raspberry Pi Pico with rp2daq firmware to control various hardware. 
@@ -116,8 +116,9 @@ class Rp2daq_internals(threading.Thread):
                 names_codes, markdown_docs = c_code_parser.analyze_c_firmware()
 
         for cmd_name, cmd_code in names_codes.items():
-            exec(cmd_code)
-            setattr(self._e, cmd_name, types.MethodType(locals()[cmd_name], self))
+            exec_locals = locals()
+            exec(cmd_code, globals(), exec_locals)
+            setattr(self._e, cmd_name, types.MethodType(exec_locals[cmd_name], self))
 
         # Search C code for report structs & generate automatically:
         self.sync_report_cb_queues = {}
